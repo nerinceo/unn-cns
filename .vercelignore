@@ -1,0 +1,11 @@
+# Deploys here upload the working directory directly (no git), so be explicit
+# about what must never leave this machine. Env values are configured in the
+# Vercel project settings, never shipped in the bundle.
+.env
+.env.*
+!.env.example
+
+node_modules
+.next
+.git
+docs
