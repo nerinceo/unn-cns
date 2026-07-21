@@ -1,0 +1,93 @@
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+import {
+  REMEMBER_ME_COOKIE,
+  withAuthCookieOptions,
+} from "@/lib/auth/cookie-config";
+
+/**
+ * CNS auth gate.
+ *
+ * Deliberately the INVERSE of HUB's. HUB uses a `protectedPaths` allowlist
+ * because it has genuinely public surface (marketing, /demo, /welcome). CNS is
+ * members-only, so everything is protected except a tiny denylist — fail-closed,
+ * meaning a new route can never accidentally ship unauthenticated.
+ *
+ * CNS has NO auth UI at all: no /login, /signup, /reset-password. Not stubs —
+ * absent. Authentication lives entirely in HUB, and a file that does not exist
+ * cannot drift out of sync with it. Unauthenticated visitors are sent to HUB.
+ */
+
+const PUBLIC_PATHS = ["/api/health"];
+
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "https://app.unnhub.org";
+
+export async function middleware(request: NextRequest) {
+  // Pre-SSO escape hatch. Until NEXT_PUBLIC_COOKIE_DOMAIN is live on HUB, the
+  // session cookie is host-only and never reaches this app, so every visitor
+  // would look logged out and bounce to HUB forever. This flag keeps the
+  // domain serving a real page in the meantime.
+  //
+  // Fail-closed: it must be set to exactly "1" to relax the gate. Turning CNS
+  // on is then just unsetting one env var. DELETE this block once SSO is
+  // verified in production.
+  if (process.env.CNS_PUBLIC_PREVIEW === "1") {
+    return NextResponse.next({ request });
+  }
+
+  let supabaseResponse = NextResponse.next({ request });
+  const remember = request.cookies.get(REMEMBER_ME_COOKIE)?.value === "1";
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) => {
+            // Identical cookie handling to HUB. If this diverges, a rotation
+            // performed here writes cookies HUB cannot read (or vice versa)
+            // and the shared session breaks. See docs/SHARED-WITH-HUB.md.
+            supabaseResponse.cookies.set(
+              name,
+              value,
+              withAuthCookieOptions(options, remember)
+            );
+          });
+        },
+      },
+    }
+  );
+
+  // Verifies the JWT locally against the project's JWKS — same call HUB makes,
+  // and the reason SSO costs nothing: the session was minted by HUB but is
+  // verifiable here without a network hop or a second user table.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
+
+  const path = request.nextUrl.pathname;
+  if (PUBLIC_PATHS.some((p) => path.startsWith(p))) return supabaseResponse;
+
+  if (!user) {
+    // Redirect to HUB, never to a local login page.
+    return NextResponse.redirect(new URL("/welcome", HUB_URL));
+  }
+
+  return supabaseResponse;
+}
+
+export const config = {
+  // Mirrors HUB's matcher: skip build output, the image optimizer, crawler
+  // files and static media. Page navigations and RSC prefetches still pass
+  // through, which is the only place the auth gate matters.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|mp3|woff|woff2|ttf)$).*)",
+  ],
+};

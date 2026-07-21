@@ -1,0 +1,203 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f5f7fa;
+  --foreground: #1a1a1a;
+}
+
+.dark {
+  --background: #0f1419;
+  --foreground: #e7e9ea;
+  --border: #2f3336;
+  --muted: #1a1f25;
+  --muted-foreground: #8b98a5;
+  --card: #16181c;
+  --card-foreground: #e7e9ea;
+}
+
+.dark body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.dark .bg-white {
+  background-color: #16181c !important;
+}
+
+.dark .border-border {
+  border-color: #2f3336 !important;
+}
+
+.dark .bg-muted {
+  background-color: #1a1f25 !important;
+}
+
+.dark .text-foreground {
+  color: #e7e9ea !important;
+}
+
+.dark .text-muted-foreground {
+  color: #8b98a5 !important;
+}
+
+.dark .bg-background {
+  background-color: #0f1419 !important;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* clip — not hidden. overflow-x:hidden coerces overflow-y to `auto`, which
+     turns html/body into scroll containers. That broke position:sticky (the
+     sidebars never stuck) and made the fixed mobile bottom nav jitter on
+     scroll. `clip` prevents horizontal scroll without creating a scroll
+     context, so the viewport stays the scroll root. */
+  overflow-x: clip;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip; /* see html rule above — clip, not hidden */
+  min-height: 100dvh;
+}
+
+/* Safe area insets for notched devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Scrollbar — desktop only */
+@media (min-width: 1024px) {
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #e0e0e0;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #c0c0c0;
+  }
+}
+
+/* Hide scrollbar for horizontal scroll containers */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Prevent tap highlight on mobile */
+button, a, input, textarea, select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth touch scrolling */
+.overflow-y-auto, .overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Fix for iOS input zoom */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Rich text content (Tiptap output) */
+.rich-text-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #1a1a1a;
+}
+.rich-text-content h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #1a1a1a;
+}
+.rich-text-content h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.5rem;
+  color: #1a1a1a;
+}
+.rich-text-content p {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+  color: rgba(26, 26, 26, 0.85);
+}
+.rich-text-content ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.rich-text-content ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.rich-text-content li {
+  margin-bottom: 0.25rem;
+  line-height: 1.6;
+}
+.rich-text-content blockquote {
+  border-left: 3px solid #0a2463;
+  padding-left: 0.75rem;
+  color: rgba(26, 26, 26, 0.6);
+  font-style: italic;
+  margin: 0.5rem 0;
+}
+.rich-text-content code {
+  background: #f5f7fa;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+}
+.rich-text-content a {
+  color: #0a2463;
+  text-decoration: underline;
+}
+.rich-text-content strong {
+  font-weight: 700;
+}
+.rich-text-content em {
+  font-style: italic;
+}
