@@ -29,17 +29,21 @@ export async function uploadResume(formData: FormData): Promise<ActionResult> {
   const file = formData.get("file");
   if (!(file instanceof File)) return { error: "No file received." };
 
+  // Read the bytes before validating: the name and declared type are supplied
+  // by the client, so only the content itself is evidence of what this is.
+  const bytes = Buffer.from(await file.arrayBuffer());
   const check = validateUpload(
     { name: file.name, type: file.type, size: file.size },
-    RESUME_MIME
+    RESUME_MIME,
+    bytes
   );
   if (!check.ok) return { error: check.error };
 
   const supabase = await createClient();
-  const key = resumeKey(user.id, file.name);
+  const key = resumeKey(user.id, check.contentType);
 
   try {
-    await putDoc(key, Buffer.from(await file.arrayBuffer()), file.type);
+    await putDoc(key, bytes, check.contentType);
   } catch {
     // Never surface the bucket name or key in an error a user can see.
     return { error: "Upload failed. Please try again." };
@@ -57,7 +61,7 @@ export async function uploadResume(formData: FormData): Promise<ActionResult> {
     user_id: user.id,
     storage_key: key,
     file_name: file.name,
-    mime_type: file.type,
+    mime_type: check.contentType,   // the sniffed type, never the client's claim
     size_bytes: file.size,
     is_active: true,
   });

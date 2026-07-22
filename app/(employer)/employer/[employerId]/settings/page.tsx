@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { ShieldCheck, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { VerificationPanel } from "@/components/employer/VerificationPanel";
+import { readEmployerDocKey } from "@/lib/cns/employer-doc-access";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function EmployerSettings({
   const { data: employer } = await supabase
     .from("cns_employers")
     .select(
-      "id,name,slug,employer_type,description,website,email,phone,country,city,status,verification_status,created_at,legal_name,contact_person,business_email,registration_doc_key"
+      "id,name,slug,employer_type,description,website,email,phone,country,city,status,verification_status,created_at,legal_name,contact_person,business_email"
     )
     .eq("id", employerId)
     .maybeSingle();
@@ -34,9 +35,9 @@ export default async function EmployerSettings({
       .order("created_at", { ascending: false }),
   ]);
 
-  // The key itself never crosses to the client — only whether one exists and
-  // the bare filename, so the panel can render without leaking the bucket path.
-  const docKey = employer.registration_doc_key as string | null;
+  // The key is service-role only and never crosses to the client — the panel
+  // gets a boolean and a format label, nothing that reveals the bucket path.
+  const docKey = await readEmployerDocKey(employerId);
 
   return (
     <div className="space-y-6">
@@ -74,7 +75,12 @@ export default async function EmployerSettings({
           employerId,
           status: (employer.verification_status as string) ?? "unverified",
           hasDocument: Boolean(docKey),
-          documentName: docKey ? docKey.split("/").pop() ?? null : null,
+          // Storage keys are randomised, so the key's basename is meaningless
+          // to the person who uploaded it. Show the format instead of a name
+          // they will not recognise; Open is there if they want to check.
+          documentName: docKey
+            ? `Registration document (${(docKey.split(".").pop() ?? "file").toUpperCase()})`
+            : null,
           legalName: (employer.legal_name as string) ?? null,
           contactPerson: (employer.contact_person as string) ?? null,
           businessEmail: (employer.business_email as string) ?? null,

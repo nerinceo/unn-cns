@@ -5,6 +5,7 @@ import type { ActionResult } from "@/lib/actions/result";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { checkLimit } from "@/lib/ratelimit";
+import { canReadEmployerDoc, readEmployerDocKey } from "@/lib/cns/employer-doc-access";
 import {
   putDoc, presignDocRead, employerDocKey,
   validateUpload, DOC_MIME, isDocsStorageConfigured,
@@ -30,23 +31,26 @@ export async function uploadEmployerDoc(employerId: string, formData: FormData):
   const file = formData.get("file");
   if (!(file instanceof File)) return { error: "No file received." };
 
-  const check = validateUpload({ name: file.name, type: file.type, size: file.size }, DOC_MIME);
+  // Read the bytes before validating — see the note in resume-files.ts.
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const check = validateUpload(
+    { name: file.name, type: file.type, size: file.size },
+    DOC_MIME,
+    bytes
+  );
   if (!check.ok) return { error: check.error };
 
+  // Membership is the gate, and it must be checked explicitly. Reading the
+  // employer row is NOT a membership test: RLS publishes every approved
+  // organisation to every signed-in user. Relying on it here let a non-member
+  // write objects into the bucket and still receive {ok:true}, because the
+  // UPDATE below simply matches zero rows rather than erroring.
+  if (!(await canReadEmployerDoc(employerId))) return { error: "Not permitted." };
+
   const supabase = await createClient();
-
-  // Membership is the gate. RLS on cns_employers already restricts this read
-  // to members and staff, so a non-member simply gets null.
-  const { data: employer } = await supabase
-    .from("cns_employers")
-    .select("id,registration_doc_key")
-    .eq("id", employerId)
-    .maybeSingle();
-  if (!employer) return { error: "Not permitted." };
-
-  const key = employerDocKey(employerId, file.name);
+  const key = employerDocKey(employerId, check.contentType);
   try {
-    await putDoc(key, Buffer.from(await file.arrayBuffer()), file.type);
+    await putDoc(key, bytes, check.contentType);
   } catch {
     return { error: "Upload failed. Please try again." };
   }
@@ -72,6 +76,9 @@ export async function updateEmployerVerificationDetails(
   employerId: string,
   formData: FormData
 ): Promise<ActionResult> {
+  // Explicit membership check — see the note in uploadEmployerDoc.
+  if (!(await canReadEmployerDoc(employerId))) return { error: "Not permitted." };
+
   const supabase = await createClient();
 
   const { data: employer } = await supabase
@@ -118,14 +125,21 @@ export async function updateEmployerVerificationDetails(
  * holds — a status column alone loses every previous decision.
  */
 export async function submitForVerification(employerId: string): Promise<ActionResult> {
+  // Explicit membership check — see the note in uploadEmployerDoc.
+  if (!(await canReadEmployerDoc(employerId))) return { error: "Not permitted." };
+
   const supabase = await createClient();
 
   const { data: employer } = await supabase
     .from("cns_employers")
-    .select("id,name,registration_doc_key,contact_person,business_email,website,verification_status")
+    .select("id,name,contact_person,business_email,website,verification_status")
     .eq("id", employerId)
     .maybeSingle();
   if (!employer) return { error: "Not permitted." };
+
+  // The key is service-role only now, so it is fetched through the one path
+  // that checks entitlement rather than selected alongside the public columns.
+  const docKey = await readEmployerDocKey(employerId);
 
   const current = employer.verification_status as string;
   if (["submitted", "under_review"].includes(current)) {
@@ -136,7 +150,7 @@ export async function submitForVerification(employerId: string): Promise<ActionR
   }
 
   const missing: string[] = [];
-  if (!employer.registration_doc_key) missing.push("a registration document");
+  if (!docKey) missing.push("a registration document");
   if (!employer.contact_person) missing.push("a contact person");
   if (!employer.business_email) missing.push("a business email");
   if (missing.length) return { error: `Add ${missing.join(", ")} before submitting.` };
@@ -150,7 +164,7 @@ export async function submitForVerification(employerId: string): Promise<ActionR
   await supabase.from("cns_employer_verifications").insert({
     employer_id: employerId,
     status: "submitted",
-    document_keys: [employer.registration_doc_key],
+    document_keys: [docKey],
   });
 
   revalidatePath(`/employer/${employerId}/settings`);
@@ -158,19 +172,23 @@ export async function submitForVerification(employerId: string): Promise<ActionR
   return { ok: true };
 }
 
-/** A short-lived link to a verification document — RLS scopes it to the
- *  organisation's own members and to staff; anyone else reads null. */
+/**
+ * A short-lived link to a verification document.
+ *
+ * Entitlement is decided by cns_can_read_employer_doc() in the database, not
+ * here. The earlier version of this function read the key with the user's own
+ * client and trusted RLS to filter it — but RLS on cns_employers deliberately
+ * lets any signed-in user read an organisation's public profile, so it handed
+ * every business registration document to anyone who asked. Verified against
+ * production with a second employer account before it was fixed.
+ */
 export async function getEmployerDocUrl(employerId: string): Promise<ActionResult & { url?: string }> {
-  const supabase = await createClient();
+  if (!(await canReadEmployerDoc(employerId))) {
+    return { error: "You do not have access to this document." };
+  }
 
-  // RLS restricts this row to members and staff; anyone else reads null.
-  const { data } = await supabase
-    .from("cns_employers")
-    .select("registration_doc_key")
-    .eq("id", employerId)
-    .maybeSingle();
-  if (!data?.registration_doc_key) return { error: "No document uploaded." };
+  const key = await readEmployerDocKey(employerId);
+  if (!key) return { error: "No document uploaded." };
 
-  const url = await presignDocRead(data.registration_doc_key as string);
-  return { url };
+  return { url: await presignDocRead(key) };
 }

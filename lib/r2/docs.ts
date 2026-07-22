@@ -51,34 +51,94 @@ export const DOC_MIME = new Set(
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /**
+ * What a file actually is, judged by its leading bytes.
+ *
+ * The filename and the browser-reported MIME type are both chosen by whoever
+ * is uploading, so neither is evidence. Renaming a Windows executable to
+ * `cv.pdf` makes a browser report `application/pdf`, and a checker that trusts
+ * that will store and later serve the executable — verified against production
+ * before this function existed.
+ *
+ * Returns null when the bytes match nothing we accept, which is the only safe
+ * default: an unrecognised header means we cannot say it is harmless.
+ */
+export function sniffContentType(bytes: Buffer): string | null {
+  const starts = (...sig: number[]) =>
+    sig.every((b, i) => bytes[i] === b);
+
+  if (starts(0x25, 0x50, 0x44, 0x46)) return "application/pdf";           // %PDF
+  if (starts(0xff, 0xd8, 0xff)) return "image/jpeg";
+  if (starts(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return "image/png";
+  if (starts(0x52, 0x49, 0x46, 0x46) && bytes.subarray(8, 12).toString("latin1") === "WEBP")
+    return "image/webp";
+  if (starts(0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1)) return "application/msword"; // OLE2
+
+  // DOCX is a zip. So is a jar and so is an unpacked installer, so the zip
+  // header alone is not enough — require the OOXML word marker inside the
+  // first chunk, which a plain archive will not have.
+  if (starts(0x50, 0x4b, 0x03, 0x04)) {
+    const head = bytes.subarray(0, 4096).toString("latin1");
+    if (head.includes("word/") || head.includes("[Content_Types].xml")) {
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    }
+    return null;
+  }
+  return null;
+}
+
+/**
  * Server-side validation of an upload.
  *
- * Extension AND mime are both checked: a browser will happily report
- * application/pdf for a renamed executable, and §15 requires refusing
- * executables outright. Size is capped before anything reaches R2.
+ * The decision rests on `bytes`, never on the name or the declared type. Size
+ * is capped before anything reaches R2. Callers must store the returned
+ * `contentType` rather than the client's, so R2 cannot be made to serve an
+ * attacker-chosen type back to a reviewer.
  */
 export function validateUpload(
   file: { name: string; type: string; size: number },
-  allowed: Set<string>
-): { ok: true } | { ok: false; error: string } {
-  const ext = file.name.toLowerCase().split(".").pop() ?? "";
-  const banned = ["exe", "bat", "cmd", "sh", "js", "jar", "msi", "com", "scr", "ps1", "app"];
-  if (banned.includes(ext)) return { ok: false, error: "That file type is not allowed." };
-  if (!allowed.has(file.type)) return { ok: false, error: "Please upload a PDF or Word document." };
+  allowed: Set<string>,
+  bytes: Buffer
+): { ok: true; contentType: string } | { ok: false; error: string } {
   if (file.size > MAX_UPLOAD_BYTES) return { ok: false, error: "Files must be under 5 MB." };
-  if (file.size === 0) return { ok: false, error: "That file appears to be empty." };
-  return { ok: true };
+  if (file.size === 0 || bytes.length === 0) {
+    return { ok: false, error: "That file appears to be empty." };
+  }
+
+  const actual = sniffContentType(bytes);
+  if (!actual || !allowed.has(actual)) {
+    return {
+      ok: false,
+      error: allowed.has("image/png")
+        ? "Please upload a PDF, Word document, or a photo (JPG, PNG)."
+        : "Please upload a PDF or Word document.",
+    };
+  }
+  return { ok: true, contentType: actual };
 }
 
-/** Key layout keeps every user's documents under their own prefix. */
-export function resumeKey(userId: string, fileName: string) {
-  const ext = fileName.toLowerCase().split(".").pop() ?? "pdf";
-  return `resumes/${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+/**
+ * Key layout keeps every user's documents under their own prefix.
+ *
+ * The extension is derived from the sniffed type, not the uploaded filename,
+ * so the key cannot be made to disagree with the bytes it points at.
+ */
+const EXT_FOR: Record<string, string> = {
+  "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+const rand = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+export function resumeKey(userId: string, contentType: string) {
+  return `resumes/${userId}/${rand()}.${EXT_FOR[contentType] ?? "bin"}`;
 }
 
-export function employerDocKey(employerId: string, fileName: string) {
-  const ext = fileName.toLowerCase().split(".").pop() ?? "pdf";
-  return `employer-docs/${employerId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+export function employerDocKey(employerId: string, contentType: string) {
+  return `employer-docs/${employerId}/${rand()}.${EXT_FOR[contentType] ?? "bin"}`;
 }
 
 export async function putDoc(key: string, body: Buffer, contentType: string) {
@@ -100,8 +160,15 @@ export async function presignDocRead(key: string, fileName?: string, expiresIn =
   const cmd = new GetObjectCommand({
     Bucket: DOCS_BUCKET,
     Key: key,
+    // Strip quotes, control characters and path separators: the filename is
+    // user-supplied and goes straight into a response header.
     ...(fileName
-      ? { ResponseContentDisposition: `attachment; filename="${fileName.replace(/"/g, "")}"` }
+      ? {
+          ResponseContentDisposition: `attachment; filename="${fileName
+            .replace(/[\r\n"\\/]/g, "")
+            .replace(/[\x00-\x1f\x7f]/g, "")
+            .slice(0, 120)}"`,
+        }
       : {}),
   });
   return getSignedUrl(getClient(), cmd, { expiresIn });
