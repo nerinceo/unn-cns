@@ -62,7 +62,28 @@ comment on column public.cns_jobs.vacancies is
   'Blueprint §7.3 "number of positions".';
 
 -- ---------------------------------------------------------------------------
--- 2. Backfill BEFORE widening constraints
+-- 2. DROP the old constraints FIRST.
+--
+-- This has to precede the backfill. The updates below rewrite values into the
+-- new vocabulary ('full_time' -> 'full-time', 'published' -> 'active'), and the
+-- ORIGINAL constraints still forbid those values — so running the data changes
+-- first fails with 23514 on a value that is perfectly valid under the new rules.
+-- Drop, then migrate the data, then re-add. Order is the whole trick.
+-- ---------------------------------------------------------------------------
+alter table public.cns_jobs drop constraint if exists cns_jobs_employment_type_check;
+alter table public.cns_jobs drop constraint if exists cns_jobs_status_check;
+alter table public.cns_jobs drop constraint if exists cns_jobs_work_mode_check;
+alter table public.cns_jobs drop constraint if exists cns_jobs_experience_level_check;
+alter table public.cns_job_applications drop constraint if exists cns_job_applications_status_check;
+alter table public.cns_employers drop constraint if exists cns_employers_verification_status_check;
+
+-- The column defaults still carry OLD values, which would reject every future
+-- insert once the new constraints are on. Fix them here, not later.
+alter table public.cns_jobs alter column employment_type set default 'full-time';
+alter table public.cns_job_applications alter column status set default 'applied';
+
+-- ---------------------------------------------------------------------------
+-- 3. Backfill, now that nothing constrains the old vocabulary
 -- ---------------------------------------------------------------------------
 
 -- work_mode 'remote' carried the meaning that is_remote now carries.
@@ -127,13 +148,12 @@ update public.cns_jobs
  where work_setting is null;
 
 -- ---------------------------------------------------------------------------
--- 3. Job status — widen to the blueprint's nine states
+-- 4. Job status — widen to the blueprint's nine states
 -- ---------------------------------------------------------------------------
 -- 'published' was the built name for what the blueprint calls Approved/Active.
 update public.cns_jobs set status = 'active'   where status = 'published';
 update public.cns_jobs set status = 'removed'  where status = 'archived';
 
-alter table public.cns_jobs drop constraint if exists cns_jobs_status_check;
 alter table public.cns_jobs add constraint cns_jobs_status_check check (status in (
   'draft',              -- employer only
   'submitted',          -- awaiting admin review
@@ -147,46 +167,48 @@ alter table public.cns_jobs add constraint cns_jobs_status_check check (status i
 ));
 
 -- ---------------------------------------------------------------------------
--- 4. Employment type / role / setting / experience constraints
+-- 5. Employment type / role / setting / experience constraints
 --
 -- Deliberately NOT foreign keys to cns_job_categories: deactivating a category
 -- must not cascade into live jobs, and the blueprint wants values retired by
 -- hiding them, not by breaking rows. Validity is enforced at write time in the
 -- application and checked by the report below.
 -- ---------------------------------------------------------------------------
-alter table public.cns_jobs drop constraint if exists cns_jobs_employment_type_check;
+-- Coerce anything unrecognised rather than letting one stray row block the
+-- whole migration. Nothing should hit this after the mapping above.
+update public.cns_jobs set employment_type = 'full-time'
+ where employment_type not in ('full-time','part-time','casual','temporary','contract',
+                               'permanent','internship','travel-assignment');
+
 alter table public.cns_jobs add constraint cns_jobs_employment_type_check check (
   employment_type in ('full-time','part-time','casual','temporary','contract',
                       'permanent','internship','travel-assignment')
 );
 
-alter table public.cns_jobs drop constraint if exists cns_jobs_experience_level_check;
 alter table public.cns_jobs add constraint cns_jobs_experience_level_check check (
   experience_level is null or experience_level in ('none','under-1','1-3','3-5','5-plus')
 );
 
 -- work_mode is now only about remote attendance; is_remote is the field the UI
 -- and the JobPosting markup read.
-alter table public.cns_jobs drop constraint if exists cns_jobs_work_mode_check;
 alter table public.cns_jobs add constraint cns_jobs_work_mode_check check (
   work_mode in ('onsite','hybrid','remote')
 );
 
 -- ---------------------------------------------------------------------------
--- 5. Application status — rename, then widen
+-- 6. Application status — rename, then widen
 -- ---------------------------------------------------------------------------
 update public.cns_job_applications set status = 'applied'      where status = 'submitted';
 update public.cns_job_applications set status = 'under_review' where status = 'viewed';
 update public.cns_job_applications set status = 'selected'     where status = 'offered';
 update public.cns_job_applications set status = 'not_selected' where status = 'rejected';
 
-alter table public.cns_job_applications drop constraint if exists cns_job_applications_status_check;
+update public.cns_job_applications set status = 'applied'
+ where status not in ('applied','under_review','shortlisted','interview','selected','not_selected','withdrawn');
+
 alter table public.cns_job_applications add constraint cns_job_applications_status_check check (
   status in ('applied','under_review','shortlisted','interview','selected','not_selected','withdrawn')
 );
-
-alter table public.cns_job_applications
-  alter column status set default 'applied';
 
 -- The definer function that employers call must accept the new vocabulary.
 create or replace function public.cns_set_application_status(
@@ -230,7 +252,7 @@ revoke all on function public.cns_set_application_status(uuid, text, text) from 
 grant execute on function public.cns_set_application_status(uuid, text, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
--- 6. Employers — blueprint §7.1 fields
+-- 7. Employers — blueprint §7.1 fields
 -- ---------------------------------------------------------------------------
 alter table public.cns_employers
   add column if not exists legal_name text,
@@ -239,13 +261,12 @@ alter table public.cns_employers
   add column if not exists address text,
   add column if not exists state text;
 
-alter table public.cns_employers drop constraint if exists cns_employers_verification_status_check;
 alter table public.cns_employers add constraint cns_employers_verification_status_check check (
   verification_status in ('draft','submitted','under_review','approved','changes_requested','rejected','suspended','unverified','pending','verified')
 );
 
 -- ---------------------------------------------------------------------------
--- 7. Public visibility now depends on 'active', not 'published'
+-- 8. Public visibility now depends on 'active', not 'published'
 -- ---------------------------------------------------------------------------
 drop policy if exists "cns jobs public read" on public.cns_jobs;
 create policy "cns jobs public read"
@@ -283,7 +304,7 @@ create index if not exists cns_jobs_filter_v1_idx
   where status = 'active';
 
 -- ---------------------------------------------------------------------------
--- 8. Post-migration report — what needs an admin's attention.
+-- 9. Post-migration report — what needs an admin's attention.
 -- ---------------------------------------------------------------------------
 select 'jobs total'                  as check, count(*)::text from public.cns_jobs
 union all select 'jobs missing specialty',    count(*)::text from public.cns_jobs where specialty is null
