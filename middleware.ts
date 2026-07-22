@@ -29,10 +29,16 @@ import {
  *                 32-char random token resolved by a SECURITY DEFINER function,
  *                 so an unknown token returns nothing and nothing is
  *                 enumerable. Pages are marked noindex.
+ *   /jobs       — job listings must be CRAWLABLE for schema.org/JobPosting
+ *                 markup to reach Google for Jobs, which is the only realistic
+ *                 acquisition channel for a new board. RLS exposes only
+ *                 published jobs from approved employers to `anon`; drafts and
+ *                 applications stay private, and applying requires a session.
+ *   /robots.txt, /sitemap.xml — needed for the above to be discovered.
  *
  * Anything added here is public to the internet. Justify it in review.
  */
-const PUBLIC_PATHS = ["/api/health", "/r/"];
+const PUBLIC_PATHS = ["/api/health", "/r/", "/jobs", "/robots.txt", "/sitemap.xml"];
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "https://app.unnhub.org";
 

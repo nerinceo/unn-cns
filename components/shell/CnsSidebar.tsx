@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Home,
   FileText,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -25,6 +26,7 @@ export const CNS_NAV = [
   { href: "/learn", label: "Learn", icon: BookOpen },
   { href: "/question-bank", label: "Question Bank", icon: ClipboardList },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/employer", label: "For Employers", icon: Building2 },
   { href: "/resume", label: "Resume", icon: FileText },
   { href: "/library", label: "My Library", icon: Library },
   { href: "/progress", label: "Progress", icon: TrendingUp },
