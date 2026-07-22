@@ -196,20 +196,70 @@ async function buildSnapshot(userId: string) {
   };
 }
 
-export async function applyToJob(jobId: string, input: { coverNote?: string; resumeId?: string }) {
+export async function applyToJob(
+  jobId: string,
+  input: {
+    coverNote?: string;
+    resumeId?: string;          // built resume (cns_resumes)
+    resumeFileId?: string;      // uploaded CV (cns_resume_files)
+    answers?: { questionId: string; questionText: string; answer: string }[];
+    declarationAccepted: boolean;
+  }
+) {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
+
+  // §6.2 step 6: the declaration is a required step, so it is enforced here
+  // rather than only being a disabled button in the UI.
+  if (!input.declarationAccepted) {
+    return { error: "Please accept the applicant declaration before submitting." };
+  }
+
   const supabase = await createClient();
+
+  // Only a live job accepts applications (§12.2). RLS enforces this too; the
+  // check here exists to return a sentence rather than a constraint error.
+  const { data: job } = await supabase
+    .from("cns_jobs")
+    .select("id,status,application_deadline,title,employer_id")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (!job) return { error: "Job not found" };
+  if (job.status !== "active") return { error: "This role is no longer accepting applications." };
+  if (job.application_deadline && new Date(job.application_deadline as string) < new Date()) {
+    return { error: "Applications for this role have closed." };
+  }
+
+  // Required screening questions must actually be answered.
+  const { data: questions } = await supabase
+    .from("cns_job_screening_questions")
+    .select("id,question,is_required")
+    .eq("job_id", jobId);
+
+  const answered = new Map((input.answers ?? []).map((a) => [a.questionId, a.answer?.trim() ?? ""]));
+  const unanswered = (questions ?? []).filter(
+    (q) => q.is_required && !answered.get(q.id as string)
+  );
+  if (unanswered.length) {
+    return { error: `Please answer: ${unanswered.map((q) => q.question).join(", ")}` };
+  }
 
   const snapshot = await buildSnapshot(user.id);
 
-  const { error } = await supabase.from("cns_job_applications").insert({
-    job_id: jobId,
-    applicant_id: user.id,
-    resume_id: input.resumeId ?? null,
-    cover_note: input.coverNote ?? null,
-    profile_snapshot: snapshot,
-  });
+  const { data: created, error } = await supabase
+    .from("cns_job_applications")
+    .insert({
+      job_id: jobId,
+      applicant_id: user.id,
+      resume_id: input.resumeId ?? null,
+      resume_file_id: input.resumeFileId ?? null,
+      cover_note: input.coverNote ?? null,
+      profile_snapshot: snapshot,
+      declaration_accepted_at: new Date().toISOString(),
+      status: "applied",
+    })
+    .select("id")
+    .single();
 
   if (error) {
     // The unique (job_id, applicant_id) constraint is the real guard against
@@ -218,7 +268,44 @@ export async function applyToJob(jobId: string, input: { coverNote?: string; res
     return { error: error.message };
   }
 
-  revalidatePath("/jobs/applications");
+  // Answers carry the question TEXT, not just its id: an employer editing a
+  // question later must not change what the candidate appears to have been
+  // asked.
+  if (input.answers?.length) {
+    await supabase.from("cns_application_answers").insert(
+      input.answers.map((a) => ({
+        application_id: created.id,
+        question_id: a.questionId,
+        question_text: a.questionText,
+        answer: a.answer,
+      }))
+    );
+  }
+
+  await supabase.from("cns_application_status_history").insert({
+    application_id: created.id,
+    status: "applied",
+    actor_id: user.id,
+  });
+
+  // Tell the employer. In-app only — CNS holds no email credentials.
+  const { data: members } = await supabase
+    .from("cns_employer_members")
+    .select("user_id")
+    .eq("employer_id", job.employer_id as string)
+    .eq("status", "approved");
+  if (members?.length) {
+    await supabase.from("notifications").insert(
+      members.map((m) => ({
+        user_id: m.user_id,
+        notification_type: "cns_job_application_received",
+        message: `New application for ${job.title}.`,
+        reference_id: created.id,
+      }))
+    );
+  }
+
+  revalidatePath("/applications");
   return { ok: true };
 }
 
@@ -292,5 +379,65 @@ export async function toggleSaveJob(jobId: string, save: boolean) {
     await supabase.from("cns_job_saves").delete().eq("user_id", user.id).eq("job_id", jobId);
   }
   revalidatePath("/jobs");
+  return { ok: true };
+}
+
+/* ---------------------------- screening questions -------------------------- */
+
+/**
+ * Replace a job's screening questions (blueprint §7.3, max five).
+ *
+ * Replace rather than diff: questions are few and editing one in place would
+ * silently change what past applicants appear to have been asked. Answers
+ * already submitted keep their own copy of the text, so rewriting the set here
+ * cannot rewrite history.
+ */
+export async function setScreeningQuestions(
+  jobId: string,
+  questions: { question: string; question_type: "short_answer" | "yes_no"; is_required: boolean }[]
+) {
+  const supabase = await createClient();
+
+  const clean = questions
+    .map((q) => ({ ...q, question: q.question.trim() }))
+    .filter((q) => q.question.length > 0)
+    .slice(0, 5); // the database enforces this too, via a trigger
+
+  const { error: delError } = await supabase
+    .from("cns_job_screening_questions")
+    .delete()
+    .eq("job_id", jobId);
+  if (delError) return { error: delError.message };
+
+  if (clean.length) {
+    const { error } = await supabase.from("cns_job_screening_questions").insert(
+      clean.map((q, i) => ({ ...q, job_id: jobId, position: i }))
+    );
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath(`/employer`);
+  return { ok: true };
+}
+
+/* --------------------------------- reports -------------------------------- */
+
+/** Report a job (blueprint §9.3). */
+export async function reportJob(
+  jobId: string,
+  reason: string,
+  detail?: string
+) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("cns_job_reports").insert({
+    job_id: jobId,
+    reporter_id: user.id,
+    reason,
+    detail: detail ?? null,
+  });
+  if (error) return { error: error.message };
   return { ok: true };
 }

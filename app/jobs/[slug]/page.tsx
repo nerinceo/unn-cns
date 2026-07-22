@@ -8,7 +8,7 @@ import {
   getJobBySlug, formatSalary, buildJobPostingJsonLd, jobDescriptionHtml,
 } from "@/lib/cns/jobs";
 import { getJobLabels } from "@/lib/cns/taxonomy";
-import { getCurrentUser } from "@/lib/supabase/server";
+import { getCurrentUser, createClient } from "@/lib/supabase/server";
 import { ApplyPanel } from "@/components/jobs/ApplyPanel";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +54,47 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
     buildJobPostingJsonLd(job, employer, url),
     getJobLabels(),
   ]);
+
+  // Screening questions are readable by anyone (the apply form must render
+  // them before submission); the rest only matters once signed in.
+  const supabase = await createClient();
+  const { data: questions } = await supabase
+    .from("cns_job_screening_questions")
+    .select("id,question,question_type,is_required")
+    .eq("job_id", job.id)
+    .order("position");
+
+  let resumes: { id: string; label: string; kind: "file" | "built" }[] = [];
+  let alreadyApplied = false;
+  if (user) {
+    const [{ data: files }, { data: built }, { data: existing }] = await Promise.all([
+      supabase
+        .from("cns_resume_files")
+        .select("id,file_name")
+        .eq("user_id", user.id)
+        .eq("is_active", true),
+      supabase.from("cns_resumes").select("id,title").order("is_default", { ascending: false }),
+      supabase
+        .from("cns_job_applications")
+        .select("id")
+        .eq("job_id", job.id)
+        .eq("applicant_id", user.id)
+        .maybeSingle(),
+    ]);
+    resumes = [
+      ...(files ?? []).map((f) => ({
+        id: f.id as string,
+        label: `${f.file_name as string} (uploaded)`,
+        kind: "file" as const,
+      })),
+      ...(built ?? []).map((b) => ({
+        id: b.id as string,
+        label: `${b.title as string} (built in UNN)`,
+        kind: "built" as const,
+      })),
+    ];
+    alreadyApplied = Boolean(existing);
+  }
   const salary = job.salary_text ?? formatSalary(job);
   const location = [job.city, job.state, job.country].filter(Boolean).join(", ");
 
@@ -129,6 +170,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
         externalUrl={job.external_apply_url}
         signedIn={Boolean(user)}
         deadline={job.application_deadline}
+        questions={(questions ?? []) as never}
+        resumes={resumes}
+        alreadyApplied={alreadyApplied}
       />
 
       {/* Same HTML that goes into the JSON-LD description. */}
