@@ -1,15 +1,33 @@
 import Link from "next/link";
 import { Building2, Clock, ShieldCheck } from "lucide-react";
 import { getMyEmployers } from "@/lib/cns/jobs";
+import { isStaff } from "@/lib/cns/admin";
+import { AppShell } from "@/components/shell/AppShell";
 import { EmployerRegisterForm } from "@/components/jobs/EmployerRegisterForm";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "For Employers — UNN CNS" };
 
+/**
+ * Registration landing.
+ *
+ * Renders its OWN shell rather than sitting under a layout, because a layout at
+ * app/(employer)/employer/ would also wrap [employerId] — layouts nest in
+ * Next.js — and every organisation page would get two headers and two sidebars.
+ *
+ * Wears the MEMBER chrome deliberately: whoever is here is not an employer yet,
+ * that is the point of the page.
+ */
 export default async function EmployerPage() {
-  const memberships = await getMyEmployers();
+  const [memberships, staff] = await Promise.all([getMyEmployers(), isStaff()]);
 
   return (
+    <AppShell
+      portal="member"
+      wordmark="CNS"
+      employers={memberships.map((m) => ({ id: m.employer.id, name: m.employer.name }))}
+      isStaff={staff}
+    >
     <div className="space-y-8">
       <header>
         <div className="flex items-center gap-3">
@@ -74,5 +92,6 @@ export default async function EmployerPage() {
         </div>
       </section>
     </div>
+    </AppShell>
   );
 }

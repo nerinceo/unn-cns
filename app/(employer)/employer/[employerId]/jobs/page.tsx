@@ -84,8 +84,14 @@ export default async function EmployerJobsPage({
               >
                 {j.status.replace(/_/g, " ")}
               </span>
+              <Link
+                href={`/employer/${employerId}/jobs/${j.id}`}
+                className="text-xs text-primary hover:underline"
+              >
+                Edit
+              </Link>
               {j.status === "published" && (
-                <Link href={`/jobs/${j.slug}`} className="text-xs text-primary hover:underline">
+                <Link href={`/jobs/${j.slug}`} className="text-xs text-muted-foreground hover:underline">
                   View live
                 </Link>
               )}

@@ -243,9 +243,20 @@ export async function getJobBySlug(slug: string) {
 /** Employers the signed-in member can act for. */
 export async function getMyEmployers() {
   const supabase = await createClient();
+
+  // MUST filter by user_id explicitly. The RLS policy on cns_employer_members
+  // deliberately also permits staff to read every row, so relying on RLS to
+  // scope this returns EVERY membership in the system for an admin — which
+  // showed every organisation in their portal switcher, twice over when two
+  // rows pointed at the same employer.
+  const { data: auth } = await supabase.auth.getClaims();
+  const uid = auth?.claims?.sub as string | undefined;
+  if (!uid) return [];
+
   const { data } = await supabase
     .from("cns_employer_members")
     .select("role,status,employer:employer_id(id,slug,name,status,verification_status,logo_url)")
+    .eq("user_id", uid)
     .eq("status", "approved");
   return (data ?? []) as unknown as {
     role: string;

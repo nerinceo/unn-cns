@@ -16,36 +16,44 @@ import { EMPLOYMENT_TYPE_LABEL, WORK_MODE_LABEL } from "@/lib/cns/job-constants"
  * it makes the listing ineligible and, at scale, risks the whole board being
  * delisted. publishJob() enforces the same rules server-side.
  */
+export type JobDraft = Partial<Record<string, unknown>> & { id?: string };
+
 export function JobComposer({
   employerId,
   canPublish,
+  existing,
 }: {
   employerId: string;
   canPublish: boolean;
+  /** Pass a job to edit it in place; omit to create a new one. */
+  existing?: JobDraft;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const isEdit = Boolean(existing?.id);
+  const str = (k: string, fallback = "") =>
+    existing?.[k] === null || existing?.[k] === undefined ? fallback : String(existing[k]);
   const [f, setF] = useState({
-    title: "",
-    description: "",
-    responsibilities: "",
-    qualifications: "",
-    employment_type: "full_time",
-    work_mode: "onsite",
-    country: "India",
-    state: "",
-    city: "",
-    specialty: "",
-    experience_min_years: "",
-    license_required: true,
-    salary_min: "",
-    salary_max: "",
-    salary_currency: "INR",
-    salary_period: "MONTH",
-    salary_undisclosed: false,
-    vacancies: "1",
-    application_deadline: "",
+    title: str("title"),
+    description: str("description"),
+    responsibilities: str("responsibilities"),
+    qualifications: str("qualifications"),
+    employment_type: str("employment_type", "full_time"),
+    work_mode: str("work_mode", "onsite"),
+    country: str("country", "India"),
+    state: str("state"),
+    city: str("city"),
+    specialty: str("specialty"),
+    experience_min_years: str("experience_min_years"),
+    license_required: existing?.license_required !== false,
+    salary_min: str("salary_min"),
+    salary_max: str("salary_max"),
+    salary_currency: str("salary_currency", "INR"),
+    salary_period: str("salary_period", "MONTH"),
+    salary_undisclosed: Boolean(existing?.salary_undisclosed),
+    vacancies: str("vacancies", "1"),
+    application_deadline: str("application_deadline"),
   });
 
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) =>
@@ -62,7 +70,7 @@ export function JobComposer({
         vacancies: Number(f.vacancies) || 1,
         application_deadline: f.application_deadline || null,
       };
-      const res = await saveJob(employerId, payload);
+      const res = await saveJob(employerId, payload, existing?.id);
       if ("error" in res && res.error) {
         setError(res.error);
         return;
@@ -74,8 +82,14 @@ export function JobComposer({
           return;
         }
       }
-      router.refresh();
-      setF((p) => ({ ...p, title: "", description: "", responsibilities: "", qualifications: "" }));
+      if (isEdit) {
+        // Editing: stay put and let the saved values persist rather than
+        // clearing the form out from under the person.
+        router.refresh();
+      } else {
+        router.refresh();
+        setF((p) => ({ ...p, title: "", description: "", responsibilities: "", qualifications: "" }));
+      }
     });
   }
 
@@ -198,10 +212,11 @@ export function JobComposer({
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
         <Button variant="outline" onClick={() => submit(false)} disabled={pending || !f.title.trim()}>
-          {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Save draft
+          {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {isEdit ? "Save changes" : "Save draft"}
         </Button>
         <Button onClick={() => submit(true)} disabled={pending || !canPublish || !f.title.trim()}>
-          Publish
+          {isEdit ? "Save & publish" : "Publish"}
         </Button>
         {!canPublish && (
           <span className="text-xs text-muted-foreground">
