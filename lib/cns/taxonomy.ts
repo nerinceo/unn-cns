@@ -119,3 +119,22 @@ export async function getJobLabels() {
     experience_level: map(t.experience_level),
   };
 }
+
+/**
+ * The six vocabularies the job composer needs, shaped for a client component.
+ *
+ * Only value and label cross the boundary — `code` is a server concern (it
+ * carries the schema.org mapping) and has no business in the form.
+ */
+export async function getJobComposerOptions() {
+  const t = await getTaxonomy();
+  const pick = (k: TaxonomyKind) => t[k].map((c) => ({ value: c.value, label: c.label }));
+  return {
+    employment_type: pick("employment_type"),
+    nursing_role: pick("nursing_role"),
+    specialty: pick("specialty"),
+    work_setting: pick("work_setting"),
+    experience_level: pick("experience_level"),
+    country: pick("country"),
+  };
+}

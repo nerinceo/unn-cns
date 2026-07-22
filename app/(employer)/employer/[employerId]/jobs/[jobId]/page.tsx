@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { JOB_COLS } from "@/lib/cns/jobs";
+import { getJobComposerOptions } from "@/lib/cns/taxonomy";
 import { JobComposer } from "@/components/jobs/JobComposer";
 import { JobStatusActions } from "@/components/jobs/JobStatusActions";
 import { ScreeningEditor } from "@/components/jobs/ScreeningEditor";
@@ -33,13 +34,14 @@ export default async function EditJobPage({
   if (!jobRow) notFound();
   const job = jobRow as unknown as Record<string, unknown>;
 
-  const [{ data: employer }, { data: questions }] = await Promise.all([
+  const [{ data: employer }, { data: questions }, jobOptions] = await Promise.all([
     supabase.from("cns_employers").select("status").eq("id", employerId).maybeSingle(),
     supabase
       .from("cns_job_screening_questions")
       .select("question,question_type,is_required")
       .eq("job_id", jobId)
       .order("position"),
+    getJobComposerOptions(),
   ]);
 
   return (
@@ -78,6 +80,7 @@ export default async function EditJobPage({
       <JobComposer
         employerId={employerId}
         canPublish={employer?.status === "approved"}
+        options={jobOptions}
         existing={{ ...job, id: jobId }}
       />
 

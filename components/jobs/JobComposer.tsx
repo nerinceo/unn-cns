@@ -6,7 +6,17 @@ import { Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveJob, submitJobForReview } from "@/lib/actions/jobs";
-import { EMPLOYMENT_TYPE_LABEL, WORK_MODE_LABEL } from "@/lib/cns/job-constants";
+
+/** One vocabulary, passed in from the server — see JobComposer's note. */
+export type Option = { value: string; label: string };
+export type JobOptions = {
+  employment_type: Option[];
+  nursing_role: Option[];
+  specialty: Option[];
+  work_setting: Option[];
+  experience_level: Option[];
+  country: Option[];
+};
 
 /**
  * Job composer.
@@ -15,16 +25,24 @@ import { EMPLOYMENT_TYPE_LABEL, WORK_MODE_LABEL } from "@/lib/cns/job-constants"
  * requires — a thin description or a missing deadline is not a style problem,
  * it makes the listing ineligible and, at scale, risks the whole board being
  * delisted. submitJobForReview() enforces the same rules server-side.
+ *
+ * Every controlled field is driven by `options`, read from cns_job_categories
+ * by the page that renders this. They were hardcoded here once, and when the
+ * database vocabulary moved to the blueprint's lists the two silently drifted:
+ * choosing "Locum" produced a raw check-constraint error and no job. Anything
+ * the database constrains must come from the same place the database does.
  */
 export type JobDraft = Partial<Record<string, unknown>> & { id?: string };
 
 export function JobComposer({
   employerId,
   canPublish,
+  options,
   existing,
 }: {
   employerId: string;
   canPublish: boolean;
+  options: JobOptions;
   /** Pass a job to edit it in place; omit to create a new one. */
   existing?: JobDraft;
 }) {
@@ -34,17 +52,25 @@ export function JobComposer({
   const isEdit = Boolean(existing?.id);
   const str = (k: string, fallback = "") =>
     existing?.[k] === null || existing?.[k] === undefined ? fallback : String(existing[k]);
+
+  // Default to the first option rather than a literal, so a vocabulary change
+  // can never leave the form pre-set to a value the database will reject.
+  const first = (k: keyof JobOptions) => options[k][0]?.value ?? "";
+
   const [f, setF] = useState({
     title: str("title"),
     description: str("description"),
     responsibilities: str("responsibilities"),
     qualifications: str("qualifications"),
-    employment_type: str("employment_type", "full_time"),
-    work_mode: str("work_mode", "onsite"),
-    country: str("country", "India"),
+    employment_type: str("employment_type", first("employment_type")),
+    nursing_role: str("nursing_role", first("nursing_role")),
+    specialty: str("specialty", first("specialty")),
+    work_setting: str("work_setting", first("work_setting")),
+    experience_level: str("experience_level", first("experience_level")),
+    is_remote: Boolean(existing?.is_remote),
+    country: str("country", first("country")),
     state: str("state"),
     city: str("city"),
-    specialty: str("specialty"),
     experience_min_years: str("experience_min_years"),
     license_required: existing?.license_required !== false,
     salary_min: str("salary_min"),
@@ -64,6 +90,9 @@ export function JobComposer({
     start(async () => {
       const payload = {
         ...f,
+        // work_mode predates work_setting and still carries a NOT NULL default;
+        // keep it consistent with the remote flag rather than leaving it stale.
+        work_mode: f.is_remote ? "remote" : "onsite",
         experience_min_years: f.experience_min_years ? Number(f.experience_min_years) : null,
         salary_min: f.salary_min ? Number(f.salary_min) : null,
         salary_max: f.salary_max ? Number(f.salary_max) : null,
@@ -138,28 +167,18 @@ export function JobComposer({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium">Employment type</span>
-          <select value={f.employment_type} onChange={set("employment_type")}
-            className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm">
-            {Object.entries(EMPLOYMENT_TYPE_LABEL).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium">Work mode</span>
-          <select value={f.work_mode} onChange={set("work_mode")}
-            className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm">
-            {Object.entries(WORK_MODE_LABEL).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium">Specialty</span>
-          <Input value={f.specialty} onChange={set("specialty")} placeholder="ICU" />
-        </label>
+        <Select label="Nursing role" value={f.nursing_role}
+                onChange={set("nursing_role")} options={options.nursing_role} />
+        <Select label="Specialty" value={f.specialty}
+                onChange={set("specialty")} options={options.specialty} />
+        <Select label="Employment type" value={f.employment_type}
+                onChange={set("employment_type")} options={options.employment_type} />
+        <Select label="Work setting" value={f.work_setting}
+                onChange={set("work_setting")} options={options.work_setting} />
+        <Select label="Experience required" value={f.experience_level}
+                onChange={set("experience_level")} options={options.experience_level} />
+        <Select label="Country" value={f.country}
+                onChange={set("country")} options={options.country} />
         <label className="block">
           <span className="mb-1 block text-sm font-medium">City</span>
           <Input value={f.city} onChange={set("city")} />
@@ -167,10 +186,6 @@ export function JobComposer({
         <label className="block">
           <span className="mb-1 block text-sm font-medium">State</span>
           <Input value={f.state} onChange={set("state")} />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium">Country</span>
-          <Input value={f.country} onChange={set("country")} />
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium">Salary from</span>
@@ -204,11 +219,22 @@ export function JobComposer({
         </label>
       </div>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={f.license_required}
-          onChange={(e) => setF((p) => ({ ...p, license_required: e.target.checked }))} />
-        Nursing council registration required
-      </label>
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={f.license_required}
+            onChange={(e) => setF((p) => ({ ...p, license_required: e.target.checked }))} />
+          Nursing council registration required
+        </label>
+        {/* Separate from work setting on purpose: the blueprint treats where
+            the work happens (hospital, clinic, home care) and whether it is
+            remote as two different questions. A telehealth role is remote; a
+            hospital role generally is not. */}
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={f.is_remote}
+            onChange={(e) => setF((p) => ({ ...p, is_remote: e.target.checked }))} />
+          Remote or telehealth
+        </label>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
         <Button variant="outline" onClick={() => submit(false)} disabled={pending || !f.title.trim()}>
@@ -226,5 +252,29 @@ export function JobComposer({
       </div>
       {error && <p className="text-sm text-secondary">{error}</p>}
     </div>
+  );
+}
+
+function Select({
+  label, value, onChange, options,
+}: {
+  label: string;
+  value: string;
+  onChange: (e: { target: { value: string } }) => void;
+  options: Option[];
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-medium">{label}</span>
+      <select
+        value={value}
+        onChange={onChange}
+        className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </label>
   );
 }

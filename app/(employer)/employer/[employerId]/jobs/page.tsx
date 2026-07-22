@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Briefcase, Users, Eye, FileEdit } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getEmployerJobs } from "@/lib/cns/jobs";
-import { getJobLabels } from "@/lib/cns/taxonomy";
+import { getJobLabels, getJobComposerOptions } from "@/lib/cns/taxonomy";
 import { JobComposer } from "@/components/jobs/JobComposer";
 import { JobStatusActions } from "@/components/jobs/JobStatusActions";
 import { cn } from "@/lib/utils/cn";
@@ -40,7 +40,11 @@ export default async function EmployerJobsPage({
 
   // Employer members read ALL their own jobs — drafts included. Only the public
   // policy is limited to published rows.
-  const [jobs, labels] = await Promise.all([getEmployerJobs(employerId), getJobLabels()]);
+  const [jobs, labels, jobOptions] = await Promise.all([
+    getEmployerJobs(employerId),
+    getJobLabels(),
+    getJobComposerOptions(),
+  ]);
   const drafts = jobs.filter((j) => j.status === "draft" || j.status === "submitted" || j.status === "changes_requested");
   const live = jobs.filter((j) => j.status === "active" || j.status === "paused");
   const closed = jobs.filter((j) => j.status === "closed" || j.status === "expired" || j.status === "rejected" || j.status === "removed");
@@ -134,7 +138,7 @@ export default async function EmployerJobsPage({
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
           Post a role
         </h2>
-        <JobComposer employerId={employerId} canPublish={approved} />
+        <JobComposer employerId={employerId} canPublish={approved} options={jobOptions} />
       </section>
     </div>
   );

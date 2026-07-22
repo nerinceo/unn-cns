@@ -54,6 +54,46 @@ export async function registerEmployer(input: {
 
 /* ----------------------------------- jobs --------------------------------- */
 
+/**
+ * What the composer is allowed to write.
+ *
+ * Notably absent: status, published_at, reviewed_by, reviewed_at, employer_id,
+ * created_by, slug, views_count. Those are set by the system or by staff.
+ */
+const JOB_EDITABLE_FIELDS = [
+  "title", "description", "responsibilities", "qualifications",
+  "employment_type", "nursing_role", "specialty", "work_setting",
+  "experience_level", "is_remote", "work_mode",
+  "country", "state", "city", "street_address", "postal_code",
+  "experience_min_years", "qualification_required", "license_required",
+  "language_requirements", "salary_min", "salary_max", "salary_currency",
+  "salary_period", "salary_undisclosed", "salary_text", "vacancies",
+  "application_deadline", "apply_mode", "external_apply_url", "internal_ref",
+] as const;
+
+/**
+ * A database error an employer can act on.
+ *
+ * A check-constraint violation reached the composer verbatim during testing --
+ * `violates check constraint "cns_jobs_employment_type_check"` is not
+ * something to show anyone, and it also leaks schema detail.
+ */
+function friendlyJobError(error: { message: string; code?: string }): string {
+  const m = error.message;
+  if (/employment_type_check/.test(m)) return "Please choose an employment type from the list.";
+  if (/nursing_role_check/.test(m)) return "Please choose a nursing role from the list.";
+  if (/specialty_check/.test(m)) return "Please choose a specialty from the list.";
+  if (/work_setting_check/.test(m)) return "Please choose a work setting from the list.";
+  if (/experience_level_check/.test(m)) return "Please choose an experience level from the list.";
+  if (/status_check/.test(m) || error.code === "42501") {
+    return "UNN reviews every posting — a job cannot be published directly.";
+  }
+  if (/violates check constraint|invalid input value/.test(m)) {
+    return "Some of those details were not accepted. Please review the highlighted fields.";
+  }
+  return m;
+}
+
 export async function saveJob(
   employerId: string,
   input: Record<string, unknown>,
@@ -70,11 +110,19 @@ export async function saveJob(
 
   const supabase = await createClient();
 
-  const payload = { ...input, employer_id: employerId, updated_at: new Date().toISOString() };
+  // Whitelist. `input` comes from a client, and spreading it straight into the
+  // row let an employer send status:'active' and put a job live without review
+  // -- verified against production. The database trigger is the real guard
+  // (a direct PostgREST call never reaches this function), but nothing here
+  // should be forwarding fields the composer does not own either.
+  const payload: Record<string, unknown> = { employer_id: employerId, updated_at: new Date().toISOString() };
+  for (const k of JOB_EDITABLE_FIELDS) {
+    if (k in input) payload[k] = input[k];
+  }
 
   if (jobId) {
     const { error } = await supabase.from("cns_jobs").update(payload).eq("id", jobId);
-    if (error) return { error: error.message };
+    if (error) return { error: friendlyJobError(error) };
     revalidatePath(`/employer/${employerId}`);
     return { id: jobId };
   }
@@ -89,7 +137,7 @@ export async function saveJob(
     })
     .select("id")
     .single();
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyJobError(error) };
   revalidatePath(`/employer/${employerId}`);
   return { id: data.id as string };
 }

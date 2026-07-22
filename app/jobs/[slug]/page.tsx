@@ -8,6 +8,7 @@ import {
   getJobBySlug, formatSalary, buildJobPostingJsonLd, jobDescriptionHtml,
 } from "@/lib/cns/jobs";
 import { getJobLabels } from "@/lib/cns/taxonomy";
+import { ReportJobButton } from "@/components/jobs/ReportJobButton";
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
 import { ApplyPanel } from "@/components/jobs/ApplyPanel";
 
@@ -96,7 +97,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
     alreadyApplied = Boolean(existing);
   }
   const salary = job.salary_text ?? formatSalary(job);
-  const location = [job.city, job.state, job.country].filter(Boolean).join(", ");
+  const countryLabel = labels.country[job.country as string] ?? job.country;
+  const location = [job.city, job.state, countryLabel].filter(Boolean).join(", ");
 
   return (
     <div className="space-y-6">
@@ -187,6 +189,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
           Applications close {new Date(job.application_deadline).toLocaleDateString()}
         </p>
       )}
+
+      <ReportJobButton jobId={job.id as string} canReport={Boolean(user)} />
     </div>
   );
 }
