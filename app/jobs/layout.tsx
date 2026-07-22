@@ -1,34 +1,37 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { CnsHeader } from "@/components/shell/CnsHeader";
-import { CnsSidebar } from "@/components/shell/CnsSidebar";
-import { CnsMobileNav } from "@/components/shell/CnsMobileNav";
+import { AppShell } from "@/components/shell/AppShell";
+import { MEMBER_NAV } from "@/components/shell/nav";
+import { getMyEmployers } from "@/lib/cns/jobs";
+import { isStaff } from "@/lib/cns/admin";
 import { hubLink } from "@/lib/hub";
 
 /**
- * Jobs sits OUTSIDE the (cns) members-only group on purpose.
+ * Jobs sits OUTSIDE the members-only groups on purpose.
  *
  * Job pages must be crawlable for schema.org/JobPosting markup to reach Google
  * for Jobs, which is the only realistic acquisition channel for a new board.
- * Applying still requires a session — that is also the right funnel: Google →
+ * Applying still requires a session — which is also the right funnel: Google →
  * job page → sign in to apply.
  *
- * So the chrome adapts: members get the normal CNS shell, anonymous visitors
- * get a minimal public header with a sign-in call to action.
+ * The chrome therefore adapts: a signed-in member gets the normal member
+ * portal shell, an anonymous visitor a minimal public header.
  */
 export default async function JobsLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
 
   if (user) {
+    const [employers, staff] = await Promise.all([getMyEmployers(), isStaff()]);
     return (
-      <>
-        <CnsHeader />
-        <div className="mx-auto flex max-w-6xl gap-8 px-4 pb-24 pt-6 md:pb-8">
-          <CnsSidebar />
-          <main className="min-w-0 flex-1">{children}</main>
-        </div>
-        <CnsMobileNav />
-      </>
+      <AppShell
+        portal="member"
+        nav={MEMBER_NAV}
+        wordmark="CNS"
+        employers={employers.map((m) => ({ id: m.employer.id, name: m.employer.name }))}
+        isStaff={staff}
+      >
+        {children}
+      </AppShell>
     );
   }
 

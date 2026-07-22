@@ -208,6 +208,15 @@ export async function withdrawApplication(applicationId: string) {
   return { ok: true };
 }
 
+/** How a status change reads to the applicant. Written for them, not the employer. */
+const APPLICANT_MESSAGE: Record<string, string> = {
+  viewed: "Your application has been opened by the employer.",
+  shortlisted: "You have been shortlisted. The employer now has your contact details.",
+  interview: "You have been invited to interview.",
+  offered: "You have received an offer.",
+  rejected: "The employer is not taking your application forward.",
+};
+
 export async function setApplicationStatus(applicationId: string, status: string, note?: string) {
   const supabase = await createClient();
   // Definer function: lets an employer move status without holding a general
@@ -218,7 +227,32 @@ export async function setApplicationStatus(applicationId: string, status: string
     p_note: note ?? null,
   });
   if (error) return { error: error.message };
+
+  // Tell the applicant. Silence here is the worst part of applying for jobs,
+  // and a status the candidate never sees is the same as no status at all.
+  const { data: app } = await supabase
+    .from("cns_job_applications")
+    .select("applicant_id,job_id")
+    .eq("id", applicationId)
+    .maybeSingle();
+
+  if (app?.applicant_id && APPLICANT_MESSAGE[status]) {
+    const { data: job } = await supabase
+      .from("cns_jobs")
+      .select("title")
+      .eq("id", app.job_id as string)
+      .maybeSingle();
+
+    await supabase.from("notifications").insert({
+      user_id: app.applicant_id,
+      notification_type: `cns_application_${status}`,
+      message: `${job?.title ?? "A role"} — ${APPLICANT_MESSAGE[status]}`,
+      reference_id: applicationId,
+    });
+  }
+
   revalidatePath("/employer");
+  revalidatePath("/applications");
   return { ok: true };
 }
 
