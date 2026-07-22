@@ -128,12 +128,22 @@ async function main() {
   } else {
     const created = await api("/v11/projects", {
       method: "POST",
-      body: JSON.stringify({ name: PROJECT_NAME, framework: "nextjs", nodeVersion: "20.x" }),
+      body: JSON.stringify({ name: PROJECT_NAME, framework: "nextjs" }),
     });
     if (created.status >= 300) { console.error("create failed:", created.status, created.body); process.exit(1); }
     project = created.body;
     assertNotHub(project);
     console.log(`project created: ${project.name} (${project.id})`);
+  }
+
+  // Node 20.x explicitly — 24.x has caused build failures on this account, and
+  // the create endpoint rejects nodeVersion, so it has to be a follow-up PATCH.
+  if (project.nodeVersion !== "20.x") {
+    const nv = await api(`/v9/projects/${project.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ nodeVersion: "20.x" }),
+    });
+    console.log(`node version: ${nv.status < 300 ? "20.x" : `FAILED ${nv.status}`}`);
   }
 
   // ---- env vars ---------------------------------------------------------
@@ -182,11 +192,15 @@ async function main() {
 
   // ---- deploy -----------------------------------------------------------
   console.log("\ndeploying...");
-  execFileSync(
-    process.platform === "win32" ? "npx.cmd" : "npx",
-    ["vercel", "deploy", "--prod", "--yes", "--token", token],
-    { stdio: "inherit", cwd }
-  );
+  // No --token: the CLI has its own refreshed credentials, and passing it here
+  // would put the secret into argv, where it shows up in process listings and
+  // in any error dump. shell:true because Windows cannot spawn npx.cmd
+  // directly without one (EINVAL).
+  execFileSync("npx", ["vercel", "deploy", "--prod", "--yes"], {
+    stdio: "inherit",
+    cwd,
+    shell: true,
+  });
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
