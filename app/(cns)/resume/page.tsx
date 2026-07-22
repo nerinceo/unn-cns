@@ -22,7 +22,9 @@ export default async function ResumeListPage() {
             your UNN verification.
           </p>
         </div>
-        <NewResumeButton hasAny={resumes.length > 0} />
+        {/* Only in the header when there is already a list. On the empty state
+            the call to action lives in the card, so it isn't shown twice. */}
+        {resumes.length > 0 && <NewResumeButton hasAny />}
       </header>
 
       {resumes.length === 0 ? (

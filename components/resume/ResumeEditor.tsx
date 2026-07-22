@@ -264,12 +264,15 @@ export function ResumeEditor({
 /* -------------------------------------------------------------------------- */
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  // The control is nested inside <label>, which associates the two implicitly —
+  // no generated ids to keep in sync, clicking the text focuses the input, and
+  // screen readers announce the field correctly.
   return (
-    <div>
-      <label className="mb-1 block text-sm font-medium">{label}</label>
-      {hint && <p className="mb-1.5 text-xs text-muted-foreground">{hint}</p>}
+    <label className="block">
+      <span className="mb-1 block text-sm font-medium">{label}</span>
+      {hint && <span className="mb-1.5 block text-xs text-muted-foreground">{hint}</span>}
       {children}
-    </div>
+    </label>
   );
 }
 

@@ -93,14 +93,24 @@ export const EMPTY_CONTENT: ResumeContent = {
 export async function buildSeedContent(): Promise<ResumeContent> {
   const supabase = await createClient();
 
+  const { data: auth } = await supabase.auth.getClaims();
+  const uid = auth?.claims?.sub as string | undefined;
+  if (!uid) return { ...EMPTY_CONTENT };
+
+  // Both queries MUST filter by id. RLS on public.users permits reading many
+  // rows (members can see each other), so an unfiltered .maybeSingle() matches
+  // multiple rows and silently returns null — which looked exactly like "the
+  // profile is empty" and made the whole pre-fill a no-op.
   const { data: user } = await supabase
     .from("users")
     .select("full_name,email,professional_title,bio,country,phone,profile_url")
+    .eq("id", uid)
     .maybeSingle();
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("education,experience,skills,languages,certificates")
+    .eq("user_id", uid)
     .maybeSingle();
 
   const rawEdu = Array.isArray(profile?.education) ? profile!.education : [];
