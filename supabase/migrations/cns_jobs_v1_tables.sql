@@ -343,6 +343,11 @@ $$;
 revoke all on function public.cns_write_audit(text, text, uuid, text, jsonb) from public, anon;
 grant execute on function public.cns_write_audit(text, text, uuid, text, jsonb) to authenticated;
 
+-- Applications may now cite an uploaded file as well as a built resume.
+alter table public.cns_job_applications
+  add column if not exists resume_file_id uuid references public.cns_resume_files(id) on delete set null,
+  add column if not exists declaration_accepted_at timestamptz;
+
 -- ---------------------------------------------------------------------------
 -- 10. Resume access control
 --
@@ -374,11 +379,6 @@ as $$
   );
 $$;
 grant execute on function public.cns_can_read_resume(uuid) to authenticated;
-
--- Applications may now cite an uploaded file as well as a built resume.
-alter table public.cns_job_applications
-  add column if not exists resume_file_id uuid references public.cns_resume_files(id) on delete set null,
-  add column if not exists declaration_accepted_at timestamptz;
 
 -- ---------------------------------------------------------------------------
 -- Verification
