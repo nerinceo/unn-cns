@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
-import { ADMIN_NAV } from "@/components/shell/nav";
 import { isStaff } from "@/lib/cns/admin";
 import { getMyEmployers } from "@/lib/cns/jobs";
 
@@ -22,7 +21,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <AppShell
       portal="admin"
-      nav={ADMIN_NAV}
       wordmark="Admin"
       employers={employers.map((m) => ({ id: m.employer.id, name: m.employer.name }))}
       isStaff

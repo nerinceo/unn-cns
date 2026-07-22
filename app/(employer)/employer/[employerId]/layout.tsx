@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/AppShell";
-import { employerNav } from "@/components/shell/nav";
 import { getMyEmployers } from "@/lib/cns/jobs";
 import { isStaff } from "@/lib/cns/admin";
 
@@ -39,7 +38,7 @@ export default async function EmployerLayout({
   return (
     <AppShell
       portal="employer"
-      nav={employerNav(employerId)}
+      employerId={employerId}
       wordmark={(employer.name as string).slice(0, 28)}
       employers={employers.map((m) => ({ id: m.employer.id, name: m.employer.name }))}
       isStaff={staff}

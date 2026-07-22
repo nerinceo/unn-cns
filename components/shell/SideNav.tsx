@@ -3,28 +3,47 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
-import type { NavItem } from "./nav";
+import { MEMBER_NAV, ADMIN_NAV, employerNav, type NavItem } from "./nav";
 
 /**
- * Active-state matching.
+ * Nav is built HERE, on the client, from a portal key.
  *
- * Exact match for a portal root ("/" or "/employer/<id>"), prefix match
- * otherwise — a prefix match on the root would light up every item at once.
+ * It cannot be passed down from AppShell as props: each item carries a Lucide
+ * icon, which is a function, and React cannot serialise functions across the
+ * server/client boundary ("Functions cannot be passed directly to Client
+ * Components"). So the server sends two plain strings and this module resolves
+ * them against the same nav definitions.
  */
-function isActive(pathname: string, href: string, items: NavItem[]) {
-  const isRoot = href === "/" || items.every((i) => i.href === href || !href.startsWith(i.href));
-  const rootHrefs = new Set(["/", items[0]?.href]);
-  if (rootHrefs.has(href)) return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
+export type PortalKey = "member" | "employer" | "admin";
+
+function navFor(portal: PortalKey, employerId?: string): NavItem[] {
+  if (portal === "admin") return ADMIN_NAV;
+  if (portal === "employer" && employerId) return employerNav(employerId);
+  return MEMBER_NAV;
 }
 
-export function SideNav({ items }: { items: NavItem[] }) {
+/**
+ * Exact match for a portal root, prefix match otherwise — a prefix match on the
+ * root would light up every item at once.
+ */
+function useIsActive(items: NavItem[]) {
   const pathname = usePathname();
+  const rootHref = items[0]?.href;
+  return (href: string) => {
+    if (href === "/" || href === rootHref) return pathname === href;
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+}
+
+export function SideNav({ portal, employerId }: { portal: PortalKey; employerId?: string }) {
+  const items = navFor(portal, employerId);
+  const isActive = useIsActive(items);
+
   return (
     <nav className="hidden w-56 shrink-0 md:block">
       <ul className="sticky top-20 space-y-1">
         {items.map(({ href, label, icon: Icon }) => {
-          const active = isActive(pathname, href, items);
+          const active = isActive(href);
           return (
             <li key={href}>
               <Link
@@ -48,14 +67,16 @@ export function SideNav({ items }: { items: NavItem[] }) {
   );
 }
 
-export function MobileNav({ items }: { items: NavItem[] }) {
-  const pathname = usePathname();
+export function MobileNav({ portal, employerId }: { portal: PortalKey; employerId?: string }) {
+  const items = navFor(portal, employerId);
+  const isActive = useIsActive(items);
   const shown = items.slice(0, 5);
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card md:hidden">
       <ul className="flex">
         {shown.map(({ href, label, icon: Icon }) => {
-          const active = isActive(pathname, href, items);
+          const active = isActive(href);
           return (
             <li key={href} className="flex-1">
               <Link

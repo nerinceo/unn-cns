@@ -1,5 +1,4 @@
 import { AppShell } from "@/components/shell/AppShell";
-import { MEMBER_NAV } from "@/components/shell/nav";
 import { getMyEmployers } from "@/lib/cns/jobs";
 import { isStaff } from "@/lib/cns/admin";
 
@@ -21,7 +20,6 @@ export default async function EmployerLandingLayout({
   return (
     <AppShell
       portal="member"
-      nav={MEMBER_NAV}
       wordmark="CNS"
       employers={employers.map((m) => ({ id: m.employer.id, name: m.employer.name }))}
       isStaff={staff}
