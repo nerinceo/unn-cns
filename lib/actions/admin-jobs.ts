@@ -1,5 +1,7 @@
 "use server";
 
+
+import type { ActionResult } from "@/lib/actions/result";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -14,7 +16,7 @@ export async function reviewEmployer(
   employerId: string,
   decision: "approved" | "rejected" | "suspended",
   note?: string
-) {
+): Promise<ActionResult> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -71,7 +73,7 @@ type JobDecision = "active" | "rejected" | "changes_requested" | "paused" | "rem
  * only to employer members or cns_is_staff(), so a non-staff caller's update
  * affects zero rows and the guard below reports it.
  */
-export async function reviewJob(jobId: string, decision: JobDecision, reason?: string) {
+export async function reviewJob(jobId: string, decision: JobDecision, reason?: string): Promise<ActionResult> {
   const supabase = await createClient();
 
   if (decision !== "active" && !reason?.trim()) {
@@ -151,7 +153,7 @@ export async function resolveReport(
   reportId: string,
   status: "reviewing" | "resolved" | "dismissed",
   note?: string
-) {
+): Promise<ActionResult> {
   const user = await getCurrentUser();
   const supabase = await createClient();
 

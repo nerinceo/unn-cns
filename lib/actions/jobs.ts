@@ -1,7 +1,10 @@
 "use server";
 
+
+import type { ActionResult } from "@/lib/actions/result";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { checkLimit } from "@/lib/ratelimit";
 
 function slugify(s: string) {
   return s
@@ -21,7 +24,7 @@ export async function registerEmployer(input: {
   email?: string;
   country?: string;
   city?: string;
-}) {
+}): Promise<ActionResult & { employerId?: string; id?: string; slug?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
 
@@ -55,9 +58,16 @@ export async function saveJob(
   employerId: string,
   input: Record<string, unknown>,
   jobId?: string
-) {
+): Promise<ActionResult & { jobId?: string; id?: string; slug?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
+
+  // Only new postings are limited; editing a draft repeatedly is normal work.
+  if (!jobId) {
+    const limited = await checkLimit("post", user.id);
+    if (limited) return limited;
+  }
+
   const supabase = await createClient();
 
   const payload = { ...input, employer_id: employerId, updated_at: new Date().toISOString() };
@@ -95,7 +105,7 @@ export async function saveJob(
  * told what is missing while they still have the form open, instead of waiting
  * a day to be rejected for a missing deadline.
  */
-export async function submitJobForReview(jobId: string) {
+export async function submitJobForReview(jobId: string): Promise<ActionResult> {
   const supabase = await createClient();
 
   const { data: job } = await supabase
@@ -137,7 +147,7 @@ export async function submitJobForReview(jobId: string) {
 }
 
 /** Employer pauses or closes a live job. Neither needs admin involvement. */
-export async function setJobLifecycle(jobId: string, next: "paused" | "active" | "closed") {
+export async function setJobLifecycle(jobId: string, next: "paused" | "active" | "closed"): Promise<ActionResult> {
   const supabase = await createClient();
 
   // Resuming a paused job returns it to 'active' without re-review; it was
@@ -205,7 +215,7 @@ export async function applyToJob(
     answers?: { questionId: string; questionText: string; answer: string }[];
     declarationAccepted: boolean;
   }
-) {
+): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
 
@@ -214,6 +224,9 @@ export async function applyToJob(
   if (!input.declarationAccepted) {
     return { error: "Please accept the applicant declaration before submitting." };
   }
+
+  const limited = await checkLimit("apply", user.id);
+  if (limited) return limited;
 
   const supabase = await createClient();
 
@@ -309,7 +322,7 @@ export async function applyToJob(
   return { ok: true };
 }
 
-export async function withdrawApplication(applicationId: string) {
+export async function withdrawApplication(applicationId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("cns_job_applications")
@@ -329,7 +342,7 @@ const APPLICANT_MESSAGE: Record<string, string> = {
   rejected: "The employer is not taking your application forward.",
 };
 
-export async function setApplicationStatus(applicationId: string, status: string, note?: string) {
+export async function setApplicationStatus(applicationId: string, status: string, note?: string): Promise<ActionResult> {
   const supabase = await createClient();
   // Definer function: lets an employer move status without holding a general
   // UPDATE grant, which would also let them edit profile_snapshot.
@@ -368,7 +381,7 @@ export async function setApplicationStatus(applicationId: string, status: string
   return { ok: true };
 }
 
-export async function toggleSaveJob(jobId: string, save: boolean) {
+export async function toggleSaveJob(jobId: string, save: boolean): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
   const supabase = await createClient();
@@ -395,7 +408,7 @@ export async function toggleSaveJob(jobId: string, save: boolean) {
 export async function setScreeningQuestions(
   jobId: string,
   questions: { question: string; question_type: "short_answer" | "yes_no"; is_required: boolean }[]
-) {
+): Promise<ActionResult> {
   const supabase = await createClient();
 
   const clean = questions
@@ -427,9 +440,12 @@ export async function reportJob(
   jobId: string,
   reason: string,
   detail?: string
-) {
+): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
+
+  const limited = await checkLimit("report", user.id);
+  if (limited) return limited;
 
   const supabase = await createClient();
   const { error } = await supabase.from("cns_job_reports").insert({

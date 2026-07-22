@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ShieldCheck, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { VerificationPanel } from "@/components/employer/VerificationPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -15,16 +16,27 @@ export default async function EmployerSettings({
   const { data: employer } = await supabase
     .from("cns_employers")
     .select(
-      "id,name,slug,employer_type,description,website,email,phone,country,city,status,verification_status,created_at"
+      "id,name,slug,employer_type,description,website,email,phone,country,city,status,verification_status,created_at,legal_name,contact_person,business_email,registration_doc_key"
     )
     .eq("id", employerId)
     .maybeSingle();
   if (!employer) notFound();
 
-  const { data: members } = await supabase
-    .from("cns_employer_members")
-    .select("id,user_id,role,status")
-    .eq("employer_id", employerId);
+  const [{ data: members }, { data: history }] = await Promise.all([
+    supabase
+      .from("cns_employer_members")
+      .select("id,user_id,role,status")
+      .eq("employer_id", employerId),
+    supabase
+      .from("cns_employer_verifications")
+      .select("id,status,note,created_at")
+      .eq("employer_id", employerId)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  // The key itself never crosses to the client — only whether one exists and
+  // the bare filename, so the panel can render without leaking the bucket path.
+  const docKey = employer.registration_doc_key as string | null;
 
   return (
     <div className="space-y-6">
@@ -56,6 +68,25 @@ export default async function EmployerSettings({
           {new Date(employer.created_at as string).toLocaleDateString()}
         </Row>
       </dl>
+
+      <VerificationPanel
+        state={{
+          employerId,
+          status: (employer.verification_status as string) ?? "unverified",
+          hasDocument: Boolean(docKey),
+          documentName: docKey ? docKey.split("/").pop() ?? null : null,
+          legalName: (employer.legal_name as string) ?? null,
+          contactPerson: (employer.contact_person as string) ?? null,
+          businessEmail: (employer.business_email as string) ?? null,
+          phone: (employer.phone as string) ?? null,
+          history: (history ?? []).map((h) => ({
+            id: h.id as string,
+            status: h.status as string,
+            note: (h.note as string) ?? null,
+            created_at: h.created_at as string,
+          })),
+        }}
+      />
 
       <section>
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">

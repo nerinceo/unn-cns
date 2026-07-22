@@ -1,11 +1,13 @@
 "use server";
 
+
+import type { ActionResult } from "@/lib/actions/result";
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { buildSeedContent, type ResumeContent } from "@/lib/cns/resume";
 
-export async function createResume(title?: string) {
+export async function createResume(title?: string): Promise<ActionResult & { id?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
 
@@ -34,7 +36,7 @@ export async function createResume(title?: string) {
   return { id: data.id as string };
 }
 
-export async function updateResumeContent(id: string, content: ResumeContent) {
+export async function updateResumeContent(id: string, content: ResumeContent): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("cns_resumes")
@@ -48,7 +50,7 @@ export async function updateResumeContent(id: string, content: ResumeContent) {
 export async function updateResumeMeta(
   id: string,
   patch: { title?: string; template?: "ats" | "designed" }
-) {
+): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("cns_resumes")
@@ -60,7 +62,7 @@ export async function updateResumeMeta(
   return { ok: true };
 }
 
-export async function setDefaultResume(id: string) {
+export async function setDefaultResume(id: string): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
   const supabase = await createClient();
@@ -74,7 +76,7 @@ export async function setDefaultResume(id: string) {
   return { ok: true };
 }
 
-export async function deleteResume(id: string) {
+export async function deleteResume(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("cns_resumes").delete().eq("id", id);
   if (error) return { error: error.message };
@@ -89,7 +91,10 @@ export async function deleteResume(id: string) {
  * otherwise knowing one link would let someone enumerate every other. Revoking
  * sets it null, and re-sharing mints a fresh token so an old link stays dead.
  */
-export async function toggleShare(id: string, share: boolean) {
+export async function toggleShare(
+  id: string,
+  share: boolean
+): Promise<ActionResult & { token?: string | null }> {
   const supabase = await createClient();
   const token = share ? randomBytes(16).toString("hex") : null;
   const { error } = await supabase
@@ -102,7 +107,7 @@ export async function toggleShare(id: string, share: boolean) {
 }
 
 /** Re-pull from the UNN profile, for a member who filled it in after starting. */
-export async function reseedFromProfile(id: string) {
+export async function reseedFromProfile(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const content = await buildSeedContent();
   const { error } = await supabase

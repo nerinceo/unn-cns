@@ -1,5 +1,7 @@
 "use server";
 
+
+import type { ActionResult } from "@/lib/actions/result";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getQuestionSet, getSetQuestionIds } from "@/lib/cns/question-bank";
@@ -22,7 +24,7 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-export async function startAttempt(setId: string) {
+export async function startAttempt(setId: string): Promise<ActionResult & { attemptId?: string; resumed?: boolean }> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
 
@@ -75,7 +77,7 @@ export async function saveResponse(
   attemptId: string,
   questionId: string,
   payload: { selectedOptionIds?: string[]; answerText?: string; flagged?: boolean; timeSpent?: number }
-) {
+): Promise<ActionResult> {
   const supabase = await createClient();
 
   const { error } = await supabase.from("cns_attempt_responses").upsert(
@@ -97,7 +99,7 @@ export async function saveResponse(
   return { ok: true };
 }
 
-export async function submitAttempt(attemptId: string) {
+export async function submitAttempt(attemptId: string): Promise<ActionResult> {
   const supabase = await createClient();
 
   // All scoring, progress rollup and item statistics happen inside this one

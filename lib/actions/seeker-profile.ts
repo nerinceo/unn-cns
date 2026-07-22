@@ -1,10 +1,12 @@
 "use server";
 
+
+import type { ActionResult } from "@/lib/actions/result";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { SeekerProfile } from "@/lib/cns/seeker";
 
-export async function saveSeekerProfile(patch: Partial<SeekerProfile>) {
+export async function saveSeekerProfile(patch: Partial<SeekerProfile>): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
 

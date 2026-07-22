@@ -1,7 +1,10 @@
 "use server";
 
+
+import type { ActionResult } from "@/lib/actions/result";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { checkLimit } from "@/lib/ratelimit";
 import {
   putDoc, deleteDoc, presignDocRead, resumeKey,
   validateUpload, RESUME_MIME, isDocsStorageConfigured,
@@ -15,10 +18,13 @@ import {
  * small (5 MB cap), so the round trip costs little and buys real safety.
  */
 
-export async function uploadResume(formData: FormData) {
+export async function uploadResume(formData: FormData): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
   if (!isDocsStorageConfigured()) return { error: "File uploads are not configured yet." };
+
+  const limited = await checkLimit("upload", user.id);
+  if (limited) return limited;
 
   const file = formData.get("file");
   if (!(file instanceof File)) return { error: "No file received." };
@@ -66,7 +72,7 @@ export async function uploadResume(formData: FormData) {
   return { ok: true };
 }
 
-export async function deleteResumeFile(id: string) {
+export async function deleteResumeFile(id: string): Promise<ActionResult> {
   const supabase = await createClient();
 
   // RLS scopes this to the owner, so a foreign id simply reads null.
@@ -97,7 +103,7 @@ export async function deleteResumeFile(id: string) {
  * re-implemented here: application code that forgets the second half of that
  * rule leaks every CV on the platform.
  */
-export async function getResumeDownloadUrl(resumeFileId: string) {
+export async function getResumeDownloadUrl(resumeFileId: string): Promise<ActionResult & { url?: string }> {
   const supabase = await createClient();
 
   const { data: allowed, error: rpcError } = await supabase.rpc("cns_can_read_resume", {
