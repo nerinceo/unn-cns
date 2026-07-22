@@ -13,3 +13,6 @@ build/
 next-env.d.ts
 
 .playwright-mcp/
+
+# scratch scripts used for production verification runs
+.tmp-*
