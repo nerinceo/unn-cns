@@ -1,13 +1,25 @@
 import Link from "next/link";
 import { FileText, Star, Share2 } from "lucide-react";
 import { listResumes } from "@/lib/cns/resume";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { ResumeUpload } from "@/components/resume/ResumeUpload";
 import { NewResumeButton } from "@/components/resume/NewResumeButton";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Resume — UNN CNS" };
 
 export default async function ResumeListPage() {
-  const resumes = await listResumes();
+  const user = await getCurrentUser();
+  const supabase = await createClient();
+  const [resumes, { data: uploaded }] = await Promise.all([
+    listResumes(),
+    supabase
+      .from("cns_resume_files")
+      .select("id,file_name,size_bytes,created_at")
+      .eq("user_id", user!.id)
+      .eq("is_active", true)
+      .maybeSingle(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -26,6 +38,17 @@ export default async function ResumeListPage() {
             the call to action lives in the card, so it isn't shown twice. */}
         {resumes.length > 0 && <NewResumeButton hasAny />}
       </header>
+
+      <ResumeUpload current={(uploaded as never) ?? null} />
+
+      <div>
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          Or build one
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Generates an ATS-safe CV from your UNN profile, with your verification shown on it.
+        </p>
+      </div>
 
       {resumes.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
