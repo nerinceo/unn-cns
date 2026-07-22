@@ -58,9 +58,17 @@ export default async function EmployerDashboard({
       </header>
 
       <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Roles
-        </h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            Roles
+          </h2>
+          <Link
+            href={`/employer/${employerId}/applications`}
+            className="text-sm text-primary hover:underline"
+          >
+            View applications ({apps?.length ?? 0})
+          </Link>
+        </div>
         {jobs.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">
             No roles yet. Create your first below.

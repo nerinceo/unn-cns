@@ -1,9 +1,9 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { EMPLOYMENT_TYPE_SCHEMA } from "./job-constants";
+import { EMPLOYMENT_TYPE_SCHEMA, toCountryCode } from "./job-constants";
 
 // Re-exported so server components can pull data + labels from one place.
-export { EMPLOYMENT_TYPE_LABEL, WORK_MODE_LABEL, EMPLOYMENT_TYPE_SCHEMA } from "./job-constants";
+export { EMPLOYMENT_TYPE_LABEL, WORK_MODE_LABEL, EMPLOYMENT_TYPE_SCHEMA, toCountryCode } from "./job-constants";
 
 /**
  * Jobs data access + schema.org/JobPosting mapping.
@@ -131,7 +131,7 @@ export function buildJobPostingJsonLd(job: CnsJob, employer: CnsEmployer, url: s
     // A telecommute posting must still declare where applicants may be based.
     ld.applicantLocationRequirements = {
       "@type": "Country",
-      name: job.country ?? "IN",
+      name: toCountryCode(job.country),
     };
   } else {
     ld.jobLocation = {
@@ -142,7 +142,8 @@ export function buildJobPostingJsonLd(job: CnsJob, employer: CnsEmployer, url: s
         ...(job.city ? { addressLocality: job.city } : {}),
         ...(job.state ? { addressRegion: job.state } : {}),
         ...(job.postal_code ? { postalCode: job.postal_code } : {}),
-        addressCountry: job.country ?? "IN",
+        // ISO 3166-1 alpha-2 — Google prefers the code over a country name.
+        addressCountry: toCountryCode(job.country),
       },
     };
   }

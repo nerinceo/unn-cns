@@ -1,4 +1,10 @@
 {
   "framework": "nextjs",
-  "regions": ["bom1", "iad1"]
+  "regions": ["bom1", "iad1"],
+  "crons": [
+    {
+      "path": "/api/cron/close-expired-jobs",
+      "schedule": "0 2 * * *"
+    }
+  ]
 }

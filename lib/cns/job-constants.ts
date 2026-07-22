@@ -37,3 +37,45 @@ export const WORK_MODE_LABEL: Record<string, string> = {
 
 /** schema.org baseSalary unitText values. */
 export const SALARY_PERIODS = ["HOUR", "DAY", "WEEK", "MONTH", "YEAR"] as const;
+
+/**
+ * Country name -> ISO 3166-1 alpha-2.
+ *
+ * schema.org accepts a country name, but Google prefers the two-letter code for
+ * addressCountry and applicantLocationRequirements, and employers type free
+ * text ("India", "india", "UAE"). Normalising here keeps the markup canonical
+ * without forcing a dropdown on the composer.
+ */
+const COUNTRY_CODES: Record<string, string> = {
+  india: "IN",
+  "united kingdom": "GB",
+  uk: "GB",
+  "great britain": "GB",
+  "united states": "US",
+  usa: "US",
+  us: "US",
+  "united arab emirates": "AE",
+  uae: "AE",
+  "saudi arabia": "SA",
+  qatar: "QA",
+  oman: "OM",
+  kuwait: "KW",
+  bahrain: "BH",
+  singapore: "SG",
+  australia: "AU",
+  canada: "CA",
+  ireland: "IE",
+  "new zealand": "NZ",
+  germany: "DE",
+  malta: "MT",
+  philippines: "PH",
+  nepal: "NP",
+};
+
+export function toCountryCode(input: string | null | undefined): string {
+  if (!input) return "IN";
+  const t = input.trim();
+  // Already a code.
+  if (/^[A-Za-z]{2}$/.test(t)) return t.toUpperCase();
+  return COUNTRY_CODES[t.toLowerCase()] ?? t;
+}

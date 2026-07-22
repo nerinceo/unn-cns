@@ -267,6 +267,24 @@ create policy "cns employer members read"
   on public.cns_employer_members for select to authenticated
   using (user_id = auth.uid() or public.cns_is_employer_member(employer_id) or public.cns_is_staff());
 
+-- BOOTSTRAP. Without this the first member of an employer can never be
+-- inserted: "manage" below requires the caller to ALREADY be an approved
+-- member, which is impossible for the founding row. The person who registered
+-- the organisation may add THEMSELVES (and only themselves) to it.
+--
+-- Safe because it does not grant publishing rights — cns_employers.status stays
+-- 'pending' until staff approve, and publishJob() checks that separately.
+drop policy if exists "cns employer members bootstrap" on public.cns_employer_members;
+create policy "cns employer members bootstrap"
+  on public.cns_employer_members for insert to authenticated
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1 from public.cns_employers e
+       where e.id = employer_id and e.created_by = auth.uid()
+    )
+  );
+
 drop policy if exists "cns employer members manage" on public.cns_employer_members;
 create policy "cns employer members manage"
   on public.cns_employer_members for all to authenticated

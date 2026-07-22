@@ -35,10 +35,21 @@ import {
  *                 published jobs from approved employers to `anon`; drafts and
  *                 applications stay private, and applying requires a session.
  *   /robots.txt, /sitemap.xml — needed for the above to be discovered.
+ *   /api/cron/  — Vercel cron invokes these with no session, so the auth gate
+ *                 would redirect them and the job would silently never run.
+ *                 Each route authenticates itself against CNS_CRON_SECRET
+ *                 instead; letting them past middleware is required, not lax.
  *
  * Anything added here is public to the internet. Justify it in review.
  */
-const PUBLIC_PATHS = ["/api/health", "/r/", "/jobs", "/robots.txt", "/sitemap.xml"];
+const PUBLIC_PATHS = [
+  "/api/health",
+  "/api/cron/",
+  "/r/",
+  "/jobs",
+  "/robots.txt",
+  "/sitemap.xml",
+];
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "https://app.unnhub.org";
 
