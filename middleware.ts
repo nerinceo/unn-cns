@@ -18,7 +18,21 @@ import {
  * cannot drift out of sync with it. Unauthenticated visitors are sent to HUB.
  */
 
-const PUBLIC_PATHS = ["/api/health"];
+/**
+ * The only unauthenticated surface.
+ *
+ * Each entry is a deliberate exception to the fail-closed default and needs a
+ * reason:
+ *   /api/health — liveness probe, leaks nothing but build identity.
+ *   /r/         — shared resume links. The entire point is that a recruiter
+ *                 with no UNN account can open one. Access is gated on a
+ *                 32-char random token resolved by a SECURITY DEFINER function,
+ *                 so an unknown token returns nothing and nothing is
+ *                 enumerable. Pages are marked noindex.
+ *
+ * Anything added here is public to the internet. Justify it in review.
+ */
+const PUBLIC_PATHS = ["/api/health", "/r/"];
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "https://app.unnhub.org";
 
