@@ -1,6 +1,6 @@
 import {
   BookOpen, ClipboardList, Briefcase, Library, TrendingUp, Home, FileText,
-  Building2, Inbox, LayoutDashboard, Settings, Users, Send, UserRound, Bookmark,
+  Building2, Inbox, LayoutDashboard, Settings, Users, Send, UserRound, Bookmark, Flag,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -44,6 +44,8 @@ export function employerNav(employerId: string): NavItem[] {
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/employers", label: "Employers", icon: Building2 },
+  { href: "/admin/jobs", label: "Job approvals", icon: Briefcase },
+  { href: "/admin/reports", label: "Reports", icon: Flag },
   { href: "/admin/content", label: "Content", icon: ClipboardList },
   { href: "/admin/members", label: "Members", icon: Users },
 ];
