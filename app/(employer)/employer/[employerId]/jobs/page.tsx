@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Briefcase, Users, Eye, FileEdit } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getEmployerJobs, EMPLOYMENT_TYPE_LABEL } from "@/lib/cns/jobs";
+import { getEmployerJobs } from "@/lib/cns/jobs";
+import { getJobLabels } from "@/lib/cns/taxonomy";
 import { JobComposer } from "@/components/jobs/JobComposer";
 import { JobStatusActions } from "@/components/jobs/JobStatusActions";
 import { cn } from "@/lib/utils/cn";
@@ -9,7 +10,13 @@ import { cn } from "@/lib/utils/cn";
 export const dynamic = "force-dynamic";
 
 const STATUS_TONE: Record<string, string> = {
-  published: "bg-primary/10 text-primary",
+  active: "bg-primary/10 text-primary",
+  submitted: "bg-muted text-muted-foreground",
+  changes_requested: "bg-secondary/10 text-secondary",
+  paused: "bg-muted text-muted-foreground",
+  expired: "bg-muted text-muted-foreground",
+  rejected: "bg-secondary/10 text-secondary",
+  removed: "bg-muted text-muted-foreground",
   draft: "bg-muted text-muted-foreground",
   pending_review: "bg-muted text-muted-foreground",
   closed: "bg-muted text-muted-foreground",
@@ -33,10 +40,10 @@ export default async function EmployerJobsPage({
 
   // Employer members read ALL their own jobs — drafts included. Only the public
   // policy is limited to published rows.
-  const jobs = await getEmployerJobs(employerId);
-  const drafts = jobs.filter((j) => j.status === "draft" || j.status === "pending_review");
-  const live = jobs.filter((j) => j.status === "published");
-  const closed = jobs.filter((j) => j.status === "closed" || j.status === "archived");
+  const [jobs, labels] = await Promise.all([getEmployerJobs(employerId), getJobLabels()]);
+  const drafts = jobs.filter((j) => j.status === "draft" || j.status === "submitted" || j.status === "changes_requested");
+  const live = jobs.filter((j) => j.status === "active" || j.status === "paused");
+  const closed = jobs.filter((j) => j.status === "closed" || j.status === "expired" || j.status === "rejected" || j.status === "removed");
 
   const { data: apps } = await supabase
     .from("cns_job_applications")
@@ -63,7 +70,7 @@ export default async function EmployerJobsPage({
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{j.title}</p>
                 <p className="text-xs text-muted-foreground">
-                  {EMPLOYMENT_TYPE_LABEL[j.employment_type]}
+                  {labels.employment_type[j.employment_type] ?? j.employment_type}
                   {j.city && ` · ${j.city}`}
                   {j.application_deadline && ` · closes ${j.application_deadline}`}
                   {!j.application_deadline && j.status === "draft" && " · no deadline set"}
@@ -90,7 +97,7 @@ export default async function EmployerJobsPage({
               >
                 Edit
               </Link>
-              {j.status === "published" && (
+              {j.status === "active" && (
                 <Link href={`/jobs/${j.slug}`} className="text-xs text-muted-foreground hover:underline">
                   View live
                 </Link>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { saveJob, publishJob } from "@/lib/actions/jobs";
+import { saveJob, submitJobForReview } from "@/lib/actions/jobs";
 import { EMPLOYMENT_TYPE_LABEL, WORK_MODE_LABEL } from "@/lib/cns/job-constants";
 
 /**
@@ -14,7 +14,7 @@ import { EMPLOYMENT_TYPE_LABEL, WORK_MODE_LABEL } from "@/lib/cns/job-constants"
  * The field set and the inline guidance are shaped by what Google for Jobs
  * requires — a thin description or a missing deadline is not a style problem,
  * it makes the listing ineligible and, at scale, risks the whole board being
- * delisted. publishJob() enforces the same rules server-side.
+ * delisted. submitJobForReview() enforces the same rules server-side.
  */
 export type JobDraft = Partial<Record<string, unknown>> & { id?: string };
 
@@ -76,9 +76,9 @@ export function JobComposer({
         return;
       }
       if (publish && "id" in res && res.id) {
-        const pub = await publishJob(res.id, true);
-        if (pub?.error) {
-          setError(pub.error);
+        const sub = await submitJobForReview(res.id);
+        if (sub?.error) {
+          setError(sub.error);
           return;
         }
       }
@@ -216,11 +216,11 @@ export function JobComposer({
           {isEdit ? "Save changes" : "Save draft"}
         </Button>
         <Button onClick={() => submit(true)} disabled={pending || !canPublish || !f.title.trim()}>
-          {isEdit ? "Save & publish" : "Publish"}
+          {isEdit ? "Save & submit" : "Submit for review"}
         </Button>
         {!canPublish && (
           <span className="text-xs text-muted-foreground">
-            Publishing unlocks once UNN approves your organisation.
+            Submitting unlocks once UNN approves your organisation.
           </span>
         )}
       </div>

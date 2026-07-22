@@ -6,8 +6,8 @@ import {
 } from "lucide-react";
 import {
   getJobBySlug, formatSalary, buildJobPostingJsonLd, jobDescriptionHtml,
-  EMPLOYMENT_TYPE_LABEL, WORK_MODE_LABEL,
 } from "@/lib/cns/jobs";
+import { getJobLabels } from "@/lib/cns/taxonomy";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { ApplyPanel } from "@/components/jobs/ApplyPanel";
 
@@ -45,12 +45,16 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
   const { job, employer } = found;
   // RLS only exposes published jobs to anon, but a member of the employer can
   // also read drafts — don't render those as if they were live.
-  if (job.status !== "published") notFound();
+  // Employer members can read their own drafts; do not render those as live.
+  if (job.status !== "active") notFound();
 
   const user = await getCurrentUser();
   const url = `${SITE}/jobs/${job.slug}`;
-  const jsonLd = buildJobPostingJsonLd(job, employer, url);
-  const salary = formatSalary(job);
+  const [jsonLd, labels] = await Promise.all([
+    buildJobPostingJsonLd(job, employer, url),
+    getJobLabels(),
+  ]);
+  const salary = job.salary_text ?? formatSalary(job);
   const location = [job.city, job.state, job.country].filter(Boolean).join(", ");
 
   return (
@@ -87,14 +91,10 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
       <dl className="grid grid-cols-2 gap-4 rounded-lg border border-border bg-card p-5 sm:grid-cols-4">
         <Fact icon={MapPin} label="Location">
           {location || "—"}
-          {job.work_mode !== "onsite" && (
-            <span className="block text-xs text-muted-foreground">
-              {WORK_MODE_LABEL[job.work_mode]}
-            </span>
-          )}
+          {job.is_remote && <span className="block text-xs text-muted-foreground">Remote</span>}
         </Fact>
         <Fact icon={Clock} label="Type">
-          {EMPLOYMENT_TYPE_LABEL[job.employment_type]}
+          {labels.employment_type[job.employment_type] ?? job.employment_type}
         </Fact>
         <Fact icon={Banknote} label="Salary">
           {salary ?? "Not disclosed"}
@@ -104,11 +104,13 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
         </Fact>
       </dl>
 
-      {(job.experience_min_years != null || job.license_required || job.qualification_required) && (
+      {(job.experience_level || job.nursing_role || job.work_setting || job.license_required || job.qualification_required || job.specialty) && (
         <div className="flex flex-wrap gap-2">
-          {job.experience_min_years != null && (
-            <Chip>{job.experience_min_years}+ years experience</Chip>
+          {job.experience_level && (
+            <Chip>{labels.experience_level[job.experience_level] ?? job.experience_level}</Chip>
           )}
+          {job.nursing_role && <Chip>{labels.nursing_role[job.nursing_role]}</Chip>}
+          {job.work_setting && <Chip>{labels.work_setting[job.work_setting]}</Chip>}
           {job.license_required && (
             <Chip>
               <BadgeCheck className="mr-1 inline h-3 w-3" />
@@ -116,7 +118,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
             </Chip>
           )}
           {job.qualification_required && <Chip>{job.qualification_required}</Chip>}
-          {job.specialty && <Chip>{job.specialty}</Chip>}
+          {job.specialty && <Chip>{labels.specialty[job.specialty] ?? job.specialty}</Chip>}
         </div>
       )}
 

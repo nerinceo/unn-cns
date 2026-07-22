@@ -84,44 +84,69 @@ export async function saveJob(
   return { id: data.id as string };
 }
 
-export async function publishJob(jobId: string, publish: boolean) {
+/**
+ * Employer submits a job for review.
+ *
+ * Blueprint §3: "Only approved jobs can become publicly visible", and §9.2
+ * gives admins a job review queue. So an employer can no longer publish
+ * directly — submitting moves the job to 'submitted' and an admin decides.
+ *
+ * The quality gates run HERE rather than at approval time, so an employer is
+ * told what is missing while they still have the form open, instead of waiting
+ * a day to be rejected for a missing deadline.
+ */
+export async function submitJobForReview(jobId: string) {
   const supabase = await createClient();
 
-  if (publish) {
-    // Refuse to publish anything Google would treat as low quality, since a
-    // board of thin or undated listings risks the whole site being delisted.
-    const { data: job } = await supabase
-      .from("cns_jobs")
-      .select("title,description,country,application_deadline,employer_id")
-      .eq("id", jobId)
-      .maybeSingle();
-    if (!job) return { error: "Job not found" };
+  const { data: job } = await supabase
+    .from("cns_jobs")
+    .select("title,description,country,nursing_role,work_setting,application_deadline,employer_id")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (!job) return { error: "Job not found" };
 
-    const missing: string[] = [];
-    if (!job.title?.trim()) missing.push("title");
-    if (!job.description || job.description.trim().length < 100)
-      missing.push("a fuller description (at least 100 characters)");
-    if (!job.country) missing.push("country");
-    if (!job.application_deadline) missing.push("an application deadline");
-    if (missing.length) return { error: `Add ${missing.join(", ")} before publishing.` };
+  const missing: string[] = [];
+  if (!job.title?.trim()) missing.push("a job title");
+  if (!job.description || job.description.trim().length < 100)
+    missing.push("a fuller description (at least 100 characters)");
+  if (!job.country) missing.push("a country");
+  if (!job.nursing_role) missing.push("a nursing role");
+  if (!job.work_setting) missing.push("a work setting");
+  // Not pedantry: Google reads a missing expiry as a quality signal against the
+  // listing, and a board of undated jobs risks every listing being delisted.
+  if (!job.application_deadline) missing.push("an application deadline");
+  if (missing.length) return { error: `Add ${missing.join(", ")} before submitting.` };
 
-    const { data: employer } = await supabase
-      .from("cns_employers")
-      .select("status")
-      .eq("id", job.employer_id as string)
-      .maybeSingle();
-    if (employer?.status !== "approved")
-      return { error: "Your organisation is still awaiting approval." };
-  }
+  const { data: employer } = await supabase
+    .from("cns_employers")
+    .select("status")
+    .eq("id", job.employer_id as string)
+    .maybeSingle();
+  if (employer?.status !== "approved")
+    return { error: "Your organisation is still awaiting approval." };
 
   const { error } = await supabase
     .from("cns_jobs")
-    .update({
-      status: publish ? "published" : "closed",
-      published_at: publish ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ status: "submitted", updated_at: new Date().toISOString() })
     .eq("id", jobId);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/employer/${job.employer_id}/jobs`);
+  revalidatePath("/admin/jobs");
+  return { ok: true };
+}
+
+/** Employer pauses or closes a live job. Neither needs admin involvement. */
+export async function setJobLifecycle(jobId: string, next: "paused" | "active" | "closed") {
+  const supabase = await createClient();
+
+  // Resuming a paused job returns it to 'active' without re-review; it was
+  // already approved once and its content has not changed.
+  const { error } = await supabase
+    .from("cns_jobs")
+    .update({ status: next, updated_at: new Date().toISOString() })
+    .eq("id", jobId)
+    .in("status", next === "active" ? ["paused"] : ["active", "paused"]);
   if (error) return { error: error.message };
 
   revalidatePath("/jobs");
