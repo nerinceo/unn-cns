@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { JOB_COLS } from "@/lib/cns/jobs";
 import { JobComposer } from "@/components/jobs/JobComposer";
 import { JobStatusActions } from "@/components/jobs/JobStatusActions";
+import { ScreeningEditor } from "@/components/jobs/ScreeningEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -32,11 +33,14 @@ export default async function EditJobPage({
   if (!jobRow) notFound();
   const job = jobRow as unknown as Record<string, unknown>;
 
-  const { data: employer } = await supabase
-    .from("cns_employers")
-    .select("status")
-    .eq("id", employerId)
-    .maybeSingle();
+  const [{ data: employer }, { data: questions }] = await Promise.all([
+    supabase.from("cns_employers").select("status").eq("id", employerId).maybeSingle(),
+    supabase
+      .from("cns_job_screening_questions")
+      .select("question,question_type,is_required")
+      .eq("job_id", jobId)
+      .order("position"),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -76,6 +80,15 @@ export default async function EditJobPage({
         canPublish={employer?.status === "approved"}
         existing={{ ...job, id: jobId }}
       />
+
+      <ScreeningEditor jobId={jobId} initial={(questions ?? []) as never} />
+
+      {job.changes_requested_note ? (
+        <div className="rounded-lg border border-secondary/30 bg-secondary/5 p-4 text-sm">
+          <p className="font-medium text-secondary">UNN asked for changes</p>
+          <p className="mt-1 text-muted-foreground">{job.changes_requested_note as string}</p>
+        </div>
+      ) : null}
     </div>
   );
 }

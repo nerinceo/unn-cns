@@ -3,6 +3,8 @@ import { Briefcase, MapPin, Clock, ShieldCheck, Banknote, Building2 } from "luci
 import { listPublishedJobs, formatSalary } from "@/lib/cns/jobs";
 import { getTaxonomy, getJobLabels } from "@/lib/cns/taxonomy";
 import { JobFilters } from "@/components/jobs/JobFilters";
+import { JobsHome } from "@/components/jobs/JobsHome";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +44,48 @@ export default async function JobsPage({
   ]);
 
   const activeCount = Object.values(selected).reduce((n, v) => n + v.length, 0);
+
+  // Directory view when nothing is being searched or filtered (§8.1); the
+  // results list takes over the moment it is. They are different jobs and one
+  // screen would do neither well.
+  if (activeCount === 0 && !q) {
+    const supabase = await createClient();
+    const [{ data: facetRows }, { data: verified }] = await Promise.all([
+      supabase.from("cns_jobs").select("country,specialty,nursing_role").eq("status", "active"),
+      supabase
+        .from("cns_employers")
+        .select("id,name,slug")
+        .eq("status", "approved")
+        .eq("verification_status", "verified")
+        .limit(12),
+    ]);
+
+    const tally = (key: "country" | "specialty" | "nursing_role") => {
+      const counts = new Map<string, number>();
+      for (const r of facetRows ?? []) {
+        const v = r[key] as string | null;
+        if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+      }
+      return counts;
+    };
+    // A facet with zero jobs is omitted: a shortcut leading to an empty page
+    // is worse than no shortcut.
+    const withCounts = (kind: keyof typeof taxonomy, counts: Map<string, number>) =>
+      taxonomy[kind]
+        .map((cat) => ({ cat, count: counts.get(cat.value) ?? 0 }))
+        .filter((x) => x.count > 0)
+        .sort((a, b) => b.count - a.count);
+
+    return (
+      <JobsHome
+        countries={withCounts("country", tally("country"))}
+        specialties={withCounts("specialty", tally("specialty"))}
+        roles={withCounts("nursing_role", tally("nursing_role"))}
+        verifiedEmployers={(verified ?? []) as never}
+        totalJobs={(facetRows ?? []).length}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
