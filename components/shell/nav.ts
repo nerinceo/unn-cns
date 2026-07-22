@@ -1,6 +1,6 @@
 import {
   BookOpen, ClipboardList, Briefcase, Library, TrendingUp, Home, FileText,
-  Building2, Inbox, LayoutDashboard, Settings, Users, Send,
+  Building2, Inbox, LayoutDashboard, Settings, Users, Send, UserRound, Bookmark,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -22,7 +22,9 @@ export const MEMBER_NAV: NavItem[] = [
   { href: "/learn", label: "Learn", icon: BookOpen },
   { href: "/question-bank", label: "Question Bank", icon: ClipboardList },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/saved", label: "Saved Jobs", icon: Bookmark },
   { href: "/applications", label: "My Applications", icon: Send },
+  { href: "/profile", label: "Job Profile", icon: UserRound },
   { href: "/resume", label: "Resume", icon: FileText },
   { href: "/library", label: "My Library", icon: Library },
   { href: "/progress", label: "Progress", icon: TrendingUp },
