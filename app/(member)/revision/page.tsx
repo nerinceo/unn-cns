@@ -15,7 +15,7 @@ export default async function RevisionPage() {
     if (!byYear.has(y)) byYear.set(y, []);
     byYear.get(y)!.push(s);
   }
-  const years = [...byYear.keys()].sort((a, b) => a - b);
+  const years = Array.from(byYear.keys()).sort((a, b) => a - b);
 
   return (
     <div className="space-y-8">

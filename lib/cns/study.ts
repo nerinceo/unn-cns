@@ -146,5 +146,5 @@ export async function getStudyTypes(subjectId: string): Promise<{ type: string; 
     const t = (r.source_question_type as string) ?? "Other";
     counts.set(t, (counts.get(t) ?? 0) + 1);
   }
-  return [...counts.entries()].map(([type, count]) => ({ type, count })).sort((a, b) => b.count - a.count);
+  return Array.from(counts.entries()).map(([type, count]) => ({ type, count })).sort((a, b) => b.count - a.count);
 }
