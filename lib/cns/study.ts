@@ -79,6 +79,7 @@ export type StudyQuestion = {
   model_answer: string | null;
   rationale: string | null;
   exam_tip: string | null;
+  diagram_note: string | null;
   source_question_type: string | null;
   marks: number | null;
   topic_id: string | null;
@@ -101,7 +102,7 @@ export async function getStudyQuestions(opts: {
 
   let query = supabase
     .from("cns_study_questions")
-    .select("id,stem,model_answer,rationale,exam_tip,source_question_type,marks,topic_id", { count: "exact" })
+    .select("id,stem,model_answer,rationale,exam_tip,diagram_note,source_question_type,marks,topic_id", { count: "exact" })
     .eq("status", "published")
     .eq("subject_id", opts.subjectId);
   if (opts.topicId) query = query.eq("topic_id", opts.topicId);

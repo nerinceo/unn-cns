@@ -73,6 +73,7 @@ export default async function RevisionSubjectPage({
             modelAnswer={q.model_answer}
             rationale={q.rationale}
             examTip={q.exam_tip}
+            diagramNote={q.diagram_note}
             type={q.source_question_type}
             marks={q.marks}
           />

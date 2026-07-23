@@ -289,7 +289,7 @@ async function importMcq() {
 async function importStudy() {
   const inst = await institutionId();
   await prewarmCaches();
-  const rows = await fetchAll(HIER + ",question_type,question,answer,rationale,exam_tip,marks,category", (q) => q.neq("question_type", "MCQ"));
+  const rows = await fetchAll(HIER + ",question_type,question,answer,rationale,exam_tip,marks,category,diagram_note", (q) => q.neq("question_type", "MCQ"));
   console.log(`open-ended source rows: ${rows.length}`);
 
   const existing = await fetchAllTarget("cns_study_questions", "source_ref", (q) => q.eq("institution_id", inst).not("source_ref", "is", null));
@@ -317,6 +317,7 @@ async function importStudy() {
         institution_id: inst, subject_id: subjectId, topic_id: topicId,
         source_question_type: row.question_type, stem: row.question,
         model_answer: row.answer ?? null, rationale: row.rationale ?? null, exam_tip: row.exam_tip ?? null,
+        diagram_note: (row.diagram_note && String(row.diagram_note).trim()) ? row.diagram_note : null,
         marks: row.marks ?? null, category: row.category ?? null,
         tags: [row.category, "rguhs"].filter(Boolean),
         status: "published", source_ref: row.id, import_batch_id: batch,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Lightbulb, Eye } from "lucide-react";
+import { ChevronDown, Lightbulb, Eye, PenLine } from "lucide-react";
 
 /**
  * One revision question: the stem always shown, the model answer revealed on
@@ -13,6 +13,7 @@ export function StudyCard({
   modelAnswer,
   rationale,
   examTip,
+  diagramNote,
   type,
   marks,
 }: {
@@ -20,6 +21,7 @@ export function StudyCard({
   modelAnswer: string | null;
   rationale: string | null;
   examTip: string | null;
+  diagramNote?: string | null;
   type: string | null;
   marks: number | null;
 }) {
@@ -49,6 +51,15 @@ export function StudyCard({
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rationale</p>
               <p className="whitespace-pre-wrap text-sm text-muted-foreground">{rationale}</p>
             </div>
+          )}
+          {diagramNote && (
+            <p className="flex items-start gap-1.5 rounded-md border border-border bg-muted/40 p-3 text-sm">
+              <PenLine className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>
+                <span className="font-medium">Diagram to draw: </span>
+                {diagramNote}
+              </span>
+            </p>
           )}
           {examTip && (
             <p className="flex items-start gap-1.5 rounded-md bg-primary/5 p-3 text-sm">
