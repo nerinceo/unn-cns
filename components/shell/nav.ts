@@ -1,5 +1,5 @@
 import {
-  BookOpen, ClipboardList, Briefcase, Library, TrendingUp, Home, FileText,
+  BookOpen, BookOpenCheck, ClipboardList, Briefcase, Library, TrendingUp, Home, FileText,
   Building2, Inbox, LayoutDashboard, Settings, Users, Send, UserRound, Bookmark, Flag,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -21,6 +21,7 @@ export const MEMBER_NAV: NavItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/learn", label: "Learn", icon: BookOpen },
   { href: "/question-bank", label: "Question Bank", icon: ClipboardList },
+  { href: "/revision", label: "Revision", icon: BookOpenCheck },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/saved", label: "Saved Jobs", icon: Bookmark },
   { href: "/applications", label: "My Applications", icon: Send },
