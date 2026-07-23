@@ -6,7 +6,7 @@ import { ResumeUpload } from "@/components/resume/ResumeUpload";
 import { NewResumeButton } from "@/components/resume/NewResumeButton";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Resume — UNN CNS" };
+export const metadata = { title: "Resume — Central Nursing Systems" };
 
 export default async function ResumeListPage() {
   const user = await getCurrentUser();

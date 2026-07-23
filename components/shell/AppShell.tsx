@@ -2,8 +2,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { getCurrentUserProfile } from "@/lib/supabase/server";
 import { hubLink } from "@/lib/hub";
+import { cn } from "@/lib/utils/cn";
 import { PortalSwitcher } from "./PortalSwitcher";
 import { SideNav, MobileNav, type PortalKey } from "./SideNav";
+import { MemberTopNav, MemberBottomNav } from "./MemberNav";
 
 /**
  * One shell, three portals.
@@ -42,15 +44,23 @@ export async function AppShell({
         ? "/admin"
         : "/";
 
+  // The member portal is the CNS learning/careers experience: a wide top-nav
+  // layout (1280–1440px) per the brief. Employer and admin keep the compact
+  // sidebar — they are task consoles, not a browse experience.
+  const isMember = portal === "member";
+  const container = isMember ? "max-w-[1440px] px-6" : "max-w-6xl px-4";
+
   return (
     <>
       <header className="sticky top-0 z-40 h-16 border-b border-border bg-card">
-        <div className="mx-auto flex h-full max-w-6xl items-center gap-4 px-4">
+        <div className={cn("mx-auto flex h-full items-center gap-4", container)}>
           <Link href={homeHref} className="flex items-center gap-2">
             <span className="rounded-md bg-primary px-2 py-1 text-sm font-bold text-primary-foreground">
-              UNN
+              CNS
             </span>
-            <span className="truncate text-lg font-semibold text-primary">{wordmark}</span>
+            <span className="hidden truncate text-lg font-semibold text-primary sm:inline">
+              {wordmark}
+            </span>
           </Link>
 
           <div className="ml-auto flex items-center gap-3">
@@ -79,12 +89,23 @@ export async function AppShell({
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-6xl gap-8 px-4 pb-24 pt-6 md:pb-8">
-        <SideNav portal={portal} employerId={employerId} />
-        <main className="min-w-0 flex-1">{children}</main>
-      </div>
-
-      <MobileNav portal={portal} employerId={employerId} />
+      {isMember ? (
+        <>
+          <MemberTopNav />
+          <div className={cn("mx-auto pb-24 pt-6 md:pb-10", container)}>
+            <main className="min-w-0">{children}</main>
+          </div>
+          <MemberBottomNav />
+        </>
+      ) : (
+        <>
+          <div className={cn("mx-auto flex gap-8 pb-24 pt-6 md:pb-8", container)}>
+            <SideNav portal={portal} employerId={employerId} />
+            <main className="min-w-0 flex-1">{children}</main>
+          </div>
+          <MobileNav portal={portal} employerId={employerId} />
+        </>
+      )}
     </>
   );
 }

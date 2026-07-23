@@ -3,7 +3,7 @@ import { ClipboardList, Clock, FileText, Lock } from "lucide-react";
 import { getSubjectsWithSets } from "@/lib/cns/question-bank";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Question Bank — UNN CNS" };
+export const metadata = { title: "Question Bank — Central Nursing Systems" };
 
 export default async function QuestionBankPage() {
   const subjects = await getSubjectsWithSets();

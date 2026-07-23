@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "UNN CNS — Learning, Question Banks & Careers",
+  title: "Central Nursing Systems — Learning, Question Banks & Careers",
   description:
     "Clinical Nursing Suite — courses, question banks, exams and nursing jobs for UNN members.",
 };

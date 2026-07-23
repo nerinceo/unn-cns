@@ -1,7 +1,7 @@
 import { TrendingUp } from "lucide-react";
 import { ModuleStub } from "@/components/shell/ModuleStub";
 
-export const metadata = { title: "Progress — UNN CNS" };
+export const metadata = { title: "Progress — Central Nursing Systems" };
 
 export default function ProgressPage() {
   return (

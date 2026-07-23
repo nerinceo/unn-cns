@@ -3,7 +3,7 @@ import { ClipboardList, Database } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Content — UNN CNS Admin" };
+export const metadata = { title: "Content — Central Nursing Systems Admin" };
 
 /**
  * Question-bank content overview.

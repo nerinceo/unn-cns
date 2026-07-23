@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ReportActions } from "@/components/jobs/ReportActions";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Reports — UNN CNS Admin" };
+export const metadata = { title: "Reports — Central Nursing Systems Admin" };
 
 const REASON_LABEL: Record<string, string> = {
   suspicious_job: "Suspicious job",

@@ -5,7 +5,7 @@ import { EMPTY_SEEKER, profileCompleteness, type SeekerProfile } from "@/lib/cns
 import { SeekerProfileForm } from "@/components/jobs/SeekerProfileForm";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Job Profile — UNN CNS" };
+export const metadata = { title: "Job Profile — Central Nursing Systems" };
 
 export default async function JobProfilePage() {
   const user = await getCurrentUser();

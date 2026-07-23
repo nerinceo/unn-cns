@@ -15,7 +15,7 @@ export default async function MemberLayout({ children }: { children: React.React
   return (
     <AppShell
       portal="member"
-      wordmark="CNS"
+      wordmark="Central Nursing Systems"
       employers={employers.map((m) => ({ id: m.employer.id, name: m.employer.name }))}
       isStaff={staff}
     >

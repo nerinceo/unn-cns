@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils/cn";
 import { WithdrawButton } from "@/components/jobs/WithdrawButton";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "My Applications — UNN CNS" };
+export const metadata = { title: "My Applications — Central Nursing Systems" };
 
 /**
  * What each status means to the applicant.

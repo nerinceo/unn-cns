@@ -1,6 +1,7 @@
 import {
   BookOpen, BookOpenCheck, ClipboardList, Briefcase, Library, TrendingUp, Home, FileText,
   Building2, Inbox, LayoutDashboard, Settings, Users, Send, UserRound, Bookmark, Flag,
+  GraduationCap, Bot, School, BadgeCheck, Calculator, HeartHandshake, LayoutGrid,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -16,20 +17,36 @@ import type { LucideIcon } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon };
 
-/** Nurses and students — the default portal. */
-export const MEMBER_NAV: NavItem[] = [
+/**
+ * Member information architecture (CNS "Central Nursing Systems" brief).
+ *
+ * Primary nav is deliberately short — Home, Learn, Jobs, Nubo — with everything
+ * else behind More. The old flat list of eleven items is reorganised into
+ * hubs, not deleted: Learn gathers the question bank, revision and progress;
+ * Registry gathers the job profile, resume and verification; Jobs keeps the
+ * board with saved and applications. Every prior route still resolves.
+ */
+export const MEMBER_PRIMARY: NavItem[] = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/learn", label: "Learn", icon: BookOpen },
-  { href: "/question-bank", label: "Question Bank", icon: ClipboardList },
-  { href: "/revision", label: "Revision", icon: BookOpenCheck },
+  { href: "/learn", label: "Learn", icon: GraduationCap },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
-  { href: "/saved", label: "Saved Jobs", icon: Bookmark },
-  { href: "/applications", label: "My Applications", icon: Send },
-  { href: "/profile", label: "Job Profile", icon: UserRound },
-  { href: "/resume", label: "Resume", icon: FileText },
-  { href: "/library", label: "My Library", icon: Library },
-  { href: "/progress", label: "Progress", icon: TrendingUp },
+  { href: "/nubo", label: "Nubo", icon: Bot },
 ];
+
+/** Behind the "More" menu. */
+export const MEMBER_MORE: NavItem[] = [
+  { href: "/lms", label: "LMS", icon: School },
+  { href: "/registry", label: "Registry", icon: BadgeCheck },
+  { href: "/library", label: "Library", icon: Library },
+  { href: "/resources", label: "Resources", icon: Calculator },
+  { href: "/services", label: "Services", icon: HeartHandshake },
+];
+
+/** The "More" trigger for the bottom bar (mobile). */
+export const MORE_ICON: LucideIcon = LayoutGrid;
+
+/** Flat list kept for anywhere that still enumerates every member destination. */
+export const MEMBER_NAV: NavItem[] = [...MEMBER_PRIMARY, ...MEMBER_MORE];
 
 /** Hospitals and agencies. Scoped to one organisation at a time. */
 export function employerNav(employerId: string): NavItem[] {

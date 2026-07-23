@@ -5,7 +5,7 @@ import { isStaff } from "@/lib/cns/admin";
 import { EmployerReviewActions } from "@/components/jobs/EmployerReviewActions";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Employer approvals — UNN CNS" };
+export const metadata = { title: "Employer approvals — Central Nursing Systems" };
 
 export default async function AdminEmployersPage() {
   // 404 rather than a redirect: a non-staff member should not learn that this

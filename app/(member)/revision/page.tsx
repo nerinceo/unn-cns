@@ -3,7 +3,7 @@ import { BookOpenCheck, ArrowRight } from "lucide-react";
 import { getStudySubjects } from "@/lib/cns/study";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Revision — UNN CNS" };
+export const metadata = { title: "Revision — Central Nursing Systems" };
 
 export default async function RevisionPage() {
   const subjects = await getStudySubjects();
