@@ -28,10 +28,13 @@ export default async function EmployerDashboard({
     .in("job_id", jobs.length ? jobs.map((j) => j.id) : ["00000000-0000-0000-0000-000000000000"]);
 
   const approved = employer.status === "approved";
-  const drafts = jobs.filter((j) => j.status === "draft" || j.status === "pending_review").length;
-  const live = jobs.filter((j) => j.status === "published").length;
+  // Job status vocabulary: draft, submitted, changes_requested, active, paused,
+  // closed, expired, rejected, removed. Application status: applied,
+  // under_review, shortlisted, interview, selected, not_selected, withdrawn.
+  const drafts = jobs.filter((j) => ["draft", "submitted", "changes_requested"].includes(j.status as string)).length;
+  const live = jobs.filter((j) => j.status === "active").length;
   const total = apps?.length ?? 0;
-  const needsReview = (apps ?? []).filter((a) => a.status === "submitted").length;
+  const needsReview = (apps ?? []).filter((a) => a.status === "applied").length;
 
   return (
     <div className="space-y-6">

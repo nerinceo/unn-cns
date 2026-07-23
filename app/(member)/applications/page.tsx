@@ -14,13 +14,17 @@ export const metadata = { title: "My Applications — UNN CNS" };
  * written for the nurse, not the recruiter — "Under review" rather than
  * "viewed", because the internal label is not what a candidate needs to read.
  */
+// Keyed on the DB status vocabulary. An unknown status falls through to the
+// 'applied' entry below, so a drift here degrades to a wrong label rather than
+// a crash — but it drifted once (submitted/viewed/offered/rejected) and every
+// real row then showed the fallback, so keep this in step with the migration.
 const STATUS: Record<string, { label: string; hint: string; tone: "neutral" | "good" | "bad" }> = {
-  submitted: { label: "Submitted", hint: "Waiting for the employer to review.", tone: "neutral" },
-  viewed: { label: "Under review", hint: "The employer has opened your application.", tone: "neutral" },
+  applied: { label: "Applied", hint: "Waiting for the employer to review.", tone: "neutral" },
+  under_review: { label: "Under review", hint: "The employer has opened your application.", tone: "neutral" },
   shortlisted: { label: "Shortlisted", hint: "They have your contact details and may be in touch.", tone: "good" },
   interview: { label: "Interview", hint: "You have been invited to interview.", tone: "good" },
-  offered: { label: "Offer", hint: "An offer has been made.", tone: "good" },
-  rejected: { label: "Not selected", hint: "The employer is not taking this forward.", tone: "bad" },
+  selected: { label: "Selected", hint: "You have been selected for this role.", tone: "good" },
+  not_selected: { label: "Not selected", hint: "The employer is not taking this forward.", tone: "bad" },
   withdrawn: { label: "Withdrawn", hint: "You withdrew this application.", tone: "bad" },
 };
 
@@ -79,8 +83,8 @@ export default async function MyApplicationsPage() {
           {applications.map((a) => {
             const job = jobById.get(a.job_id as string);
             const employer = job ? empById.get(job.employer_id as string) : null;
-            const st = STATUS[a.status as string] ?? STATUS.submitted;
-            const canWithdraw = !["withdrawn", "rejected", "offered"].includes(a.status as string);
+            const st = STATUS[a.status as string] ?? STATUS.applied;
+            const canWithdraw = !["withdrawn", "not_selected", "selected"].includes(a.status as string);
 
             return (
               <li key={a.id as string} className="rounded-lg border border-border bg-card p-5">
@@ -115,7 +119,7 @@ export default async function MyApplicationsPage() {
 
                 <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                   <span>Applied {new Date(a.created_at as string).toLocaleDateString()}</span>
-                  {a.status_changed_at && a.status !== "submitted" && (
+                  {a.status_changed_at && a.status !== "applied" && (
                     <span>
                       Updated {new Date(a.status_changed_at as string).toLocaleDateString()}
                     </span>

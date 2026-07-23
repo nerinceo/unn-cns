@@ -44,8 +44,10 @@ export default async function ApplicationsInbox({
 
   // Contact details are NOT in the snapshot — they are released only once an
   // applicant is shortlisted, which is the promise made on the apply screen.
+  // 'selected' is the blueprint's name for what used to be 'offered'; keeping
+  // the old name here withheld a hired candidate's contact details.
   const shortlistedIds = (applications ?? [])
-    .filter((a) => ["shortlisted", "interview", "offered"].includes(a.status as string))
+    .filter((a) => ["shortlisted", "interview", "selected"].includes(a.status as string))
     .map((a) => a.applicant_id as string);
 
   const contactById = new Map<string, { email: string | null; phone: string | null }>();

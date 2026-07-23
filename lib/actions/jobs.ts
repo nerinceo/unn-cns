@@ -382,12 +382,14 @@ export async function withdrawApplication(applicationId: string): Promise<Action
 }
 
 /** How a status change reads to the applicant. Written for them, not the employer. */
+// Keyed on the DB status vocabulary (see cns_set_application_status). A key
+// that no status can hold produces silence — the candidate never hears back.
 const APPLICANT_MESSAGE: Record<string, string> = {
-  viewed: "Your application has been opened by the employer.",
+  under_review: "Your application has been opened by the employer.",
   shortlisted: "You have been shortlisted. The employer now has your contact details.",
   interview: "You have been invited to interview.",
-  offered: "You have received an offer.",
-  rejected: "The employer is not taking your application forward.",
+  selected: "You have been selected for this role.",
+  not_selected: "The employer is not taking your application forward.",
 };
 
 export async function setApplicationStatus(applicationId: string, status: string, note?: string): Promise<ActionResult> {

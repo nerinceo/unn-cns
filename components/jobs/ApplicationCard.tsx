@@ -7,23 +7,40 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { setApplicationStatus } from "@/lib/actions/jobs";
 
+// Keyed on the status vocabulary the database enforces
+// (cns_job_applications_status_check): applied, under_review, shortlisted,
+// interview, selected, not_selected, withdrawn. These were on the pre-blueprint
+// names (submitted/viewed/offered/rejected), so an application sitting at
+// 'applied' matched no key and the employer saw NO action buttons at all.
 const NEXT_STATUS: Record<string, { label: string; value: string }[]> = {
-  submitted: [
+  applied: [
+    { label: "Mark under review", value: "under_review" },
     { label: "Shortlist", value: "shortlisted" },
-    { label: "Reject", value: "rejected" },
+    { label: "Not selected", value: "not_selected" },
   ],
-  viewed: [
+  under_review: [
     { label: "Shortlist", value: "shortlisted" },
-    { label: "Reject", value: "rejected" },
+    { label: "Not selected", value: "not_selected" },
   ],
   shortlisted: [
     { label: "Move to interview", value: "interview" },
-    { label: "Reject", value: "rejected" },
+    { label: "Not selected", value: "not_selected" },
   ],
   interview: [
-    { label: "Make offer", value: "offered" },
-    { label: "Reject", value: "rejected" },
+    { label: "Select", value: "selected" },
+    { label: "Not selected", value: "not_selected" },
   ],
+};
+
+/** Raw status -> what the employer should read on the badge. */
+const STATUS_LABEL: Record<string, string> = {
+  applied: "Applied",
+  under_review: "Under review",
+  shortlisted: "Shortlisted",
+  interview: "Interview",
+  selected: "Selected",
+  not_selected: "Not selected",
+  withdrawn: "Withdrawn",
 };
 
 type Snapshot = {
@@ -91,15 +108,13 @@ export function ApplicationCard({
         </div>
         <span
           className={cn(
-            "rounded px-2 py-0.5 text-xs font-medium capitalize",
-            current === "rejected"
+            "rounded px-2 py-0.5 text-xs font-medium",
+            current === "not_selected" || current === "withdrawn"
               ? "bg-muted text-muted-foreground"
-              : current === "submitted"
-                ? "bg-muted text-muted-foreground"
-                : "bg-primary/10 text-primary"
+              : "bg-primary/10 text-primary"
           )}
         >
-          {current}
+          {STATUS_LABEL[current] ?? current}
         </span>
       </div>
 
@@ -193,7 +208,7 @@ export function ApplicationCard({
             <Button
               key={a.value}
               size="sm"
-              variant={a.value === "rejected" ? "outline" : "default"}
+              variant={a.value === "not_selected" ? "outline" : "default"}
               onClick={() => move(a.value)}
               disabled={pending}
             >

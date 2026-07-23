@@ -18,9 +18,7 @@ const STATUS_TONE: Record<string, string> = {
   rejected: "bg-secondary/10 text-secondary",
   removed: "bg-muted text-muted-foreground",
   draft: "bg-muted text-muted-foreground",
-  pending_review: "bg-muted text-muted-foreground",
   closed: "bg-muted text-muted-foreground",
-  archived: "bg-muted text-muted-foreground",
 };
 
 export default async function EmployerJobsPage({

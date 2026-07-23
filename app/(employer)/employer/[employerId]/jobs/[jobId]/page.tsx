@@ -61,7 +61,7 @@ export default async function EditJobPage({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {job.status === "published" && (
+          {job.status === "active" && (
             <Link
               href={`/jobs/${job.slug as string}`}
               className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"

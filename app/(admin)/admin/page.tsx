@@ -15,7 +15,7 @@ export default async function AdminOverview() {
   const [pendingEmployers, employers, liveJobs, applications] = await Promise.all([
     admin.from("cns_employers").select("id", head).eq("status", "pending"),
     admin.from("cns_employers").select("id", head),
-    admin.from("cns_jobs").select("id", head).eq("status", "published"),
+    admin.from("cns_jobs").select("id", head).eq("status", "active"),
     admin.from("cns_job_applications").select("id", head),
   ]).then((rs) => rs.map((r) => r.count ?? 0));
 
