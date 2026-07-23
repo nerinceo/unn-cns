@@ -5,6 +5,7 @@ import type { ActionResult } from "@/lib/actions/result";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { checkLimit } from "@/lib/ratelimit";
+import { getJobLabels } from "@/lib/cns/taxonomy";
 
 function slugify(s: string) {
   return s
@@ -224,17 +225,57 @@ export async function setJobLifecycle(jobId: string, next: "paused" | "active" |
 async function buildSnapshot(userId: string) {
   const supabase = await createClient();
 
-  const { data: u } = await supabase
-    .from("users")
-    .select("full_name,professional_title,bio,country,profile_photo,verification_status,role")
-    .eq("id", userId)
-    .maybeSingle();
+  const [{ data: u }, { data: p }, { data: sp }, labels] = await Promise.all([
+    supabase
+      .from("users")
+      .select("full_name,professional_title,bio,country,profile_photo,verification_status,role")
+      .eq("id", userId)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("education,experience,skills,languages,certificates")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    // The CNS job profile — the fields a nurse fills specifically for job
+    // applications. These were never captured before, so employers saw only
+    // the generic HUB profile and none of the role, experience, specialties,
+    // licensure or qualifications the applicant actually entered.
+    supabase
+      .from("cns_job_seeker_profiles")
+      .select("nursing_role,is_student,experience_level,total_years,specialties,licence_country,licence_type,licence_status,highest_qualification,institution,graduation_year,preferred_countries,preferred_roles,preferred_employment_types,preferred_work_settings")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    getJobLabels(),
+  ]);
 
-  const { data: p } = await supabase
-    .from("profiles")
-    .select("education,experience,skills,languages,certificates")
-    .eq("user_id", userId)
-    .maybeSingle();
+  // Resolve taxonomy slugs to labels AT CAPTURE TIME, so the snapshot stays
+  // self-describing and frozen — renaming a taxonomy entry later cannot change
+  // what an employer sees a past applicant claimed.
+  const one = (map: Record<string, string>, v: string | null) => (v ? map[v] ?? v : null);
+  const many = (map: Record<string, string>, v: string[] | null) => (v ?? []).map((x) => map[x] ?? x);
+
+  // Deliberately EXCLUDES phone and licence_number: phone is contact PII (still
+  // released only on shortlist, via users), and a licence number is a sensitive
+  // identifier the employer does not need before making contact.
+  const seeker = sp
+    ? {
+        nursing_role: one(labels.nursing_role, sp.nursing_role as string | null),
+        is_student: Boolean(sp.is_student),
+        experience_level: one(labels.experience_level, sp.experience_level as string | null),
+        total_years: (sp.total_years as number) ?? null,
+        specialties: many(labels.specialty, sp.specialties as string[] | null),
+        licence_country: one(labels.country, sp.licence_country as string | null),
+        licence_type: (sp.licence_type as string) ?? null,
+        licence_status: (sp.licence_status as string) ?? null,
+        highest_qualification: (sp.highest_qualification as string) ?? null,
+        institution: (sp.institution as string) ?? null,
+        graduation_year: (sp.graduation_year as number) ?? null,
+        preferred_countries: many(labels.country, sp.preferred_countries as string[] | null),
+        preferred_roles: many(labels.nursing_role, sp.preferred_roles as string[] | null),
+        preferred_employment_types: many(labels.employment_type, sp.preferred_employment_types as string[] | null),
+        preferred_work_settings: many(labels.work_setting, sp.preferred_work_settings as string[] | null),
+      }
+    : null;
 
   return {
     full_name: u?.full_name ?? null,
@@ -250,6 +291,7 @@ async function buildSnapshot(userId: string) {
     skills: p?.skills ?? [],
     languages: p?.languages ?? [],
     certificates: p?.certificates ?? [],
+    seeker,
     captured_at: new Date().toISOString(),
   };
 }

@@ -43,6 +43,24 @@ const STATUS_LABEL: Record<string, string> = {
   withdrawn: "Withdrawn",
 };
 
+type Seeker = {
+  nursing_role?: string | null;
+  is_student?: boolean;
+  experience_level?: string | null;
+  total_years?: number | null;
+  specialties?: string[];
+  licence_country?: string | null;
+  licence_type?: string | null;
+  licence_status?: string | null;
+  highest_qualification?: string | null;
+  institution?: string | null;
+  graduation_year?: number | null;
+  preferred_countries?: string[];
+  preferred_roles?: string[];
+  preferred_employment_types?: string[];
+  preferred_work_settings?: string[];
+};
+
 type Snapshot = {
   full_name?: string;
   professional_title?: string;
@@ -52,6 +70,7 @@ type Snapshot = {
   education?: { degree?: string; institution?: string; end_year?: string }[];
   experience?: { title?: string; employer?: string }[];
   skills?: string[];
+  seeker?: Seeker | null;
 };
 
 export function ApplicationCard({
@@ -150,6 +169,7 @@ export function ApplicationCard({
 
       {open && (
         <div className="mt-3 space-y-3 border-t border-border pt-3 text-sm">
+          {s.seeker && <SeekerDetails seeker={s.seeker} />}
           {s.bio && <p className="text-muted-foreground">{s.bio}</p>}
           {!!s.experience?.length && (
             <div>
@@ -216,7 +236,7 @@ export function ApplicationCard({
               {a.label}
             </Button>
           ))}
-          {current === "submitted" && (
+          {(current === "applied" || current === "under_review") && (
             <span className="text-xs text-muted-foreground">
               Shortlisting reveals their email and phone.
             </span>
@@ -224,6 +244,71 @@ export function ApplicationCard({
         </div>
       )}
       {error && <p className="mt-2 text-sm text-secondary">{error}</p>}
+    </div>
+  );
+}
+
+/** The CNS job profile the applicant filled — role, experience, licensure,
+ *  qualifications and preferences. Frozen in the snapshot at apply time. */
+function SeekerDetails({ seeker }: { seeker: Seeker }) {
+  const chips = (label: string, items?: string[]) =>
+    items && items.length ? (
+      <Field label={label}>
+        <span className="flex flex-wrap gap-1">
+          {items.map((x) => (
+            <span key={x} className="rounded bg-muted px-1.5 py-0.5 text-xs">{x}</span>
+          ))}
+        </span>
+      </Field>
+    ) : null;
+
+  const licence = [seeker.licence_type, seeker.licence_status, seeker.licence_country]
+    .filter(Boolean)
+    .join(" · ");
+  const education = [
+    seeker.highest_qualification,
+    seeker.institution,
+    seeker.graduation_year ? `(${seeker.graduation_year})` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const hasAny =
+    seeker.nursing_role || seeker.experience_level || seeker.total_years != null ||
+    (seeker.specialties?.length ?? 0) || licence || education ||
+    (seeker.preferred_countries?.length ?? 0) || (seeker.preferred_roles?.length ?? 0);
+  if (!hasAny) return null;
+
+  return (
+    <div className="rounded-md border border-border bg-muted/30 p-3">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Job profile
+      </p>
+      <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+        {seeker.nursing_role && <Field label="Role">{seeker.nursing_role}{seeker.is_student ? " (student)" : ""}</Field>}
+        {seeker.experience_level && (
+          <Field label="Experience">
+            {seeker.experience_level}
+            {seeker.total_years != null ? ` · ${seeker.total_years} yrs` : ""}
+          </Field>
+        )}
+        {chips("Specialties", seeker.specialties)}
+        {licence && <Field label="Licensure">{licence}</Field>}
+        {education && <Field label="Education">{education}</Field>}
+        {chips("Open to countries", seeker.preferred_countries)}
+        {chips("Open to roles", seeker.preferred_roles)}
+        {chips("Employment", seeker.preferred_employment_types)}
+        {chips("Settings", seeker.preferred_work_settings)}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-0.5">{children}</p>
     </div>
   );
 }
