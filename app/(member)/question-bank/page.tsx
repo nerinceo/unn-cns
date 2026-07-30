@@ -18,7 +18,7 @@ const COUNTRY: Record<string, string> = { IN: "India" };
  * The bank now opens on whose bank it is.
  *
  * With one university this costs a click, so each card carries direct MCQ and
- * Revision links — the drill-in is a shortcut, not a toll gate.
+ * Descriptive links — the drill-in is a shortcut, not a toll gate.
  */
 export default async function QuestionBankPage() {
   const institutions = await getInstitutionsWithBank();
@@ -32,7 +32,8 @@ export default async function QuestionBankPage() {
         </div>
         <p className="mt-2 max-w-2xl text-muted-foreground">
           Question banks are organised by university. Open yours for auto-graded MCQ practice sets
-          and written exam questions with model answers, mapped to its syllabus.
+          and descriptive questions — essays, viva, case scenarios and care plans, each with a model
+          answer — mapped to its syllabus.
         </p>
       </header>
 
@@ -48,7 +49,7 @@ export default async function QuestionBankPage() {
           {institutions.map((inst) => {
             const base = `/question-bank/${inst.slug}`;
             const country = COUNTRY[inst.country] ?? inst.country;
-            const empty = inst.setCount === 0 && inst.revisionCount === 0;
+            const empty = inst.setCount === 0 && inst.descriptiveCount === 0;
 
             return (
               <section key={inst.id} className="rounded-xl border border-border bg-card p-6">
@@ -87,7 +88,7 @@ export default async function QuestionBankPage() {
                     <dl className="mt-5 grid grid-cols-3 gap-4 border-t border-border pt-4">
                       <Stat icon={Layers} value={inst.subjectCount} label="Subjects" />
                       <Stat icon={FileText} value={inst.setCount} label="Practice sets" />
-                      <Stat icon={BookOpenCheck} value={inst.revisionCount} label="Revision questions" />
+                      <Stat icon={BookOpenCheck} value={inst.descriptiveCount} label="Descriptive questions" />
                     </dl>
 
                     <div className="mt-5 flex flex-wrap gap-2">
@@ -105,12 +106,12 @@ export default async function QuestionBankPage() {
                           <FileText className="h-4 w-4" /> MCQs
                         </Link>
                       )}
-                      {inst.revisionCount > 0 && (
+                      {inst.descriptiveCount > 0 && (
                         <Link
-                          href={`${base}/revision`}
+                          href={`${base}/descriptive`}
                           className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-4 text-sm font-medium transition-colors hover:border-primary hover:text-primary"
                         >
-                          <BookOpenCheck className="h-4 w-4" /> Revision
+                          <BookOpenCheck className="h-4 w-4" /> Descriptive
                         </Link>
                       )}
                     </div>

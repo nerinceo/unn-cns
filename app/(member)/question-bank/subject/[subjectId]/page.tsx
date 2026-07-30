@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /**
  * Institution-agnostic permalink for a subject.
  *
- * The bank moved to /question-bank/<university>/revision/<subjectId>, but
+ * The bank moved to /question-bank/<university>/descriptive/<subjectId>, but
  * /revision/<subjectId> links have existed since CNS launched and a subject id
  * alone does not say which university owns it. Rather than dump every old
  * bookmark on the landing page, this resolves the owner and forwards to the
@@ -30,5 +30,5 @@ export default async function SubjectPermalink({
   const owner = institutions.find((i) => i.id === subject.institution_id);
   if (!owner) notFound();
 
-  redirect(`/question-bank/${owner.slug}/revision/${subjectId}`);
+  redirect(`/question-bank/${owner.slug}/descriptive/${subjectId}`);
 }

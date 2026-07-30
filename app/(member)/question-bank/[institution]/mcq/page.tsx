@@ -85,7 +85,7 @@ export default async function McqPage({
           <p className="font-medium">No published sets{subjectId ? " for this subject" : " yet"}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {subjectId
-              ? "Try clearing the filter, or check the Revision tab for written questions."
+              ? "Try clearing the filter, or check the Descriptive tab for written questions."
               : "Question sets appear here once staff publish them."}
           </p>
         </div>

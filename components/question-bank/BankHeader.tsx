@@ -12,7 +12,7 @@ import type { CnsInstitution } from "@/lib/cns/question-bank";
  * chrome on the timed attempt runner.
  */
 
-export type BankTab = "overview" | "mcq" | "revision";
+export type BankTab = "overview" | "mcq" | "descriptive";
 
 export function BankHeader({
   institution,
@@ -27,7 +27,7 @@ export function BankHeader({
   const tabs: { key: BankTab; href: string; label: string }[] = [
     { key: "overview", href: base, label: "Overview" },
     { key: "mcq", href: `${base}/mcq`, label: "MCQs" },
-    { key: "revision", href: `${base}/revision`, label: "Revision" },
+    { key: "descriptive", href: `${base}/descriptive`, label: "Descriptive" },
   ];
 
   return (

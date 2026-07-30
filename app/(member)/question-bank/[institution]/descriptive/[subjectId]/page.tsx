@@ -7,7 +7,7 @@ import { StudyCard } from "@/components/question-bank/StudyCard";
 
 export const dynamic = "force-dynamic";
 
-export default async function RevisionSubjectPage({
+export default async function DescriptiveSubjectPage({
   params,
   searchParams,
 }: {
@@ -31,7 +31,7 @@ export default async function RevisionSubjectPage({
   if (!subject) notFound();
 
   // The subject must actually belong to the university in the URL. Without
-  // this, /question-bank/kuhs/revision/<an-rguhs-subject> would render RGUHS
+  // this, /question-bank/kuhs/descriptive/<an-rguhs-subject> would render RGUHS
   // content under someone else's breadcrumb once a second university exists.
   if (subject.institution_id !== institution.id) notFound();
 
@@ -66,8 +66,8 @@ export default async function RevisionSubjectPage({
             {institution.short_name ?? institution.name}
           </Link>
           <ChevronRight className="h-3.5 w-3.5" />
-          <Link href={`${base}/revision`} className="hover:text-foreground">
-            Revision
+          <Link href={`${base}/descriptive`} className="hover:text-foreground">
+            Descriptive
           </Link>
           <ChevronRight className="h-3.5 w-3.5" />
           <span className="text-foreground">{subject.name as string}</span>
@@ -76,7 +76,7 @@ export default async function RevisionSubjectPage({
         <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold">{subject.name as string}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{total} revision questions</p>
+            <p className="mt-1 text-sm text-muted-foreground">{total} descriptive questions</p>
           </div>
           {mcqSets.length > 0 && (
             <Link
@@ -94,7 +94,7 @@ export default async function RevisionSubjectPage({
       {types.length > 1 && (
         <div className="flex flex-wrap gap-2">
           <Link
-            href={`${base}/revision/${subjectId}`}
+            href={`${base}/descriptive/${subjectId}`}
             className={`rounded-full border px-3 py-1 text-sm ${!type ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary"}`}
           >
             All
@@ -102,7 +102,7 @@ export default async function RevisionSubjectPage({
           {types.map((t) => (
             <Link
               key={t.type}
-              href={`${base}/revision/${subjectId}?type=${encodeURIComponent(t.type)}`}
+              href={`${base}/descriptive/${subjectId}?type=${encodeURIComponent(t.type)}`}
               className={`rounded-full border px-3 py-1 text-sm ${type === t.type ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary"}`}
             >
               {t.type} <span className="text-xs opacity-70">{t.count}</span>
@@ -130,7 +130,7 @@ export default async function RevisionSubjectPage({
         <div className="flex items-center justify-between border-t border-border pt-4 text-sm">
           {page > 0 ? (
             <Link
-              href={`${base}/revision/${subjectId}${qs({ page: page - 1 })}`}
+              href={`${base}/descriptive/${subjectId}${qs({ page: page - 1 })}`}
               className="inline-flex items-center gap-1 text-primary hover:underline"
             >
               <ArrowLeft className="h-3.5 w-3.5" /> Previous
@@ -143,7 +143,7 @@ export default async function RevisionSubjectPage({
           </span>
           {page < pages - 1 ? (
             <Link
-              href={`${base}/revision/${subjectId}${qs({ page: page + 1 })}`}
+              href={`${base}/descriptive/${subjectId}${qs({ page: page + 1 })}`}
               className="inline-flex items-center gap-1 text-primary hover:underline"
             >
               Next <ChevronRight className="h-3.5 w-3.5" />

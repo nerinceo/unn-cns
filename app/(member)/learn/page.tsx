@@ -10,7 +10,7 @@ export const metadata = { title: "Learn — Central Nursing Systems" };
  * Learn hub — the academic side of CNS.
  *
  * Gathers the existing learning tools under one roof, with courses signposted.
- * The Question Bank is a single tile, not two: MCQs and revision questions are
+ * The Question Bank is a single tile, not two: MCQs and descriptive questions are
  * formats within it, so listing them as siblings here would re-create exactly
  * the split the bank's own structure removes.
  */
@@ -26,7 +26,7 @@ const TOOLS: { href: string; icon: LucideIcon; title: string; body: string; live
 export default async function LearnHub() {
   const [subjects, institutions] = await Promise.all([getBankSubjects(), getInstitutions()]);
   const totalSets = subjects.reduce((n, s) => n + s.sets.length, 0);
-  const totalRevision = subjects.reduce((n, s) => n + s.revisionCount, 0);
+  const totalDescriptive = subjects.reduce((n, s) => n + s.descriptiveCount, 0);
 
   // Subjects belong to a university, so every deep link needs its slug.
   const slugById = new Map(institutions.map((i) => [i.id, i.slug]));
@@ -37,7 +37,7 @@ export default async function LearnHub() {
     if (!slug) return "/question-bank";
     if (s.sets.length === 1) return `/question-bank/set/${s.sets[0].id}`;
     if (s.sets.length > 1) return `/question-bank/${slug}/mcq?subject=${s.id}`;
-    if (s.revisionCount > 0) return `/question-bank/${slug}/revision/${s.id}`;
+    if (s.descriptiveCount > 0) return `/question-bank/${slug}/descriptive/${s.id}`;
     return `/question-bank/${slug}`;
   };
 
@@ -84,8 +84,8 @@ export default async function LearnHub() {
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
               Question bank by subject — {totalSets} practice{" "}
-              {totalSets === 1 ? "set" : "sets"}, {totalRevision.toLocaleString()} revision{" "}
-              {totalRevision === 1 ? "question" : "questions"}
+              {totalSets === 1 ? "set" : "sets"}, {totalDescriptive.toLocaleString()} descriptive{" "}
+              {totalDescriptive === 1 ? "question" : "questions"}
             </h2>
             <Link href="/question-bank" className="flex items-center gap-1 text-sm text-primary hover:underline">
               Open question bank <ArrowRight className="h-3.5 w-3.5" />
@@ -106,10 +106,10 @@ export default async function LearnHub() {
                       {s.sets.length} {s.sets.length === 1 ? "set" : "sets"}
                     </div>
                   )}
-                  {s.revisionCount > 0 && (
+                  {s.descriptiveCount > 0 && (
                     <div className="flex items-center gap-1.5">
                       <BookOpenCheck className="h-3.5 w-3.5" />
-                      {s.revisionCount.toLocaleString()} revision
+                      {s.descriptiveCount.toLocaleString()} descriptive
                     </div>
                   )}
                 </dl>

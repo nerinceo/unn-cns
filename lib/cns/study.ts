@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * Read every matching row, not just the first 1000.
  *
  * PostgREST caps a single response at 1000 rows. A tally over all ~7,690
- * revision questions that forgets this silently counts only the first page —
+ * descriptive questions that forgets this silently counts only the first page —
  * which is exactly how a browse tally can show 13 subjects instead of 73.
  */
 async function selectAll(
@@ -27,7 +27,7 @@ async function selectAll(
 }
 
 /**
- * Revision bank reads.
+ * Descriptive bank reads.
  *
  * The open-ended counterpart to the question bank: model-answer study
  * questions, browsed by subject and topic. Everything here is published content
@@ -45,7 +45,7 @@ export type StudySubject = {
 };
 
 /**
- * Subjects that actually have published revision questions, with counts.
+ * Subjects that actually have published descriptive questions, with counts.
  *
  * `institutionId` scopes to one university. Scoping on the SUBJECT rather than
  * on cns_study_questions is deliberate: the tally is a full-table read either
@@ -99,7 +99,7 @@ export type StudyQuestion = {
 const PAGE = 25;
 
 /**
- * One subject's revision questions, paged. Optional topic and type filters keep
+ * One subject's descriptive questions, paged. Optional topic and type filters keep
  * a busy subject (100+ questions) navigable.
  */
 export async function getStudyQuestions(opts: {

@@ -34,6 +34,17 @@ const nextConfig = {
     // through /question-bank/subject/:id, which looks the owner up and
     // forwards. Permanent, so a bookmark follows once and stops asking.
     return [
+      // Most specific first — Next takes the first match.
+      {
+        source: "/question-bank/:institution/revision/:subjectId",
+        destination: "/question-bank/:institution/descriptive/:subjectId",
+        permanent: true,
+      },
+      {
+        source: "/question-bank/:institution/revision",
+        destination: "/question-bank/:institution/descriptive",
+        permanent: true,
+      },
       { source: "/revision", destination: "/question-bank", permanent: true },
       { source: "/revision/:subjectId", destination: "/question-bank/subject/:subjectId", permanent: true },
       { source: "/question-bank/mcq", destination: "/question-bank", permanent: true },

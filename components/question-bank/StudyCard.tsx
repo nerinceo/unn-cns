@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown, Lightbulb, Eye, PenLine } from "lucide-react";
 
 /**
- * One revision question: the stem always shown, the model answer revealed on
+ * One descriptive question: the stem always shown, the model answer revealed on
  * demand. Self-assessment, not grading — the learner reads the question, tries
  * it in their head or on paper, then reveals the model answer to check.
  */

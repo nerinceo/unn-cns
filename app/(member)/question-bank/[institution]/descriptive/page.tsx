@@ -9,14 +9,14 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ institution: string }> }) {
   const inst = await getInstitutionBySlug((await params).institution);
-  return { title: `Revision — ${inst?.short_name ?? "Question Bank"} — Central Nursing Systems` };
+  return { title: `Descriptive — ${inst?.short_name ?? "Question Bank"} — Central Nursing Systems` };
 }
 
 /**
- * Revision half of one university's bank: written exam questions with model
+ * Descriptive half of one university's bank: written exam questions with model
  * answers. The same bank asked a different way, not a separate system.
  */
-export default async function RevisionPage({
+export default async function DescriptivePage({
   params,
 }: {
   params: Promise<{ institution: string }>;
@@ -42,13 +42,13 @@ export default async function RevisionPage({
     <div className="space-y-8">
       <BankHeader
         institution={institution}
-        active="revision"
-        description={`${total.toLocaleString()} exam-style questions with model answers — essays, viva, case scenarios and care plans. Read the question, work it through, then reveal the model answer to check yourself.`}
+        active="descriptive"
+        description={`${total.toLocaleString()} questions answered in your own words rather than by picking an option — essays, short answers, clinical viva, case scenarios, care plans and practicals. Work the question through, then reveal the model answer to check yourself.`}
       />
 
       {subjects.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
-          <p className="font-medium">No revision questions yet</p>
+          <p className="font-medium">No descriptive questions yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
             They appear here once staff publish them.
           </p>
@@ -63,7 +63,7 @@ export default async function RevisionPage({
               {byYear.get(year)!.map((s) => (
                 <Link
                   key={s.id}
-                  href={`${base}/revision/${s.id}`}
+                  href={`${base}/descriptive/${s.id}`}
                   className="group flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary"
                 >
                   <div className="min-w-0">

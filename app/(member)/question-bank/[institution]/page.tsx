@@ -42,7 +42,7 @@ export default async function InstitutionBankPage({
 
   const base = `/question-bank/${institution.slug}`;
   const totalSets = subjects.reduce((n, s) => n + s.sets.length, 0);
-  const totalRevision = subjects.reduce((n, s) => n + s.revisionCount, 0);
+  const totalDescriptive = subjects.reduce((n, s) => n + s.descriptiveCount, 0);
 
   return (
     <div className="space-y-10">
@@ -62,11 +62,11 @@ export default async function InstitutionBankPage({
           body="Timed, auto-graded sets and past papers. Answers and explanations are revealed after you submit, and your accuracy feeds Progress."
         />
         <FormatCard
-          href={`${base}/revision`}
+          href={`${base}/descriptive`}
           icon={BookOpenCheck}
-          title="Revision"
-          count={`${totalRevision.toLocaleString()} ${totalRevision === 1 ? "question" : "questions"}`}
-          body="Essays, viva, case scenarios and care plans. Work the question through, then reveal the model answer to check yourself."
+          title="Descriptive"
+          count={`${totalDescriptive.toLocaleString()} ${totalDescriptive === 1 ? "question" : "questions"}`}
+          body="Answered in your own words, not by picking an option — essays, clinical viva, case scenarios, care plans and practicals, each with a model answer."
         />
       </section>
 
@@ -118,15 +118,15 @@ export default async function InstitutionBankPage({
                           <FileText className="h-4 w-4 shrink-0" /> No practice sets
                         </p>
                       )}
-                      {s.revisionCount > 0 ? (
+                      {s.descriptiveCount > 0 ? (
                         <SubjectLink
-                          href={`${base}/revision/${s.id}`}
+                          href={`${base}/descriptive/${s.id}`}
                           icon={BookOpenCheck}
-                          label={`${s.revisionCount.toLocaleString()} revision ${s.revisionCount === 1 ? "question" : "questions"}`}
+                          label={`${s.descriptiveCount.toLocaleString()} descriptive ${s.descriptiveCount === 1 ? "question" : "questions"}`}
                         />
                       ) : (
                         <p className="flex items-center gap-2 py-1 text-muted-foreground/60">
-                          <BookOpenCheck className="h-4 w-4 shrink-0" /> No revision questions
+                          <BookOpenCheck className="h-4 w-4 shrink-0" /> No descriptive questions
                         </p>
                       )}
                     </div>

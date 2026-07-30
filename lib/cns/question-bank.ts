@@ -108,8 +108,8 @@ export type BankSubject = {
   institution_id: string | null;
   /** Published MCQ practice sets for this subject. */
   sets: CnsQuestionSet[];
-  /** Published written/viva revision questions for this subject. */
-  revisionCount: number;
+  /** Published written/viva descriptive questions for this subject. */
+  descriptiveCount: number;
 };
 
 /**
@@ -119,11 +119,11 @@ export type BankSubject = {
  * (cns_question_sets) and open-ended model-answer questions
  * (cns_study_questions) — and a learner thinks of them as one subject, not two
  * products. This merges them so the landing page can say "Pharmacology: 1
- * practice set, 112 revision questions" in a single card.
+ * practice set, 112 descriptive questions" in a single card.
  *
  * Deliberately composed from the two existing readers rather than a new joined
  * query: each already encodes its own publication rules (subject is_published
- * for sets, per-question status for revision) and quietly unifying those would
+ * for sets, per-question status for descriptive) and quietly unifying those would
  * change what either half shows today.
  */
 export async function getBankSubjects(institutionId?: string): Promise<BankSubject[]> {
@@ -141,12 +141,12 @@ export async function getBankSubjects(institutionId?: string): Promise<BankSubje
       semester: s.semester,
       institution_id: s.institution_id,
       sets: s.sets,
-      revisionCount: 0,
+      descriptiveCount: 0,
     });
   }
   for (const s of withRevision) {
     const existing = merged.get(s.id);
-    if (existing) existing.revisionCount = s.count;
+    if (existing) existing.descriptiveCount = s.count;
     else
       merged.set(s.id, {
         id: s.id,
@@ -155,7 +155,7 @@ export async function getBankSubjects(institutionId?: string): Promise<BankSubje
         semester: s.semester,
         institution_id: s.institution_id,
         sets: [],
-        revisionCount: s.count,
+        descriptiveCount: s.count,
       });
   }
 
@@ -232,7 +232,7 @@ export type InstitutionWithBank = CnsInstitution & {
   programs: { id: string; slug: string; name: string; duration_years: number | null }[];
   subjectCount: number;
   setCount: number;
-  revisionCount: number;
+  descriptiveCount: number;
 };
 
 /**
@@ -259,7 +259,7 @@ export async function getInstitutionsWithBank(): Promise<InstitutionWithBank[]> 
         programs,
         subjectCount: subjects.length,
         setCount: subjects.reduce((n, s) => n + s.sets.length, 0),
-        revisionCount: subjects.reduce((n, s) => n + s.revisionCount, 0),
+        descriptiveCount: subjects.reduce((n, s) => n + s.descriptiveCount, 0),
       };
     })
   );
