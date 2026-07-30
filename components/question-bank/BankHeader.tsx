@@ -1,38 +1,66 @@
 import Link from "next/link";
-import { ClipboardList } from "lucide-react";
+import { ChevronRight, GraduationCap } from "lucide-react";
+import type { CnsInstitution } from "@/lib/cns/question-bank";
 
 /**
- * The Question Bank's one header.
+ * The Question Bank's one header, scoped to a university.
  *
- * MCQs and revision questions used to live at two unrelated top-level routes,
- * so a learner had no way to see that they are the same bank asked two ways.
- * Both now sit under /question-bank behind this shared header, and the tab row
- * is the only navigation between them — rendered on the browse pages only, so a
- * timed attempt stays distraction-free.
+ * All content is owned by an institution, so the browse tree is
+ * university → format → subject and this header is the university level made
+ * visible. The tab row is the only navigation between formats, and is rendered
+ * by the browse pages rather than by a layout — a layout would put navigation
+ * chrome on the timed attempt runner.
  */
 
 export type BankTab = "overview" | "mcq" | "revision";
 
-const TABS: { key: BankTab; href: string; label: string }[] = [
-  { key: "overview", href: "/question-bank", label: "Overview" },
-  { key: "mcq", href: "/question-bank/mcq", label: "MCQs" },
-  { key: "revision", href: "/question-bank/revision", label: "Revision" },
-];
+export function BankHeader({
+  institution,
+  active,
+  description,
+}: {
+  institution: CnsInstitution;
+  active: BankTab;
+  description: string;
+}) {
+  const base = `/question-bank/${institution.slug}`;
+  const tabs: { key: BankTab; href: string; label: string }[] = [
+    { key: "overview", href: base, label: "Overview" },
+    { key: "mcq", href: `${base}/mcq`, label: "MCQs" },
+    { key: "revision", href: `${base}/revision`, label: "Revision" },
+  ];
 
-export function BankHeader({ active, description }: { active: BankTab; description: string }) {
   return (
     <div className="space-y-6">
       <header className="rounded-2xl border border-border bg-card p-6 sm:p-8">
-        <div className="flex items-center gap-3">
-          <ClipboardList className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-semibold sm:text-3xl">Question Bank</h1>
+        <nav
+          aria-label="Breadcrumb"
+          className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground"
+        >
+          <Link href="/question-bank" className="hover:text-foreground">
+            Question Bank
+          </Link>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span className="text-foreground">{institution.short_name ?? institution.name}</span>
+        </nav>
+
+        <div className="mt-3 flex items-start gap-3">
+          <GraduationCap className="mt-0.5 h-7 w-7 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold sm:text-3xl">
+              {institution.short_name ?? institution.name}
+            </h1>
+            {institution.short_name && (
+              <p className="mt-0.5 text-sm text-muted-foreground">{institution.name}</p>
+            )}
+          </div>
         </div>
-        <p className="mt-2 max-w-2xl text-muted-foreground">{description}</p>
+        <p className="mt-3 max-w-2xl text-muted-foreground">{description}</p>
       </header>
 
       <nav aria-label="Question Bank sections" className="border-b border-border">
         <ul className="-mb-px flex gap-1 overflow-x-auto">
-          {TABS.map((t) => {
+          {tabs.map((t) => {
             const current = t.key === active;
             return (
               <li key={t.key}>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { GraduationCap, ClipboardList, TrendingUp, School, ArrowRight, FileText, BookOpenCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { getBankSubjects } from "@/lib/cns/question-bank";
+import { getBankSubjects, getInstitutions } from "@/lib/cns/question-bank";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Learn — Central Nursing Systems" };
@@ -16,7 +16,7 @@ export const metadata = { title: "Learn — Central Nursing Systems" };
  */
 const TOOLS: { href: string; icon: LucideIcon; title: string; body: string; live: boolean }[] = [
   { href: "/question-bank", icon: ClipboardList, title: "Question Bank",
-    body: "Auto-graded MCQ practice sets and past papers, plus written exam questions with model answers — essays, viva and case scenarios.", live: true },
+    body: "Your university's bank — auto-graded MCQ practice sets and past papers, plus written exam questions with model answers.", live: true },
   { href: "/progress", icon: TrendingUp, title: "Progress",
     body: "Your attempts, scores and where to focus next.", live: true },
   { href: "/lms", icon: School, title: "Courses",
@@ -24,9 +24,22 @@ const TOOLS: { href: string; icon: LucideIcon; title: string; body: string; live
 ];
 
 export default async function LearnHub() {
-  const subjects = await getBankSubjects();
+  const [subjects, institutions] = await Promise.all([getBankSubjects(), getInstitutions()]);
   const totalSets = subjects.reduce((n, s) => n + s.sets.length, 0);
   const totalRevision = subjects.reduce((n, s) => n + s.revisionCount, 0);
+
+  // Subjects belong to a university, so every deep link needs its slug.
+  const slugById = new Map(institutions.map((i) => [i.id, i.slug]));
+
+  /** Land on whatever this subject actually has, rather than a generic page. */
+  const subjectHref = (s: (typeof subjects)[number]) => {
+    const slug = s.institution_id ? slugById.get(s.institution_id) : undefined;
+    if (!slug) return "/question-bank";
+    if (s.sets.length === 1) return `/question-bank/set/${s.sets[0].id}`;
+    if (s.sets.length > 1) return `/question-bank/${slug}/mcq?subject=${s.id}`;
+    if (s.revisionCount > 0) return `/question-bank/${slug}/revision/${s.id}`;
+    return `/question-bank/${slug}`;
+  };
 
   return (
     <div className="space-y-10">
@@ -82,7 +95,7 @@ export default async function LearnHub() {
             {subjects.slice(0, 9).map((s) => (
               <Link
                 key={s.id}
-                href="/question-bank"
+                href={subjectHref(s)}
                 className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
               >
                 <h3 className="font-medium group-hover:text-primary">{s.name}</h3>

@@ -21,6 +21,15 @@ const Q_COLS =
   "id,question_type,stem,stem_media,difficulty,marks,negative_marks,topic_id,subject_id";
 const OPT_COLS = "id,question_id,position,option_text,option_media";
 
+export type CnsInstitution = {
+  id: string;
+  slug: string;
+  name: string;
+  short_name: string | null;
+  country: string;
+  institution_type: string;
+};
+
 export type CnsSubject = {
   id: string;
   slug: string;
@@ -28,6 +37,7 @@ export type CnsSubject = {
   description: string | null;
   year_of_study: number | null;
   semester: number | null;
+  institution_id: string | null;
 };
 
 export type CnsQuestionSet = {
@@ -44,7 +54,11 @@ export type CnsQuestionSet = {
   marketplace_listing_id: string | null;
   free_sample_count: number;
   subject_id: string | null;
+  institution_id: string | null;
 };
+
+const SET_COLS =
+  "id,slug,title,description,set_type,duration_minutes,total_marks,pass_percentage,show_answers_mode,access_type,marketplace_listing_id,free_sample_count,subject_id,institution_id";
 
 export type CnsQuestion = {
   id: string;
@@ -59,23 +73,22 @@ export type CnsQuestion = {
   options: { id: string; position: number; option_text: string }[];
 };
 
-/** Subjects that have at least one published set, grouped for the browse page. */
-export async function getSubjectsWithSets() {
+/**
+ * Subjects that have at least one published set, grouped for the browse page.
+ * `institutionId` scopes to one university.
+ */
+export async function getSubjectsWithSets(institutionId?: string) {
   const supabase = await createClient();
 
+  let subjectQuery = supabase
+    .from("cns_subjects")
+    .select("id,slug,name,description,year_of_study,semester,position,institution_id")
+    .eq("is_published", true);
+  if (institutionId) subjectQuery = subjectQuery.eq("institution_id", institutionId);
+
   const [{ data: subjects }, { data: sets }] = await Promise.all([
-    supabase
-      .from("cns_subjects")
-      .select("id,slug,name,description,year_of_study,semester,position")
-      .eq("is_published", true)
-      .order("position"),
-    supabase
-      .from("cns_question_sets")
-      .select(
-        "id,slug,title,description,set_type,duration_minutes,total_marks,pass_percentage,show_answers_mode,access_type,marketplace_listing_id,free_sample_count,subject_id"
-      )
-      .eq("is_published", true)
-      .order("title"),
+    subjectQuery.order("position"),
+    supabase.from("cns_question_sets").select(SET_COLS).eq("is_published", true).order("title"),
   ]);
 
   const byRelevance = (subjects ?? []).map((s) => ({
@@ -92,6 +105,7 @@ export type BankSubject = {
   name: string;
   year_of_study: number | null;
   semester: number | null;
+  institution_id: string | null;
   /** Published MCQ practice sets for this subject. */
   sets: CnsQuestionSet[];
   /** Published written/viva revision questions for this subject. */
@@ -112,8 +126,11 @@ export type BankSubject = {
  * for sets, per-question status for revision) and quietly unifying those would
  * change what either half shows today.
  */
-export async function getBankSubjects(): Promise<BankSubject[]> {
-  const [withSets, withRevision] = await Promise.all([getSubjectsWithSets(), getStudySubjects()]);
+export async function getBankSubjects(institutionId?: string): Promise<BankSubject[]> {
+  const [withSets, withRevision] = await Promise.all([
+    getSubjectsWithSets(institutionId),
+    getStudySubjects(institutionId),
+  ]);
 
   const merged = new Map<string, BankSubject>();
   for (const s of withSets) {
@@ -122,6 +139,7 @@ export async function getBankSubjects(): Promise<BankSubject[]> {
       name: s.name,
       year_of_study: s.year_of_study,
       semester: s.semester,
+      institution_id: s.institution_id,
       sets: s.sets,
       revisionCount: 0,
     });
@@ -135,6 +153,7 @@ export async function getBankSubjects(): Promise<BankSubject[]> {
         name: s.name,
         year_of_study: s.year_of_study,
         semester: s.semester,
+        institution_id: s.institution_id,
         sets: [],
         revisionCount: s.count,
       });
@@ -149,13 +168,101 @@ export async function getQuestionSet(setId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("cns_question_sets")
-    .select(
-      "id,slug,title,description,set_type,duration_minutes,total_marks,pass_percentage,show_answers_mode,access_type,marketplace_listing_id,free_sample_count,subject_id,shuffle_questions,shuffle_options"
-    )
+    .select(`${SET_COLS},shuffle_questions,shuffle_options`)
     .eq("id", setId)
     .eq("is_published", true)
     .maybeSingle();
   return data as (CnsQuestionSet & { shuffle_questions: boolean; shuffle_options: boolean }) | null;
+}
+
+// ---------------------------------------------------------------------------
+// Institutions — the top level of the bank.
+// ---------------------------------------------------------------------------
+
+/**
+ * All content is owned by a university. Today that is only RGUHS, but the
+ * schema has been multi-tenant since day one (cns_institutions.slug is
+ * commented 'rguhs', 'kuhs') and the browse tree now says so out loud: a
+ * learner should never have to guess whose syllabus they are practising.
+ *
+ * RLS already restricts this to is_active rows, so no filter is needed here.
+ */
+export async function getInstitutions(): Promise<CnsInstitution[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("cns_institutions")
+    .select("id,slug,name,short_name,country,institution_type")
+    .order("name");
+  return (data ?? []) as CnsInstitution[];
+}
+
+export async function getInstitutionById(id: string | null): Promise<CnsInstitution | null> {
+  if (!id) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("cns_institutions")
+    .select("id,slug,name,short_name,country,institution_type")
+    .eq("id", id)
+    .maybeSingle();
+  return (data as CnsInstitution) ?? null;
+}
+
+export async function getInstitutionBySlug(slug: string): Promise<CnsInstitution | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("cns_institutions")
+    .select("id,slug,name,short_name,country,institution_type")
+    .eq("slug", slug)
+    .maybeSingle();
+  return (data as CnsInstitution) ?? null;
+}
+
+/** Programs offered, e.g. "B.Sc Nursing — 4 years". */
+export async function getInstitutionPrograms(institutionId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("cns_programs")
+    .select("id,slug,name,duration_years")
+    .eq("institution_id", institutionId)
+    .order("name");
+  return (data ?? []) as { id: string; slug: string; name: string; duration_years: number | null }[];
+}
+
+export type InstitutionWithBank = CnsInstitution & {
+  programs: { id: string; slug: string; name: string; duration_years: number | null }[];
+  subjectCount: number;
+  setCount: number;
+  revisionCount: number;
+};
+
+/**
+ * Every university with a summary of what is actually inside its bank.
+ *
+ * The counts are derived from getBankSubjects rather than from head-count
+ * queries against cns_questions, because that table has table-level SELECT
+ * revoked and only safe columns granted back — a WHERE on `status` needs SELECT
+ * on `status`, which the member role does not have, so the obvious count query
+ * would return 42501. Counting published SETS sidesteps that entirely and is
+ * the more useful number anyway: sets are what a learner opens.
+ */
+export async function getInstitutionsWithBank(): Promise<InstitutionWithBank[]> {
+  const institutions = await getInstitutions();
+
+  return Promise.all(
+    institutions.map(async (inst) => {
+      const [subjects, programs] = await Promise.all([
+        getBankSubjects(inst.id),
+        getInstitutionPrograms(inst.id),
+      ]);
+      return {
+        ...inst,
+        programs,
+        subjectCount: subjects.length,
+        setCount: subjects.reduce((n, s) => n + s.sets.length, 0),
+        revisionCount: subjects.reduce((n, s) => n + s.revisionCount, 0),
+      };
+    })
+  );
 }
 
 export async function getSetQuestionCount(setId: string) {

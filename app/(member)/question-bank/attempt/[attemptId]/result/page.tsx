@@ -6,6 +6,7 @@ import {
   getAttemptResponses,
   getQuestionsByIds,
   getQuestionSet,
+  getInstitutionById,
 } from "@/lib/cns/question-bank";
 import { getAttemptReview } from "@/lib/actions/attempts";
 import { cn } from "@/lib/utils/cn";
@@ -28,6 +29,9 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
     getAttemptReview(attemptId),
   ]);
 
+  const institution = await getInstitutionById(set?.institution_id ?? null);
+  const backHref = institution ? `/question-bank/${institution.slug}/mcq` : "/question-bank";
+
   const score = Number(attempt.score ?? 0);
   const maxScore = Number(attempt.max_score ?? 0);
   const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
@@ -39,7 +43,7 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <Link
-        href="/question-bank/mcq"
+        href={backHref}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" /> All MCQ sets

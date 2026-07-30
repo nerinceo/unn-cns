@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Clock, FileText, Target, AlertTriangle } from "lucide-react";
-import { getQuestionSet, getSetQuestionCount } from "@/lib/cns/question-bank";
+import { ChevronRight, Clock, FileText, Target, AlertTriangle } from "lucide-react";
+import { getQuestionSet, getSetQuestionCount, getInstitutionById } from "@/lib/cns/question-bank";
 import { StartAttemptButton } from "@/components/question-bank/StartAttemptButton";
 
 export const dynamic = "force-dynamic";
@@ -11,17 +11,36 @@ export default async function SetPage({ params }: { params: Promise<{ setId: str
   const set = await getQuestionSet(setId);
   if (!set) notFound();
 
-  const questionCount = await getSetQuestionCount(setId);
+  const [questionCount, institution] = await Promise.all([
+    getSetQuestionCount(setId),
+    getInstitutionById(set.institution_id),
+  ]);
   const negativeMarking = true; // surfaced per-question; flagged here as a heads-up
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <Link
-        href="/question-bank/mcq"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      {/* A set is reachable from several places, so the trail names its owner
+          rather than assuming where the learner came from. */}
+      <nav
+        aria-label="Breadcrumb"
+        className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground"
       >
-        <ArrowLeft className="h-4 w-4" /> All MCQ sets
-      </Link>
+        <Link href="/question-bank" className="hover:text-foreground">
+          Question Bank
+        </Link>
+        {institution && (
+          <>
+            <ChevronRight className="h-3.5 w-3.5" />
+            <Link href={`/question-bank/${institution.slug}`} className="hover:text-foreground">
+              {institution.short_name ?? institution.name}
+            </Link>
+            <ChevronRight className="h-3.5 w-3.5" />
+            <Link href={`/question-bank/${institution.slug}/mcq`} className="hover:text-foreground">
+              MCQs
+            </Link>
+          </>
+        )}
+      </nav>
 
       <header>
         <h1 className="text-2xl font-semibold">{set.title}</h1>

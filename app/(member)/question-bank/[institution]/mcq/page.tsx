@@ -1,13 +1,18 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { Clock, FileText, Lock, X } from "lucide-react";
-import { getSubjectsWithSets } from "@/lib/cns/question-bank";
+import { getInstitutionBySlug, getSubjectsWithSets } from "@/lib/cns/question-bank";
 import { BankHeader } from "@/components/question-bank/BankHeader";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "MCQs — Question Bank — Central Nursing Systems" };
+
+export async function generateMetadata({ params }: { params: Promise<{ institution: string }> }) {
+  const inst = await getInstitutionBySlug((await params).institution);
+  return { title: `MCQs — ${inst?.short_name ?? "Question Bank"} — Central Nursing Systems` };
+}
 
 /**
- * MCQ half of the bank: auto-graded practice sets and past papers.
+ * MCQ half of one university's bank: auto-graded practice sets and past papers.
  *
  * Every subject currently carries one practice set, so a section-per-subject
  * layout left most of a wide screen empty. Instead: flatten to one card per
@@ -17,19 +22,30 @@ export const metadata = { title: "MCQs — Question Bank — Central Nursing Sys
  * "3 practice sets" link lands when a subject has more than one.
  */
 export default async function McqPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ institution: string }>;
   searchParams: Promise<{ subject?: string }>;
 }) {
+  const { institution: slug } = await params;
   const { subject: subjectId } = await searchParams;
-  const allSubjects = await getSubjectsWithSets();
 
-  // Filter in memory: the reader already loaded every published set, and a
-  // stale id should degrade to "nothing here", not to an unfiltered page.
+  const institution = await getInstitutionBySlug(slug);
+  if (!institution) notFound();
+
+  const allSubjects = await getSubjectsWithSets(institution.id);
+
+  // Filter in memory: the reader already loaded this university's published
+  // sets, and a stale id should degrade to "nothing here", not to an
+  // unfiltered page.
   const filtered = subjectId ? allSubjects.filter((s) => s.id === subjectId) : allSubjects;
   const activeSubject = subjectId ? allSubjects.find((s) => s.id === subjectId) : undefined;
 
-  type Card = { subject: (typeof allSubjects)[number]; set: (typeof allSubjects)[number]["sets"][number] };
+  type Card = {
+    subject: (typeof allSubjects)[number];
+    set: (typeof allSubjects)[number]["sets"][number];
+  };
   const byYear = new Map<number, Card[]>();
   for (const subject of filtered) {
     for (const set of subject.sets) {
@@ -40,10 +56,12 @@ export default async function McqPage({
   }
   const years = Array.from(byYear.keys()).sort((a, b) => a - b);
   const totalSets = filtered.reduce((n, s) => n + s.sets.length, 0);
+  const base = `/question-bank/${institution.slug}`;
 
   return (
     <div className="space-y-10">
       <BankHeader
+        institution={institution}
         active="mcq"
         description={`Timed, auto-graded practice sets and past papers across ${allSubjects.length} subjects. Answers and explanations are revealed after you submit.`}
       />
@@ -54,7 +72,7 @@ export default async function McqPage({
             Showing {activeSubject?.name ?? "this subject"}
           </span>
           <Link
-            href="/question-bank/mcq"
+            href={`${base}/mcq`}
             className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
           >
             <X className="h-3.5 w-3.5" /> Clear filter
@@ -93,7 +111,9 @@ export default async function McqPage({
                       {locked && <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
                     </div>
                     {subject.semester != null && (
-                      <p className="mt-0.5 text-xs text-muted-foreground">Semester {subject.semester}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Semester {subject.semester}
+                      </p>
                     )}
                     <dl className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1.5">

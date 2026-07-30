@@ -40,22 +40,32 @@ export type StudySubject = {
   name: string;
   year_of_study: number | null;
   semester: number | null;
+  institution_id: string | null;
   count: number;
 };
 
-/** Subjects that actually have published revision questions, with counts. */
-export async function getStudySubjects(): Promise<StudySubject[]> {
+/**
+ * Subjects that actually have published revision questions, with counts.
+ *
+ * `institutionId` scopes to one university. Scoping on the SUBJECT rather than
+ * on cns_study_questions is deliberate: the tally is a full-table read either
+ * way, and the subject list is the thing a university actually owns.
+ */
+export async function getStudySubjects(institutionId?: string): Promise<StudySubject[]> {
   const supabase = await createClient();
 
   // One count query per subject would be dozens of round trips. Instead read
   // the (subject_id) of every published row once and tally in memory — the
   // column is tiny and this is a browse page, not a hot path. Paginated, or the
   // tally stops at 1000 rows and most subjects vanish.
+  let subjectQuery = supabase.from("cns_subjects").select("id,name,year_of_study,semester,institution_id");
+  if (institutionId) subjectQuery = subjectQuery.eq("institution_id", institutionId);
+
   const [rows, { data: subjects }] = await Promise.all([
     selectAll(supabase, (from, to) =>
       supabase.from("cns_study_questions").select("subject_id").eq("status", "published").range(from, to)
     ),
-    supabase.from("cns_subjects").select("id,name,year_of_study,semester"),
+    subjectQuery,
   ]);
 
   const counts = new Map<string, number>();
@@ -67,6 +77,7 @@ export async function getStudySubjects(): Promise<StudySubject[]> {
       name: s.name as string,
       year_of_study: (s.year_of_study as number) ?? null,
       semester: (s.semester as number) ?? null,
+      institution_id: (s.institution_id as string) ?? null,
       count: counts.get(s.id as string) ?? 0,
     }))
     .filter((s) => s.count > 0)
@@ -125,7 +136,7 @@ export async function getStudySubject(subjectId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("cns_subjects")
-    .select("id,name,year_of_study,semester")
+    .select("id,name,year_of_study,semester,institution_id")
     .eq("id", subjectId)
     .maybeSingle();
   return data;

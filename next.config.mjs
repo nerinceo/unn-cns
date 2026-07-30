@@ -26,14 +26,21 @@ const nextConfig = {
     ],
   },
   async redirects() {
-    // Revision moved under the Question Bank — MCQs and written questions are
-    // two formats of one bank, not two systems. Permanent so anything already
-    // bookmarked or linked follows once and stops asking.
+    // The bank is now university → format → subject. Two earlier shapes point
+    // at it: the original top-level /revision, and the brief flat
+    // /question-bank/{mcq,revision} that preceded the university level.
+    //
+    // A subject id does not name its university, so subject deep links go
+    // through /question-bank/subject/:id, which looks the owner up and
+    // forwards. Permanent, so a bookmark follows once and stops asking.
     return [
-      { source: "/revision", destination: "/question-bank/revision", permanent: true },
+      { source: "/revision", destination: "/question-bank", permanent: true },
+      { source: "/revision/:subjectId", destination: "/question-bank/subject/:subjectId", permanent: true },
+      { source: "/question-bank/mcq", destination: "/question-bank", permanent: true },
+      { source: "/question-bank/revision", destination: "/question-bank", permanent: true },
       {
-        source: "/revision/:subjectId",
-        destination: "/question-bank/revision/:subjectId",
+        source: "/question-bank/revision/:subjectId",
+        destination: "/question-bank/subject/:subjectId",
         permanent: true,
       },
     ];
