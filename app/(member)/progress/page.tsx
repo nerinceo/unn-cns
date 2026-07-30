@@ -27,7 +27,7 @@ export default async function ProgressPage() {
             will build here.
           </p>
           <Link
-            href="/question-bank"
+            href="/question-bank/mcq"
             className="mt-5 inline-flex h-10 items-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground"
           >
             Go to Question Bank
@@ -98,7 +98,7 @@ export default async function ProgressPage() {
                 </li>
               ))}
             </ul>
-            <Link href="/question-bank" className="mt-3 inline-flex items-center gap-1 text-sm text-primary hover:underline">
+            <Link href="/question-bank/mcq" className="mt-3 inline-flex items-center gap-1 text-sm text-primary hover:underline">
               Practice these <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </section>

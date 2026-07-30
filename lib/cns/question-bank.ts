@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getStudySubjects } from "@/lib/cns/study";
 
 /**
  * Question-bank reads.
@@ -84,6 +85,64 @@ export async function getSubjectsWithSets() {
 
   // A subject with no published sets is noise on a browse page.
   return byRelevance.filter((s) => s.sets.length > 0);
+}
+
+export type BankSubject = {
+  id: string;
+  name: string;
+  year_of_study: number | null;
+  semester: number | null;
+  /** Published MCQ practice sets for this subject. */
+  sets: CnsQuestionSet[];
+  /** Published written/viva revision questions for this subject. */
+  revisionCount: number;
+};
+
+/**
+ * The whole bank, one row per subject.
+ *
+ * The bank has two halves stored in different tables — auto-graded MCQ sets
+ * (cns_question_sets) and open-ended model-answer questions
+ * (cns_study_questions) — and a learner thinks of them as one subject, not two
+ * products. This merges them so the landing page can say "Pharmacology: 1
+ * practice set, 112 revision questions" in a single card.
+ *
+ * Deliberately composed from the two existing readers rather than a new joined
+ * query: each already encodes its own publication rules (subject is_published
+ * for sets, per-question status for revision) and quietly unifying those would
+ * change what either half shows today.
+ */
+export async function getBankSubjects(): Promise<BankSubject[]> {
+  const [withSets, withRevision] = await Promise.all([getSubjectsWithSets(), getStudySubjects()]);
+
+  const merged = new Map<string, BankSubject>();
+  for (const s of withSets) {
+    merged.set(s.id, {
+      id: s.id,
+      name: s.name,
+      year_of_study: s.year_of_study,
+      semester: s.semester,
+      sets: s.sets,
+      revisionCount: 0,
+    });
+  }
+  for (const s of withRevision) {
+    const existing = merged.get(s.id);
+    if (existing) existing.revisionCount = s.count;
+    else
+      merged.set(s.id, {
+        id: s.id,
+        name: s.name,
+        year_of_study: s.year_of_study,
+        semester: s.semester,
+        sets: [],
+        revisionCount: s.count,
+      });
+  }
+
+  return Array.from(merged.values()).sort(
+    (a, b) => (a.year_of_study ?? 99) - (b.year_of_study ?? 99) || a.name.localeCompare(b.name)
+  );
 }
 
 export async function getQuestionSet(setId: string) {

@@ -1,12 +1,20 @@
 import Link from "next/link";
-import { BookOpenCheck, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { getStudySubjects } from "@/lib/cns/study";
+import { BankHeader } from "@/components/question-bank/BankHeader";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Revision — Central Nursing Systems" };
+export const metadata = { title: "Revision — Question Bank — Central Nursing Systems" };
 
+/**
+ * Revision half of the bank: written exam questions with model answers.
+ *
+ * Same content as the old top-level /revision, now a tab of the Question Bank —
+ * it is the same bank asked a different way, not a separate system.
+ */
 export default async function RevisionPage() {
   const subjects = await getStudySubjects();
+  const total = subjects.reduce((n, s) => n + s.count, 0);
 
   // Group by year of study so a nurse sees their year's subjects together.
   const byYear = new Map<number, typeof subjects>();
@@ -19,16 +27,10 @@ export default async function RevisionPage() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <div className="flex items-center gap-3">
-          <BookOpenCheck className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-semibold">Revision</h1>
-        </div>
-        <p className="mt-2 max-w-2xl text-muted-foreground">
-          Exam-style questions with model answers — essays, viva, case scenarios and care plans.
-          Read the question, work it through, then reveal the model answer to check yourself.
-        </p>
-      </header>
+      <BankHeader
+        active="revision"
+        description={`${total.toLocaleString()} exam-style questions with model answers — essays, viva, case scenarios and care plans. Read the question, work it through, then reveal the model answer to check yourself.`}
+      />
 
       {subjects.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
@@ -45,7 +47,7 @@ export default async function RevisionPage() {
               {byYear.get(year)!.map((s) => (
                 <Link
                   key={s.id}
-                  href={`/revision/${s.id}`}
+                  href={`/question-bank/revision/${s.id}`}
                   className="group flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary"
                 >
                   <div className="min-w-0">

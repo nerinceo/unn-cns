@@ -25,6 +25,19 @@ const nextConfig = {
       ...(r2Host ? [{ protocol: "https", hostname: r2Host, pathname: "/**" }] : []),
     ],
   },
+  async redirects() {
+    // Revision moved under the Question Bank — MCQs and written questions are
+    // two formats of one bank, not two systems. Permanent so anything already
+    // bookmarked or linked follows once and stops asking.
+    return [
+      { source: "/revision", destination: "/question-bank/revision", permanent: true },
+      {
+        source: "/revision/:subjectId",
+        destination: "/question-bank/revision/:subjectId",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

@@ -17,10 +17,10 @@ export default async function SetPage({ params }: { params: Promise<{ setId: str
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <Link
-        href="/question-bank"
+        href="/question-bank/mcq"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" /> Question Bank
+        <ArrowLeft className="h-4 w-4" /> All MCQ sets
       </Link>
 
       <header>

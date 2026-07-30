@@ -39,10 +39,10 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <Link
-        href="/question-bank"
+        href="/question-bank/mcq"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" /> Question Bank
+        <ArrowLeft className="h-4 w-4" /> All MCQ sets
       </Link>
 
       {/* score ----------------------------------------------------------- */}
