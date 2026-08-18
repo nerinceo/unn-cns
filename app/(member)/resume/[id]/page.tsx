@@ -37,7 +37,7 @@ export default async function ResumePage({ params }: { params: Promise<{ id: str
             That&apos;s normal — most profiles only have a name and title. Fill the sections in
             here and your CV is done; you can copy the details back to your{" "}
             <a
-              href={`${process.env.NEXT_PUBLIC_HUB_URL ?? "https://app.unnhub.org"}/profile/edit`}
+              href={`${process.env.NEXT_PUBLIC_HUB_URL ?? "https://unn.nerusalem.com"}/profile/edit`}
               className="text-primary underline"
             >
               UNN profile

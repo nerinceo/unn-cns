@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getOwnContactInfo } from "@/lib/users/own-contact";
 
 /**
  * Resume document model.
@@ -101,11 +102,26 @@ export async function buildSeedContent(): Promise<ResumeContent> {
   // rows (members can see each other), so an unfiltered .maybeSingle() matches
   // multiple rows and silently returns null — which looked exactly like "the
   // profile is empty" and made the whole pre-fill a no-op.
-  const { data: user } = await supabase
-    .from("users")
-    .select("full_name,email,professional_title,bio,country,phone,profile_url")
-    .eq("id", uid)
-    .maybeSingle();
+  const [{ data: userRow }, ownContact] = await Promise.all([
+    supabase
+      .from("users")
+      // `phone` left the anon/authenticated column grant in 0024. Naming it
+      // here would ERROR the whole query, blanking name/headline/bio/country
+      // too — not just the phone. It comes from the service-role read below.
+      .select("full_name,professional_title,bio,country,profile_url")
+      .eq("id", uid)
+      .maybeSingle(),
+    getOwnContactInfo(),
+  ]);
+  // email is no longer selectable from the table (0020); take it from the
+  // session claims loaded above (this is the caller's own resume).
+  const user = userRow
+    ? {
+        ...userRow,
+        email: (auth?.claims?.email as string) ?? "",
+        phone: ownContact.phone ?? "",
+      }
+    : userRow;
 
   const { data: profile } = await supabase
     .from("profiles")

@@ -68,6 +68,7 @@ export function JobComposer({
     work_setting: str("work_setting", first("work_setting")),
     experience_level: str("experience_level", first("experience_level")),
     is_remote: Boolean(existing?.is_remote),
+    visa_sponsorship: Boolean(existing?.visa_sponsorship),
     country: str("country", first("country")),
     state: str("state"),
     city: str("city"),
@@ -233,6 +234,15 @@ export function JobComposer({
           <input type="checkbox" checked={f.is_remote}
             onChange={(e) => setF((p) => ({ ...p, is_remote: e.target.checked }))} />
           Remote or telehealth
+        </label>
+        {/* The decisive fact for an internationally educated nurse, and until
+            now not capturable at all — a ward job that will sponsor and one
+            that will not looked identical until the interview. Filterable on
+            the board, so saying yes is what puts this role in front of them. */}
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={f.visa_sponsorship}
+            onChange={(e) => setF((p) => ({ ...p, visa_sponsorship: e.target.checked }))} />
+          Visa sponsorship available
         </label>
       </div>
 

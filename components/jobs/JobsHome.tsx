@@ -78,13 +78,16 @@ export function JobsHome({
           </h2>
           <div className="flex flex-wrap gap-2">
             {verifiedEmployers.map((e) => (
-              <span
+              // Was a dead <span>. A nurse who recognises the hospital wants
+              // its other roles, and that was the one thing they could not do.
+              <Link
                 key={e.id}
-                className="flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm"
+                href={`/employers/${e.slug}`}
+                className="flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm transition-colors hover:border-primary"
               >
                 <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                 {e.name}
-              </span>
+              </Link>
             ))}
           </div>
         </section>

@@ -54,13 +54,13 @@ export default async function MyApplicationsPage() {
   const empById = new Map((employers ?? []).map((e) => [e.id as string, e]));
 
   return (
-    <div className="space-y-6">
-      <header>
+    <div className="space-y-8">
+      <header className="rounded-2xl border border-border bg-card p-6 sm:p-8">
         <div className="flex items-center gap-3">
           <Send className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-semibold">My Applications</h1>
+          <h1 className="text-2xl font-semibold sm:text-3xl">My Applications</h1>
         </div>
-        <p className="mt-2 text-muted-foreground">
+        <p className="mt-2 max-w-2xl text-muted-foreground">
           Every role you have applied for, and where each one stands.
         </p>
       </header>

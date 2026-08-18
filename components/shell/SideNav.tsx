@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
-import { MEMBER_NAV, ADMIN_NAV, employerNav, type NavItem } from "./nav";
+import { MEMBER_NAV, ADMIN_NAV, employerNav, type NavItem , INSTRUCTOR_NAV} from "./nav";
 
 /**
  * Nav is built HERE, on the client, from a portal key.
@@ -14,10 +14,11 @@ import { MEMBER_NAV, ADMIN_NAV, employerNav, type NavItem } from "./nav";
  * Components"). So the server sends two plain strings and this module resolves
  * them against the same nav definitions.
  */
-export type PortalKey = "member" | "employer" | "admin";
+export type PortalKey = "member" | "employer" | "admin" | "instructor";
 
 function navFor(portal: PortalKey, employerId?: string): NavItem[] {
   if (portal === "admin") return ADMIN_NAV;
+  if (portal === "instructor") return INSTRUCTOR_NAV;
   if (portal === "employer" && employerId) return employerNav(employerId);
   return MEMBER_NAV;
 }

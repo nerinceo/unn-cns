@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cns.unnhub.org";
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cns.nerusalem.com";
 
 /**
  * Only /jobs is indexable. Everything else in CNS is members-only, and shared

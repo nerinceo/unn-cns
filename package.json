@@ -6,7 +6,8 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check:drift": "node scripts/check-hub-drift.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1092.0",
@@ -16,6 +17,10 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.100.0",
+    "@tiptap/extension-link": "^3.29.2",
+    "@tiptap/extension-placeholder": "^3.29.2",
+    "@tiptap/react": "^3.29.2",
+    "@tiptap/starter-kit": "^3.29.2",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "class-variance-authority": "^0.7.1",
@@ -24,12 +29,14 @@
     "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18",
+    "sanitize-html": "^2.17.6",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/sanitize-html": "^2.16.1",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "postcss": "^8",

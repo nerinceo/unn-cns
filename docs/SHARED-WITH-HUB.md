@@ -12,6 +12,9 @@ Copied from `unn-platform` at commit **`56e0ed7`** (2026-07-21).
 | CNS path | HUB origin | Notes |
 |---|---|---|
 | `lib/auth/cookie-config.ts` | `lib/auth/cookie-config.ts` | **Most critical.** See below. |
+| `lib/access.ts` | `lib/access.ts` | Account scope + `resolveHome()`. Drift lands people in the WRONG APP — it does not throw, it just silently misroutes. |
+| `lib/sanitize.ts` | `lib/sanitize.ts` | Rich-text allowlist. Must match what the Tiptap editor emits. |
+| `lib/lms/index.ts` | partial | LMS doc types + expertise vocabularies are duplicated, not shared. |
 | `lib/supabase/client.ts` | `lib/supabase/client.ts` | Browser client + host-only cookie dedupe |
 | `lib/supabase/server.ts` | `lib/supabase/server.ts` | `getCurrentUser`, `getCurrentUserProfile` |
 | `lib/supabase/admin.ts` | `lib/supabase/admin.ts` | Service role. Server-only. |
@@ -55,12 +58,25 @@ cannot drift on the one thing that would break a session.
 
 ## Checking for drift
 
-There is no automated check yet. Until there is, diff by hand against a local
-HUB checkout:
-
 ```bash
-for f in lib/auth/cookie-config.ts lib/supabase/client.ts lib/supabase/server.ts \
-         lib/supabase/admin.ts lib/utils/cn.ts tailwind.config.ts app/globals.css; do
-  diff -q "$f" "../unn-platform/$f" || echo "DRIFT: $f"
-done
+npm run check:drift                                  # assumes ../unn-platform
+HUB_REPO_PATH=/path/to/unn-platform npm run check:drift
 ```
+
+`scripts/check-hub-drift.mjs` covers **all 13 files** in the table above and
+exits non-zero on drift, so it can gate a pre-push hook. It replaces the hand
+loop that used to live here, which checked only 7 of them — every
+`components/ui/*` file was unwatched.
+
+Two details the hand loop got wrong, both of which made it report false drift
+on every single run:
+
+- **Line endings are normalised before comparing.** The two repos are checked
+  out with different `autocrlf` settings: HUB's working tree is CRLF, CNS's is
+  LF. A raw `diff` therefore reports all 13 files as completely rewritten, and
+  a check that always fails is a check nobody reads.
+- **`app/globals.css` is compared as a prefix, not for equality.** CNS
+  legitimately appends an ~80-line `.resume-doc` block for the ATS-parseable
+  resume document. The check asserts HUB's content appears verbatim at the top,
+  which still catches an edit to any shared rule — including the load-bearing
+  `.dark .bg-white { … !important }` block — while permitting the appendix.

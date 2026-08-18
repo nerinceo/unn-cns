@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyUsers, type NotifyInput } from "@/lib/cns/notify";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -12,9 +13,9 @@ export const maxDuration = 60;
  * while a daily digest is one query and one notification per member. The
  * difference in value to a job hunter is negligible.
  *
- * In-app only. CNS holds no Resend credentials, so an email digest would mean
- * either giving this app the ability to mail the whole member base, or calling
- * a HUB endpoint. Neither is worth it before anyone has asked for email.
+ * Delivered in-app always, and by email once RESEND_API_KEY is set. A digest
+ * that only exists inside the app reaches a job hunter the next time they
+ * happen to open it, which for the people this is most useful to is not soon.
  */
 export async function GET(request: NextRequest) {
   const secret = process.env.CNS_CRON_SECRET;
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
 
     if (!fresh?.length) return NextResponse.json({ ok: true, sent: 0, newJobs: 0 });
 
-    const notifications: Record<string, unknown>[] = [];
+    const notifications: NotifyInput[] = [];
     const sentFor: string[] = [];
 
     for (const a of alerts) {
@@ -65,20 +66,38 @@ export async function GET(request: NextRequest) {
       );
       if (!matches.length) continue;
 
+      const summary =
+        matches.length === 1
+          ? `New role matching your alert: ${matches[0].title}`
+          : `${matches.length} new roles match your job alert.`;
+
       notifications.push({
-        user_id: a.user_id,
-        notification_type: "cns_job_alert",
-        message:
-          matches.length === 1
-            ? `New role matching your alert: ${matches[0].title}`
-            : `${matches.length} new roles match your job alert.`,
-        reference_id: matches[0].id,
+        userId: a.user_id as string,
+        type: "cns_job_alert",
+        message: summary,
+        referenceId: matches[0].id as string,
+        email: {
+          subject:
+            matches.length === 1
+              ? `New nursing role: ${matches[0].title}`
+              : `${matches.length} new nursing roles match your alert`,
+          heading: summary,
+          // The titles themselves, not just a count — the whole point of the
+          // digest is deciding whether it is worth opening, and a bare number
+          // cannot answer that.
+          body: matches
+            .slice(0, 5)
+            .map((m) => m.title as string)
+            .join(" · "),
+          ctaLabel: "See the roles",
+          ctaHref: "/jobs",
+        },
       });
       sentFor.push(a.id as string);
     }
 
     if (notifications.length) {
-      await admin.from("notifications").insert(notifications);
+      await notifyUsers(notifications);
       await admin
         .from("cns_job_alerts")
         .update({ last_sent_at: new Date().toISOString() })

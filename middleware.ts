@@ -4,6 +4,7 @@ import {
   REMEMBER_ME_COOKIE,
   withAuthCookieOptions,
 } from "@/lib/auth/cookie-config";
+import { UHN_URL, scopeFromClaims } from "@/lib/access";
 
 /**
  * CNS auth gate.
@@ -34,6 +35,12 @@ import {
  *                 acquisition channel for a new board. RLS exposes only
  *                 published jobs from approved employers to `anon`; drafts and
  *                 applications stay private, and applying requires a session.
+ *   /employers/ — an employer's public profile and its open roles. Same
+ *                 argument as /jobs, and the sitemap declares these: a
+ *                 hospital's own name is a search a nurse actually makes, and
+ *                 a page that redirects Googlebot to HUB is not indexable.
+ *                 Only APPROVED employers resolve (the page 404s otherwise),
+ *                 and it renders nothing RLS does not already expose to anon.
  *   /robots.txt, /sitemap.xml — needed for the above to be discovered.
  *   /api/cron/  — Vercel cron invokes these with no session, so the auth gate
  *                 would redirect them and the job would silently never run.
@@ -47,11 +54,12 @@ const PUBLIC_PATHS = [
   "/api/cron/",
   "/r/",
   "/jobs",
+  "/employers/",
   "/robots.txt",
   "/sitemap.xml",
 ];
 
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "https://app.unnhub.org";
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "https://unn.nerusalem.com";
 
 export async function middleware(request: NextRequest) {
   // Pre-SSO escape hatch. Until NEXT_PUBLIC_COOKIE_DOMAIN is live on HUB, the
@@ -109,6 +117,18 @@ export async function middleware(request: NextRequest) {
   if (!user) {
     // Redirect to HUB, never to a local login page.
     return NextResponse.redirect(new URL("/welcome", HUB_URL));
+  }
+
+  // UHN accounts belong to uhn.nerusalem.com. CNS is nursing education plus
+  // the employer-facing board; none of it is theirs.
+  //
+  // Mostly belt-and-braces: CNS has no login, and a .nerusalem.com cookie
+  // cannot reach cns.unnhub.org, so a UHN session should not exist here. It
+  // costs three lines and closes the case where that stops being true —
+  // someone setting UHN's cookie domain to .unnhub.org, or a future shared
+  // apex. Cheaper than discovering it later.
+  if (scopeFromClaims(user) === "uhn") {
+    return NextResponse.redirect(UHN_URL);
   }
 
   return supabaseResponse;

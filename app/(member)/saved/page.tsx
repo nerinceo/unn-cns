@@ -36,13 +36,13 @@ export default async function SavedJobsPage() {
   const byId = new Map(jobs.map((j) => [j.id, j]));
 
   return (
-    <div className="space-y-6">
-      <header>
+    <div className="space-y-8">
+      <header className="rounded-2xl border border-border bg-card p-6 sm:p-8">
         <div className="flex items-center gap-3">
           <Bookmark className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-semibold">Saved Jobs</h1>
+          <h1 className="text-2xl font-semibold sm:text-3xl">Saved Jobs</h1>
         </div>
-        <p className="mt-2 text-muted-foreground">Roles you have kept to come back to.</p>
+        <p className="mt-2 max-w-2xl text-muted-foreground">Roles you have kept to come back to.</p>
       </header>
 
       {!ids.length ? (

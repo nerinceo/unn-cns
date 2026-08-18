@@ -5,6 +5,7 @@ import {
   REMEMBER_ME_COOKIE,
   withAuthCookieOptions,
 } from "@/lib/auth/cookie-config";
+import { USER_COLUMNS_PUBLIC } from "@/lib/users/columns";
 
 // Per-request memoization: React's cache() dedupes within a single render,
 // so calling createClient()/getCurrentUser()/getCurrentUserProfile() many
@@ -74,6 +75,10 @@ export const getCurrentUser = cache(async () => {
  * Full `users` row for the current session. Useful wherever layouts, headers,
  * and pages each re-fetch the same profile. Returns null if unauthenticated
  * or if the row hasn't been provisioned yet.
+ *
+ * `email` is merged back from the auth session (it is no longer selectable from
+ * the table — see USER_COLUMNS_PUBLIC / 0020), so this keeps returning the
+ * same shape and every caller reading `.email` is unaffected.
  */
 export const getCurrentUserProfile = cache(async () => {
   const user = await getCurrentUser();
@@ -81,8 +86,8 @@ export const getCurrentUserProfile = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("users")
-    .select("*")
+    .select(USER_COLUMNS_PUBLIC)
     .eq("id", user.id)
     .maybeSingle();
-  return data;
+  return data ? { ...data, email: user.email } : null;
 });

@@ -1,9 +1,11 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { schemaEmploymentType, countryCode } from "./taxonomy";
+import { JOBS_PAGE_SIZE, type JobSort } from "./job-constants";
 
 // Re-exported so server components can pull data + labels from one place.
-export { WORK_MODE_LABEL } from "./job-constants";
+export { WORK_MODE_LABEL, JOB_SORTS, isJobSort, JOBS_PAGE_SIZE } from "./job-constants";
+export type { JobSort } from "./job-constants";
 
 /**
  * Jobs data access + schema.org/JobPosting mapping.
@@ -19,7 +21,7 @@ export const JOB_COLS =
   "language_requirements,changes_requested_note," +
   "qualification_required,license_required,salary_min,salary_max,salary_currency," +
   "salary_period,salary_undisclosed,vacancies,application_deadline,apply_mode," +
-  "external_apply_url,status,published_at,employer_id,created_at";
+  "external_apply_url,visa_sponsorship,status,published_at,employer_id,created_at";
 
 export const EMPLOYER_PUBLIC_COLS =
   "id,slug,name,employer_type,description,logo_url,website,country,city,verification_status";
@@ -72,6 +74,7 @@ export type CnsJob = {
   application_deadline: string | null;
   apply_mode: string;
   external_apply_url: string | null;
+  visa_sponsorship: boolean;
   status: string;
   published_at: string | null;
   employer_id: string;
@@ -195,42 +198,77 @@ export function jobDescriptionHtml(job: CnsJob): string {
 
 /* -------------------------------------------------------------------------- */
 
-export async function listPublishedJobs(filters?: {
+export type JobFilterSet = {
   q?: string;
-  /** All six filters are multi-select per blueprint §5. */
+  /** All six primary filters are multi-select per blueprint §5. */
   country?: string[];
   role?: string[];
   specialty?: string[];
   employmentType?: string[];
   workSetting?: string[];
   experience?: string[];
-}) {
+  /** Recency window in days — "posted in the last week". */
+  postedWithin?: number;
+  /** Tri-state: true = only sponsoring roles, undefined = no opinion. */
+  sponsorship?: boolean;
+  remote?: boolean;
+  sort?: JobSort;
+  page?: number;
+  pageSize?: number;
+};
+
+export type JobSearchResult = {
+  results: { job: CnsJob; employer: CnsEmployer | undefined }[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+};
+
+/**
+ * Ranked, paginated job search.
+ *
+ * Runs through the cns_search_jobs RPC rather than a PostgREST filter chain,
+ * because three things this needs are not expressible in one: ts_rank ordering,
+ * a keyword match against the EMPLOYER's name (a different table), and the
+ * unpaginated total alongside the page. Fetching the total separately would
+ * race — a job published between the two calls makes the count disagree with
+ * the list the user is looking at.
+ *
+ * The RPC is SECURITY INVOKER and pins status='active', so this cannot widen
+ * what the caller was already allowed to read.
+ */
+export async function searchPublishedJobs(filters?: JobFilterSet): Promise<JobSearchResult> {
   const supabase = await createClient();
-  let query = supabase
-    .from("cns_jobs")
-    .select(JOB_COLS)
-    .eq("status", "active")
-    .order("published_at", { ascending: false })
-    .limit(50);
 
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? JOBS_PAGE_SIZE, 1), 100);
+  const page = Math.max(filters?.page ?? 1, 1);
   const many = (v?: string[]) => (v && v.length ? v : null);
-  if (many(filters?.country)) query = query.in("country", filters!.country!);
-  if (many(filters?.role)) query = query.in("nursing_role", filters!.role!);
-  if (many(filters?.specialty)) query = query.in("specialty", filters!.specialty!);
-  if (many(filters?.employmentType)) query = query.in("employment_type", filters!.employmentType!);
-  if (many(filters?.workSetting)) query = query.in("work_setting", filters!.workSetting!);
-  if (many(filters?.experience)) query = query.in("experience_level", filters!.experience!);
-  // Keyword across title, employer, city, specialty and description (§5.7).
-  if (filters?.q) {
-    const q = filters.q.replace(/[%,]/g, " ").trim();
-    if (q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%,city.ilike.%${q}%`);
-  }
 
-  // Cast through unknown: supabase-js cannot infer a row type from a column
-  // list built by string concatenation, and infers GenericStringError instead.
-  const { data } = await query;
-  const jobs = (data ?? []) as unknown as CnsJob[];
-  if (!jobs.length) return [];
+  const { data, error } = await supabase.rpc("cns_search_jobs", {
+    p_q: filters?.q?.trim() || null,
+    p_country: many(filters?.country),
+    p_role: many(filters?.role),
+    p_specialty: many(filters?.specialty),
+    p_employment_type: many(filters?.employmentType),
+    p_work_setting: many(filters?.workSetting),
+    p_experience: many(filters?.experience),
+    p_posted_within: filters?.postedWithin ?? null,
+    p_sponsorship: filters?.sponsorship ?? null,
+    p_remote: filters?.remote ?? null,
+    p_sort: filters?.sort ?? "relevance",
+    p_limit: pageSize,
+    p_offset: (page - 1) * pageSize,
+  });
+
+  const empty: JobSearchResult = { results: [], total: 0, page, pageSize, pageCount: 0 };
+  if (error || !data) return empty;
+
+  const rows = data as unknown as { job: CnsJob; total_count: number }[];
+  if (!rows.length) return empty;
+
+  const total = Number(rows[0].total_count ?? 0);
+  const jobs = rows.map((r) => r.job);
 
   const employerIds = Array.from(new Set(jobs.map((j) => j.employer_id)));
   const { data: employerRows } = await supabase
@@ -240,7 +278,54 @@ export async function listPublishedJobs(filters?: {
 
   const employers = (employerRows ?? []) as unknown as CnsEmployer[];
   const byId = new Map(employers.map((e) => [e.id, e]));
-  return jobs.map((j) => ({ job: j, employer: byId.get(j.employer_id) }));
+
+  return {
+    results: jobs.map((j) => ({ job: j, employer: byId.get(j.employer_id) })),
+    total,
+    page,
+    pageSize,
+    pageCount: Math.ceil(total / pageSize),
+  };
+}
+
+/**
+ * Flat list form, kept for callers that want "some active jobs" and do not
+ * paginate (the member home rail, the sitemap). Same ranking, no envelope.
+ */
+export async function listPublishedJobs(filters?: JobFilterSet) {
+  const { results } = await searchPublishedJobs(filters);
+  return results;
+}
+
+/**
+ * Every active job, for the sitemap.
+ *
+ * Pages to exhaustion on purpose. The previous implementation reused the
+ * board's query and inherited its 50-row cap, so once the board passed 50
+ * roles the sitemap quietly stopped declaring the rest — the jobs most in need
+ * of being crawled are exactly the ones a truncated sitemap drops.
+ */
+export async function listAllActiveJobsForSitemap(): Promise<
+  { slug: string; published_at: string | null; created_at: string }[]
+> {
+  const out: { slug: string; published_at: string | null; created_at: string }[] = [];
+  const supabase = await createClient();
+
+  // Straight table read: the sitemap needs no ranking, and three columns over
+  // every row is far cheaper than the search path.
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("cns_jobs")
+      .select("slug,published_at,created_at")
+      .eq("status", "active")
+      .order("published_at", { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error || !data?.length) break;
+    out.push(...(data as unknown as typeof out));
+    if (data.length < PAGE) break;
+  }
+  return out;
 }
 
 export async function getJobBySlug(slug: string) {

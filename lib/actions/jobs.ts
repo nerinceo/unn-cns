@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { checkLimit } from "@/lib/ratelimit";
 import { getJobLabels } from "@/lib/cns/taxonomy";
+import { notifyUser, notifyUsers } from "@/lib/cns/notify";
 
 function slugify(s: string) {
   return s
@@ -70,6 +71,7 @@ const JOB_EDITABLE_FIELDS = [
   "language_requirements", "salary_min", "salary_max", "salary_currency",
   "salary_period", "salary_undisclosed", "salary_text", "vacancies",
   "application_deadline", "apply_mode", "external_apply_url", "internal_ref",
+  "visa_sponsorship",
 ] as const;
 
 /**
@@ -391,19 +393,29 @@ export async function applyToJob(
     actor_id: user.id,
   });
 
-  // Tell the employer. In-app only — CNS holds no email credentials.
+  // Tell the employer. In-app always; by email too once CNS holds a Resend
+  // key, which is the switch that also turns on applicant status emails.
   const { data: members } = await supabase
     .from("cns_employer_members")
     .select("user_id")
     .eq("employer_id", job.employer_id as string)
     .eq("status", "approved");
   if (members?.length) {
-    await supabase.from("notifications").insert(
+    await notifyUsers(
       members.map((m) => ({
-        user_id: m.user_id,
-        notification_type: "cns_job_application_received",
+        userId: m.user_id as string,
+        type: "cns_job_application_received",
         message: `New application for ${job.title}.`,
-        reference_id: created.id,
+        referenceId: created.id as string,
+        email: {
+          subject: `New application — ${job.title}`,
+          heading: `You have a new applicant for ${job.title}`,
+          body:
+            "Someone has applied through UNN. Open your inbox to read their profile, see how " +
+            "well they fit the role, and shortlist them if they look right.",
+          ctaLabel: "Review the application",
+          ctaHref: `/employer/${job.employer_id}/applications`,
+        },
       }))
     );
   }
@@ -434,6 +446,23 @@ const APPLICANT_MESSAGE: Record<string, string> = {
   not_selected: "The employer is not taking your application forward.",
 };
 
+/** Subject lines. Specific enough to be read in a notification preview. */
+const APPLICANT_STATUS_SUBJECT: Record<string, string> = {
+  shortlisted: "you have been shortlisted",
+  interview: "interview invitation",
+  selected: "you have been selected",
+  not_selected: "application update",
+};
+
+const APPLICANT_STATUS_HEADING: Record<string, string> = {
+  shortlisted: "You have been shortlisted",
+  interview: "You have been invited to interview",
+  selected: "You have been selected",
+  // Named plainly. A rejection dressed up as "an update on your journey" is
+  // read as an offer, and that is a worse minute than the honest sentence.
+  not_selected: "You have not been taken forward this time",
+};
+
 export async function setApplicationStatus(applicationId: string, status: string, note?: string): Promise<ActionResult> {
   const supabase = await createClient();
   // Definer function: lets an employer move status without holding a general
@@ -456,15 +485,30 @@ export async function setApplicationStatus(applicationId: string, status: string
   if (app?.applicant_id && APPLICANT_MESSAGE[status]) {
     const { data: job } = await supabase
       .from("cns_jobs")
-      .select("title")
+      .select("title,slug")
       .eq("id", app.job_id as string)
       .maybeSingle();
 
-    await supabase.from("notifications").insert({
-      user_id: app.applicant_id,
-      notification_type: `cns_application_${status}`,
-      message: `${job?.title ?? "A role"} — ${APPLICANT_MESSAGE[status]}`,
-      reference_id: applicationId,
+    const title = (job?.title as string) ?? "A role";
+
+    await notifyUser({
+      userId: app.applicant_id as string,
+      type: `cns_application_${status}`,
+      message: `${title} — ${APPLICANT_MESSAGE[status]}`,
+      referenceId: applicationId,
+      // Every stage is worth an email except the one nobody wants pushed at
+      // them: 'under_review' fires the moment an employer opens the card, and
+      // mailing that would train people to ignore the ones that matter.
+      email:
+        status === "under_review"
+          ? null
+          : {
+              subject: `${title} — ${APPLICANT_STATUS_SUBJECT[status] ?? "application update"}`,
+              heading: APPLICANT_STATUS_HEADING[status] ?? "Your application has an update",
+              body: `${APPLICANT_MESSAGE[status]} (${title})`,
+              ctaLabel: "View your applications",
+              ctaHref: "/applications",
+            },
     });
   }
 
@@ -499,12 +543,33 @@ export async function toggleSaveJob(jobId: string, save: boolean): Promise<Actio
  */
 export async function setScreeningQuestions(
   jobId: string,
-  questions: { question: string; question_type: "short_answer" | "yes_no"; is_required: boolean }[]
+  questions: {
+    question: string;
+    question_type: "short_answer" | "yes_no" | "number";
+    is_required: boolean;
+    /** yes_no only: the answer that clears the bar. */
+    knockout_expected?: "yes" | "no" | null;
+    /** number only: the minimum answer that clears the bar. */
+    knockout_min?: number | null;
+  }[]
 ): Promise<ActionResult> {
   const supabase = await createClient();
 
   const clean = questions
-    .map((q) => ({ ...q, question: q.question.trim() }))
+    .map((q) => ({
+      question: q.question.trim(),
+      question_type: q.question_type,
+      is_required: q.is_required,
+      // A rule is only stored against the type it can apply to. The database
+      // has a CHECK saying the same thing; normalising here turns what would
+      // be a raw constraint error into a rule that is simply dropped when the
+      // employer switches a question's answer type after setting one.
+      knockout_expected: q.question_type === "yes_no" ? (q.knockout_expected ?? null) : null,
+      knockout_min:
+        q.question_type === "number" && q.knockout_min != null && Number.isFinite(q.knockout_min)
+          ? q.knockout_min
+          : null,
+    }))
     .filter((q) => q.question.length > 0)
     .slice(0, 5); // the database enforces this too, via a trigger
 

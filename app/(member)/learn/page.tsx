@@ -20,7 +20,7 @@ const TOOLS: { href: string; icon: LucideIcon; title: string; body: string; live
   { href: "/progress", icon: TrendingUp, title: "Progress",
     body: "Your attempts, scores and where to focus next.", live: true },
   { href: "/lms", icon: School, title: "Courses",
-    body: "Structured nursing courses and clinical learning across connected colleges.", live: false },
+    body: "Structured nursing courses taught by verified nurses, with progress saved lecture by lecture.", live: true },
 ];
 
 export default async function LearnHub() {

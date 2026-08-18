@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Clock, Briefcase, Inbox, Eye, FileEdit, ShieldCheck } from "lucide-react";
+import {
+  Clock, Briefcase, Inbox, Eye, FileEdit, ShieldCheck, Users, TrendingUp,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getEmployerJobs } from "@/lib/cns/jobs";
 
@@ -22,10 +24,12 @@ export default async function EmployerDashboard({
   if (!employer) notFound();
 
   const jobs = await getEmployerJobs(employerId);
-  const { data: apps } = await supabase
-    .from("cns_job_applications")
-    .select("id,status")
-    .in("job_id", jobs.length ? jobs.map((j) => j.id) : ["00000000-0000-0000-0000-000000000000"]);
+  const jobIds = jobs.length ? jobs.map((j) => j.id) : ["00000000-0000-0000-0000-000000000000"];
+
+  const [{ data: apps }, { data: viewStats }] = await Promise.all([
+    supabase.from("cns_job_applications").select("id,job_id,status,created_at").in("job_id", jobIds),
+    supabase.rpc("cns_job_view_stats", { p_employer_id: employerId, p_days: 30 }),
+  ]);
 
   const approved = employer.status === "approved";
   // Job status vocabulary: draft, submitted, changes_requested, active, paused,
@@ -35,6 +39,36 @@ export default async function EmployerDashboard({
   const live = jobs.filter((j) => j.status === "active").length;
   const total = apps?.length ?? 0;
   const needsReview = (apps ?? []).filter((a) => a.status === "applied").length;
+
+  const viewsByJob = new Map(
+    ((viewStats ?? []) as { job_id: string; views_total: number }[]).map((v) => [
+      v.job_id,
+      Number(v.views_total ?? 0),
+    ])
+  );
+  const appsByJob = new Map<string, number>();
+  for (const a of apps ?? []) {
+    const k = a.job_id as string;
+    appsByJob.set(k, (appsByJob.get(k) ?? 0) + 1);
+  }
+
+  const totalViews = Array.from(viewsByJob.values()).reduce((n, v) => n + v, 0);
+  // Views are deduped per viewer per day, so this is closer to "how many people
+  // who saw it applied" than a raw impression rate would be.
+  const conversion = totalViews > 0 ? Math.round((total / totalViews) * 100) : null;
+
+  // Live roles only: a closed job's conversion is history, and mixing it in
+  // hides which of the CURRENT postings is not working.
+  const livePerformance = jobs
+    .filter((j) => j.status === "active")
+    .map((j) => ({
+      id: j.id,
+      title: j.title,
+      slug: j.slug,
+      views: viewsByJob.get(j.id) ?? 0,
+      applications: appsByJob.get(j.id) ?? 0,
+    }))
+    .sort((a, b) => b.views - a.views);
 
   return (
     <div className="space-y-6">
@@ -63,18 +97,78 @@ export default async function EmployerDashboard({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Stat icon={FileEdit} label="Drafts" value={drafts} href={`/employer/${employerId}/jobs`} />
-        <Stat icon={Eye} label="Live roles" value={live} href={`/employer/${employerId}/jobs`} />
+        <Stat icon={Briefcase} label="Live roles" value={live} href={`/employer/${employerId}/jobs`} />
+        <Stat icon={Eye} label="Views" value={totalViews} href={`/employer/${employerId}/jobs`} />
         <Stat icon={Inbox} label="Applications" value={total} href={`/employer/${employerId}/applications`} />
         <Stat
-          icon={Briefcase}
+          icon={Users}
           label="Needs review"
           value={needsReview}
           href={`/employer/${employerId}/applications`}
           highlight={needsReview > 0}
         />
       </div>
+
+      {live > 0 && (
+        <section className="rounded-lg border border-border bg-card p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-medium">How your live roles are performing</h2>
+            {conversion !== null && (
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium tabular-nums text-foreground">{conversion}%</span> of
+                people who viewed a role applied
+              </p>
+            )}
+          </div>
+
+          {totalViews === 0 ? (
+            <p className="mt-3 flex items-start gap-1.5 text-sm text-muted-foreground">
+              <TrendingUp className="mt-0.5 h-4 w-4 shrink-0" />
+              No views recorded yet. Numbers start accruing as soon as someone opens one of your
+              roles — a view is counted once per person per day.
+            </p>
+          ) : (
+            <ul className="mt-3 divide-y divide-border">
+              {livePerformance.map((j) => {
+                const rate = j.views > 0 ? Math.round((j.applications / j.views) * 100) : null;
+                // A role people find and do not apply to is a different problem
+                // from one nobody finds, and the fix is different too — so say
+                // which it is rather than just printing two numbers.
+                const diagnosis =
+                  j.views < 20
+                    ? "Low visibility so far"
+                    : rate !== null && rate < 3
+                      ? "Seen, but few apply — check the pay and requirements"
+                      : null;
+                return (
+                  <li key={j.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5">
+                    <Link
+                      href={`/jobs/${j.slug}`}
+                      className="min-w-0 flex-1 truncate text-sm hover:text-primary"
+                    >
+                      {j.title}
+                    </Link>
+                    {diagnosis && (
+                      <span className="text-xs text-muted-foreground">{diagnosis}</span>
+                    )}
+                    <span className="tabular-nums text-xs text-muted-foreground">
+                      {j.views} {j.views === 1 ? "view" : "views"}
+                    </span>
+                    <span className="tabular-nums text-xs text-muted-foreground">
+                      {j.applications} {j.applications === 1 ? "application" : "applications"}
+                    </span>
+                    <span className="w-10 text-right text-xs font-medium tabular-nums">
+                      {rate === null ? "—" : `${rate}%`}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
 
       <div className="flex flex-wrap gap-3">
         <Link

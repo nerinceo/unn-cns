@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Mail, Phone, ChevronDown, Loader2 } from "lucide-react";
+import { ShieldCheck, Mail, Phone, ChevronDown, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
+import { formatDate } from "@/lib/utils/date";
 import { setApplicationStatus } from "@/lib/actions/jobs";
 
 // Keyed on the status vocabulary the database enforces
@@ -74,7 +75,7 @@ type Snapshot = {
 };
 
 export function ApplicationCard({
-  id, jobTitle, snapshot, coverNote, status, employerNote, createdAt, contact,
+  id, jobTitle, snapshot, coverNote, status, employerNote, createdAt, contact, matchPercent,
 }: {
   id: string;
   jobTitle: string;
@@ -84,6 +85,8 @@ export function ApplicationCard({
   employerNote: string | null;
   createdAt: string;
   contact: { email: string | null; phone: string | null } | null;
+  /** Fit against this job, computed from the snapshot. Null when unscoreable. */
+  matchPercent?: number | null;
 }) {
   const s = snapshot as Snapshot;
   const [open, setOpen] = useState(false);
@@ -122,19 +125,37 @@ export function ApplicationCard({
             {s.country && ` · ${s.country}`}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {jobTitle} · applied {new Date(createdAt).toLocaleDateString()}
+            {jobTitle} · applied {formatDate(createdAt)}
           </p>
         </div>
-        <span
-          className={cn(
-            "rounded px-2 py-0.5 text-xs font-medium",
-            current === "not_selected" || current === "withdrawn"
-              ? "bg-muted text-muted-foreground"
-              : "bg-primary/10 text-primary"
+        <div className="flex shrink-0 items-center gap-2">
+          {typeof matchPercent === "number" && (
+            <span
+              title="How well this applicant's job profile fits the role"
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                matchPercent >= 80
+                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                  : matchPercent >= 60
+                    ? "bg-primary/5 text-primary ring-1 ring-primary/20"
+                    : "bg-muted text-muted-foreground ring-1 ring-border"
+              )}
+            >
+              <Sparkles className="h-3 w-3" aria-hidden />
+              {matchPercent}% fit
+            </span>
           )}
-        >
-          {STATUS_LABEL[current] ?? current}
-        </span>
+          <span
+            className={cn(
+              "rounded px-2 py-0.5 text-xs font-medium",
+              current === "not_selected" || current === "withdrawn"
+                ? "bg-muted text-muted-foreground"
+                : "bg-primary/10 text-primary"
+            )}
+          >
+            {STATUS_LABEL[current] ?? current}
+          </span>
+        </div>
       </div>
 
       {/* Released only after shortlisting — the promise made on the apply screen. */}

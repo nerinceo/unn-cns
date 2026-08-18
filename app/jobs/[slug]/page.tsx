@@ -10,11 +10,12 @@ import {
 import { getJobLabels } from "@/lib/cns/taxonomy";
 import { ReportJobButton } from "@/components/jobs/ReportJobButton";
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
+import { recordJobView } from "@/lib/cns/job-views";
 import { ApplyPanel } from "@/components/jobs/ApplyPanel";
 
 export const dynamic = "force-dynamic";
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cns.unnhub.org";
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cns.nerusalem.com";
 
 export async function generateMetadata({
   params,
@@ -50,6 +51,11 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
   if (job.status !== "active") notFound();
 
   const user = await getCurrentUser();
+
+  // Deduped per viewer per day in the database, so a refresh does not inflate
+  // it and an employer previewing their own role does not either.
+  await recordJobView(job.id);
+
   const url = `${SITE}/jobs/${job.slug}`;
   const [jsonLd, labels] = await Promise.all([
     buildJobPostingJsonLd(job, employer, url),
@@ -61,7 +67,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
   const supabase = await createClient();
   const { data: questions } = await supabase
     .from("cns_job_screening_questions")
-    .select("id,question,question_type,is_required")
+    .select("id,question,question_type,is_required,knockout_expected,knockout_min")
     .eq("job_id", job.id)
     .order("position");
 
@@ -122,7 +128,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
       <header>
         <h1 className="text-2xl font-semibold">{job.title}</h1>
         <p className="mt-1 flex flex-wrap items-center gap-2 text-muted-foreground">
-          {employer.name}
+          <Link href={`/employers/${employer.slug}`} className="hover:text-foreground hover:underline">
+            {employer.name}
+          </Link>
           {employer.verification_status === "verified" && (
             <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
               <ShieldCheck className="h-3 w-3" /> Verified employer

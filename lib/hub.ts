@@ -1,12 +1,12 @@
 /**
- * Links back into HUB (app.unnhub.org).
+ * Links back into HUB (unn.nerusalem.com).
  *
  * Cross-origin navigation, so always a plain <a href>, never next/link —
  * prefetching another origin is wasted work and Link's client-side routing
  * cannot apply.
  */
 
-export const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "https://app.unnhub.org";
+export const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "https://unn.nerusalem.com";
 
 export function hubLink(path = "/"): string {
   return `${HUB_URL}${path.startsWith("/") ? path : `/${path}`}`;

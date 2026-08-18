@@ -21,7 +21,7 @@ import { execFileSync } from "child_process";
 import { resolve, basename } from "path";
 
 const PROJECT_NAME = "unn-cns";
-const DOMAIN = "cns.unnhub.org";
+const DOMAIN = "cns.nerusalem.com";
 // HUB. Never to be addressed by this script.
 const FORBIDDEN_PROJECT_IDS = ["prj_d8YQ5Z1e5MKfl02JdZgowtTfbH8A"];
 const FORBIDDEN_NAMES = ["unn-platform"];
@@ -90,14 +90,15 @@ const ENV_FROM_LOCAL = [
 ];
 
 const ENV_LITERAL = {
-  NEXT_PUBLIC_HUB_URL: "https://app.unnhub.org",
-  NEXT_PUBLIC_SITE_URL: "https://cns.unnhub.org",
-  // Left BLANK until HUB's cookie domain flip is verified in production.
-  // Setting it before then writes cookies HUB does not yet write.
-  NEXT_PUBLIC_COOKIE_DOMAIN: "",
-  // Auth gate OFF so the domain serves a real page pre-SSO. Remove this to
-  // turn CNS on — see middleware.ts.
-  CNS_PUBLIC_PREVIEW: "1",
+  NEXT_PUBLIC_HUB_URL: "https://unn.nerusalem.com",
+  NEXT_PUBLIC_SITE_URL: "https://cns.nerusalem.com",
+  // THE linchpin of SSO. Must be byte-identical to HUB's value — a mismatch
+  // means each app writes cookies the other cannot read, and refresh-token
+  // rotation then trips Supabase's reuse detection and revokes the family.
+  NEXT_PUBLIC_COOKIE_DOMAIN: ".nerusalem.com",
+  // CNS_PUBLIC_PREVIEW is deliberately absent: it disabled the auth gate
+  // entirely so the domain could serve pages before SSO existed. Re-adding it
+  // makes the whole member area public. It is already unset on Vercel.
 };
 
 function localEnv() {

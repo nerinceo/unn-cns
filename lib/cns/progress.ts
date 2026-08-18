@@ -119,10 +119,11 @@ export async function getProgress(): Promise<Progress> {
     }))
     .sort((a, b) => b.seen - a.seen);
 
-  // Weak topics: lowest mastery among topics actually practised more than once,
-  // so a single unlucky question does not dominate the "revise next" list.
+  // Weak topics: genuinely-weak ones only (mastery below 70), practised at least
+  // twice so a single unlucky question does not dominate. A topic the learner
+  // aced has no business under "Revise next".
   const weakTopics: WeakTopic[] = rows
-    .filter((r) => ((r.questions_seen as number) ?? 0) >= 2)
+    .filter((r) => ((r.questions_seen as number) ?? 0) >= 2 && Number(r.mastery ?? 0) < 70)
     .map((r) => ({
       topicId: r.topic_id as string,
       name: topicName.get(r.topic_id as string) ?? "Topic",

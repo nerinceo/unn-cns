@@ -1,10 +1,16 @@
 import Link from "next/link";
-import { Briefcase, MapPin, Clock, ShieldCheck, Banknote, Building2 } from "lucide-react";
-import { listPublishedJobs, formatSalary } from "@/lib/cns/jobs";
+import { Briefcase, Sparkles, UserRoundCog } from "lucide-react";
+import { searchPublishedJobs, isJobSort, JOBS_PAGE_SIZE } from "@/lib/cns/jobs";
 import { getTaxonomy, getJobLabels } from "@/lib/cns/taxonomy";
+import { getMySeekerProfile } from "@/lib/cns/seeker-data";
+import { scoreJobMatch, RECOMMEND_THRESHOLD } from "@/lib/cns/job-match";
 import { JobFilters } from "@/components/jobs/JobFilters";
 import { JobsHome } from "@/components/jobs/JobsHome";
+import { JobCard } from "@/components/jobs/JobCard";
+import { JobSort } from "@/components/jobs/JobSort";
+import { JobPagination } from "@/components/jobs/JobPagination";
 import { createClient } from "@/lib/supabase/server";
+import type { SeekerProfile } from "@/lib/cns/seeker";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +24,26 @@ export const metadata = {
 function many(v: string | string[] | undefined): string[] {
   if (!v) return [];
   return Array.isArray(v) ? v : v.split(",").filter(Boolean);
+}
+
+function one(v: string | string[] | undefined): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+
+/**
+ * The nurse's own preferences, as job-board filters.
+ *
+ * Role and specialty only — country is deliberately left out. A relocating
+ * nurse's preferred country is a ranking signal, not a gate: filtering on it
+ * would hide the sponsoring employer in a country they had not thought to list,
+ * which is the single most valuable listing we can show them.
+ */
+function recommendFilters(p: SeekerProfile) {
+  const roles = Array.from(new Set([p.nursing_role, ...p.preferred_roles].filter(Boolean)));
+  return {
+    role: roles as string[],
+    specialty: p.specialties,
+  };
 }
 
 export default async function JobsPage({
@@ -35,20 +61,26 @@ export default async function JobsPage({
     workSetting: many(sp.setting),
     experience: many(sp.experience),
   };
-  const q = typeof sp.q === "string" ? sp.q : "";
+  const q = one(sp.q) ?? "";
+  const postedWithin = Number(one(sp.posted)) || undefined;
+  const sponsorship = one(sp.sponsorship) === "1" ? true : undefined;
+  const remote = one(sp.remote) === "1" ? true : undefined;
+  const sort = isJobSort(sp.sort) ? sp.sort : "relevance";
+  const page = Math.max(Number(one(sp.page)) || 1, 1);
 
-  const [results, taxonomy, labels] = await Promise.all([
-    listPublishedJobs({ q, ...selected }),
-    getTaxonomy(),
-    getJobLabels(),
-  ]);
+  const narrowed =
+    Object.values(selected).reduce((n, v) => n + v.length, 0) +
+    (postedWithin ? 1 : 0) +
+    (sponsorship ? 1 : 0) +
+    (remote ? 1 : 0);
 
-  const activeCount = Object.values(selected).reduce((n, v) => n + v.length, 0);
+  const [labels, seeker] = await Promise.all([getJobLabels(), getMySeekerProfile()]);
 
   // Directory view when nothing is being searched or filtered (§8.1); the
   // results list takes over the moment it is. They are different jobs and one
   // screen would do neither well.
-  if (activeCount === 0 && !q) {
+  if (narrowed === 0 && !q) {
+    const taxonomy = await getTaxonomy();
     const supabase = await createClient();
     const [{ data: facetRows }, { data: verified }] = await Promise.all([
       supabase.from("cns_jobs").select("country,specialty,nursing_role").eq("status", "active"),
@@ -77,15 +109,40 @@ export default async function JobsPage({
         .sort((a, b) => b.count - a.count);
 
     return (
-      <JobsHome
-        countries={withCounts("country", tally("country"))}
-        specialties={withCounts("specialty", tally("specialty"))}
-        roles={withCounts("nursing_role", tally("nursing_role"))}
-        verifiedEmployers={(verified ?? []) as never}
-        totalJobs={(facetRows ?? []).length}
-      />
+      <div className="space-y-10">
+        {seeker && <RecommendedForYou seeker={seeker} labels={labels} />}
+        <JobsHome
+          countries={withCounts("country", tally("country"))}
+          specialties={withCounts("specialty", tally("specialty"))}
+          roles={withCounts("nursing_role", tally("nursing_role"))}
+          verifiedEmployers={(verified ?? []) as never}
+          totalJobs={(facetRows ?? []).length}
+        />
+      </div>
     );
   }
+
+  const taxonomy = await getTaxonomy();
+  const { results, total, pageCount } = await searchPublishedJobs({
+    q,
+    ...selected,
+    postedWithin,
+    sponsorship,
+    remote,
+    sort,
+    page,
+    pageSize: JOBS_PAGE_SIZE,
+  });
+
+  // Params minus `page`, so the pager can rebuild every other part of the URL.
+  const carried = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    if (k === "page" || v === undefined) continue;
+    for (const item of Array.isArray(v) ? v : [v]) carried.append(k, item);
+  }
+
+  const from = (page - 1) * JOBS_PAGE_SIZE + 1;
+  const to = Math.min(page * JOBS_PAGE_SIZE, total);
 
   return (
     <div className="space-y-6">
@@ -105,10 +162,23 @@ export default async function JobsPage({
         <JobFilters taxonomy={taxonomy} selected={selected} q={q} />
 
         <div className="min-w-0 space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {results.length} {results.length === 1 ? "role" : "roles"}
-            {activeCount > 0 && ` · ${activeCount} filter${activeCount === 1 ? "" : "s"} applied`}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {total === 0 ? (
+                "No roles"
+              ) : (
+                <>
+                  <span className="tabular-nums">
+                    {from}–{to}
+                  </span>{" "}
+                  of <span className="tabular-nums font-medium text-foreground">{total}</span>{" "}
+                  {total === 1 ? "role" : "roles"}
+                </>
+              )}
+              {narrowed > 0 && ` · ${narrowed} filter${narrowed === 1 ? "" : "s"} applied`}
+            </p>
+            {total > 1 && <JobSort sort={sort} />}
+          </div>
 
           {results.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
@@ -124,72 +194,106 @@ export default async function JobsPage({
               </Link>
             </div>
           ) : (
-            <ul className="space-y-3">
-              {results.map(({ job, employer }) => {
-                const salary = job.salary_text ?? formatSalary(job);
-                const location = [job.city, labels.country[job.country ?? ""] ?? job.country]
-                  .filter(Boolean)
-                  .join(", ");
-                return (
+            <>
+              <ul className="space-y-3">
+                {results.map(({ job, employer }) => (
                   <li key={job.id}>
-                    <Link
-                      href={`/jobs/${job.slug}`}
-                      className="group block rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <h2 className="font-medium group-hover:text-primary">{job.title}</h2>
-                          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
-                            <Building2 className="h-3.5 w-3.5" />
-                            {employer?.name ?? "Employer"}
-                            {employer?.verification_status === "verified" && (
-                              <ShieldCheck
-                                className="h-3.5 w-3.5 text-primary"
-                                aria-label="Verified employer"
-                              />
-                            )}
-                          </p>
-                        </div>
-                        {job.specialty && (
-                          <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                            {labels.specialty[job.specialty] ?? job.specialty}
-                          </span>
-                        )}
-                      </div>
-
-                      <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
-                        {location && (
-                          <div className="flex items-center gap-1.5">
-                            <MapPin className="h-3.5 w-3.5" />
-                            {location}
-                            {job.is_remote && " · Remote"}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5" />
-                          {labels.employment_type[job.employment_type] ?? job.employment_type}
-                        </div>
-                        {job.nursing_role && (
-                          <div>{labels.nursing_role[job.nursing_role] ?? job.nursing_role}</div>
-                        )}
-                        {job.work_setting && (
-                          <div>{labels.work_setting[job.work_setting] ?? job.work_setting}</div>
-                        )}
-                        {salary && (
-                          <div className="flex items-center gap-1.5">
-                            <Banknote className="h-3.5 w-3.5" />
-                            {salary}
-                          </div>
-                        )}
-                      </dl>
-                    </Link>
+                    <JobCard
+                      job={job}
+                      employer={employer}
+                      labels={labels}
+                      match={seeker ? scoreJobMatch(job, seeker) : undefined}
+                    />
                   </li>
-                );
-              })}
-            </ul>
+                ))}
+              </ul>
+              <JobPagination page={page} pageCount={pageCount} query={carried} />
+            </>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Jobs picked for this member.
+ *
+ * Only rendered when the score clears RECOMMEND_THRESHOLD — a "recommended"
+ * rail padded out with 30% matches trains people to skip it, and then the one
+ * time it holds the right job they do not look.
+ */
+async function RecommendedForYou({
+  seeker,
+  labels,
+}: {
+  seeker: SeekerProfile;
+  labels: Awaited<ReturnType<typeof getJobLabels>>;
+}) {
+  const { role, specialty } = recommendFilters(seeker);
+
+  // Nothing to go on yet — point at the profile instead of guessing.
+  if (!role.length && !specialty.length) {
+    return (
+      <section className="rounded-2xl border border-border bg-card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <UserRoundCog className="mt-0.5 h-5 w-5 text-primary" />
+            <div>
+              <h2 className="font-medium">Get roles matched to you</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Add your nursing role and specialties, and we will rank every job by how well it
+                fits.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/profile"
+            className="inline-flex h-10 shrink-0 items-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground"
+          >
+            Complete your profile
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  // A wide-ish pool, then rank in memory. The RPC narrows to the right role and
+  // specialty; the score is what decides the order, and it weighs signals
+  // (country, employment type, experience) that no single query can rank on.
+  const { results } = await searchPublishedJobs({
+    role,
+    specialty,
+    sort: "recent",
+    pageSize: 60,
+  });
+
+  const ranked = results
+    .map((r) => ({ ...r, match: scoreJobMatch(r.job, seeker) }))
+    .filter((r) => (r.match.percent ?? 0) >= RECOMMEND_THRESHOLD)
+    .sort((a, b) => (b.match.percent ?? 0) - (a.match.percent ?? 0))
+    .slice(0, 5);
+
+  if (!ranked.length) return null;
+
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between gap-4">
+        <h2 className="flex items-center gap-2 font-medium">
+          <Sparkles className="h-4 w-4 text-primary" />
+          Recommended for you
+        </h2>
+        <Link href="/profile" className="text-xs text-muted-foreground underline hover:text-foreground">
+          Tune your preferences
+        </Link>
+      </div>
+      <ul className="space-y-3">
+        {ranked.map(({ job, employer, match }) => (
+          <li key={job.id}>
+            <JobCard job={job} employer={employer} labels={labels} match={match} />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

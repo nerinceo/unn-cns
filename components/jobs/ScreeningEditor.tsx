@@ -2,25 +2,32 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Loader2, Check } from "lucide-react";
+import { Plus, Trash2, Loader2, Check, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setScreeningQuestions } from "@/lib/actions/jobs";
 
 export type Question = {
   question: string;
-  question_type: "short_answer" | "yes_no";
+  question_type: "short_answer" | "yes_no" | "number";
   is_required: boolean;
+  knockout_expected?: "yes" | "no" | null;
+  knockout_min?: number | null;
 };
 
 const MAX = 5;
 
 /**
- * Screening questions (blueprint §7.3 — up to five, short answer or yes/no).
+ * Screening questions (blueprint §7.3 — up to five), with knockout rules.
  *
  * Saved explicitly rather than on every keystroke: changing these rewrites the
  * whole set, so an autosave mid-typing would churn the table and briefly leave
  * a half-typed question live on the apply form.
+ *
+ * A knockout rule TAGS applications, it does not reject them. That is stated
+ * in the UI as well as enforced in the code, because a recruiter who believes
+ * the filter is deleting people will not set one — and the whole value of the
+ * feature is that they do.
  */
 export function ScreeningEditor({
   jobId,
@@ -68,12 +75,19 @@ export function ScreeningEditor({
               <select
                 value={q.question_type}
                 onChange={(e) =>
-                  patch(i, { question_type: e.target.value as Question["question_type"] })
+                  // Switching type drops any rule set against the old one — a
+                  // "must be yes" left on a numeric question could never be met.
+                  patch(i, {
+                    question_type: e.target.value as Question["question_type"],
+                    knockout_expected: null,
+                    knockout_min: null,
+                  })
                 }
                 className="h-8 rounded-md border border-border bg-card px-2 text-xs"
               >
                 <option value="short_answer">Short answer</option>
                 <option value="yes_no">Yes / No</option>
+                <option value="number">Number</option>
               </select>
             </label>
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -95,8 +109,55 @@ export function ScreeningEditor({
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
+
+          {q.question_type === "yes_no" && (
+            <label className="flex flex-wrap items-center gap-2 border-t border-border pt-2 text-xs text-muted-foreground">
+              Meets criteria when the answer is
+              <select
+                value={q.knockout_expected ?? ""}
+                onChange={(e) =>
+                  patch(i, {
+                    knockout_expected: (e.target.value || null) as "yes" | "no" | null,
+                  })
+                }
+                className="h-8 rounded-md border border-border bg-card px-2 text-xs"
+              >
+                <option value="">Any answer</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+          )}
+
+          {q.question_type === "number" && (
+            <label className="flex flex-wrap items-center gap-2 border-t border-border pt-2 text-xs text-muted-foreground">
+              Meets criteria at
+              <input
+                type="number"
+                min={0}
+                step="0.5"
+                value={q.knockout_min ?? ""}
+                onChange={(e) =>
+                  patch(i, {
+                    knockout_min: e.target.value === "" ? null : Number(e.target.value),
+                  })
+                }
+                placeholder="Any"
+                className="h-8 w-24 rounded-md border border-border bg-card px-2 text-xs outline-none focus:border-primary"
+              />
+              or above
+            </label>
+          )}
         </div>
       ))}
+
+      {items.some((q) => q.knockout_expected != null || q.knockout_min != null) && (
+        <p className="flex items-start gap-1.5 rounded-md border border-border bg-muted/40 p-2.5 text-xs text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          Applications are <strong className="font-medium">tagged</strong>, never rejected. You will
+          see who met your criteria and can still read everyone else.
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
         <Button

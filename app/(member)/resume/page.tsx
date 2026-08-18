@@ -22,12 +22,12 @@ export default async function ResumeListPage() {
   ]);
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-8">
+      <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-border bg-card p-6 sm:p-8">
         <div>
           <div className="flex items-center gap-3">
             <FileText className="h-7 w-7 text-primary" />
-            <h1 className="text-2xl font-semibold">Resume</h1>
+            <h1 className="text-2xl font-semibold sm:text-3xl">Resume</h1>
           </div>
           <p className="mt-2 max-w-2xl text-muted-foreground">
             Build a nursing CV that applicant tracking systems can actually read — and that shows

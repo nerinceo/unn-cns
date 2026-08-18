@@ -17,10 +17,12 @@ export function PortalSwitcher({
   current,
   employers,
   isStaff,
+  isInstructor,
 }: {
-  current: "member" | "employer" | "admin";
+  current: "member" | "employer" | "admin" | "instructor";
   employers?: { id: string; name: string }[];
   isStaff?: boolean;
+  isInstructor?: boolean;
 }) {
   const portals: Portal[] = [
     { key: "hub", label: "UNN Hub", desc: "Network, units, marketplace", href: hubLink("/home"), external: true },
@@ -31,6 +33,9 @@ export function PortalSwitcher({
       desc: "Employer portal",
       href: `/employer/${e.id}`,
     })),
+    ...(isInstructor
+      ? [{ key: "instructor", label: "Teaching", desc: "Author your courses", href: "/instructor" }]
+      : []),
     ...(isStaff ? [{ key: "admin", label: "Admin", desc: "Platform administration", href: "/admin" }] : []),
   ];
 
@@ -50,6 +55,7 @@ export function PortalSwitcher({
             const active =
               (current === "member" && p.key === "member") ||
               (current === "admin" && p.key === "admin") ||
+              (current === "instructor" && p.key === "instructor") ||
               (current === "employer" && p.key.startsWith("employer:"));
             const Cmp = p.external ? "a" : Link;
             return (

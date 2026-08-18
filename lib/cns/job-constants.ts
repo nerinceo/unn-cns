@@ -5,6 +5,21 @@
  */
 
 /**
+ * Result ordering for the job board. Lives here, not in lib/cns/jobs.ts,
+ * because the sort control is a client component and that module is
+ * `server-only` — importing the list from there would throw at build time.
+ */
+export const JOB_SORTS = ["relevance", "recent", "closing"] as const;
+export type JobSort = (typeof JOB_SORTS)[number];
+
+export function isJobSort(v: unknown): v is JobSort {
+  return typeof v === "string" && (JOB_SORTS as readonly string[]).includes(v);
+}
+
+/** One screen of results. Also the cap the RPC is called with. */
+export const JOBS_PAGE_SIZE = 20;
+
+/**
  * Our employment_type values -> schema.org's.
  *
  * Kept as an explicit map rather than storing Google's vocabulary directly, so

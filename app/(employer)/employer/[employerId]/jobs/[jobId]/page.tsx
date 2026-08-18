@@ -38,7 +38,7 @@ export default async function EditJobPage({
     supabase.from("cns_employers").select("status").eq("id", employerId).maybeSingle(),
     supabase
       .from("cns_job_screening_questions")
-      .select("question,question_type,is_required")
+      .select("question,question_type,is_required,knockout_expected,knockout_min")
       .eq("job_id", jobId)
       .order("position"),
     getJobComposerOptions(),

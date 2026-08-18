@@ -1,7 +1,7 @@
 import {
   BookOpen, BookOpenCheck, ClipboardList, Briefcase, Library, TrendingUp, Home, FileText,
   Building2, Inbox, LayoutDashboard, Settings, Users, Send, UserRound, Bookmark, Flag,
-  GraduationCap, Bot, School, BadgeCheck, Calculator, HeartHandshake, LayoutGrid,
+  GraduationCap, Bot, School, BadgeCheck, Calculator, HeartHandshake, LayoutGrid, PlusCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -66,4 +66,19 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/reports", label: "Reports", icon: Flag },
   { href: "/admin/content", label: "Content", icon: ClipboardList },
   { href: "/admin/members", label: "Members", icon: Users },
+];
+
+/**
+ * Instructor portal — authoring only.
+ *
+ * There is no earnings or payout item here on purpose. A course is SOLD as a
+ * marketplace listing in HUB, so money lives in HUB's seller dashboard. Showing
+ * a revenue figure in CNS would mean two apps quoting the same number from
+ * different sources, which is exactly how they drift apart.
+ */
+export const INSTRUCTOR_NAV: NavItem[] = [
+  { href: "/instructor", label: "My courses", icon: LayoutDashboard },
+  { href: "/instructor/new", label: "New course", icon: PlusCircle },
+  { href: "/instructor/sales", label: "Sales", icon: TrendingUp },
+  { href: "/instructor/settings", label: "Settings", icon: Settings },
 ];

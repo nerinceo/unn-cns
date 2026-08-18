@@ -24,6 +24,7 @@ export async function AppShell({
   wordmark,
   employers,
   isStaff,
+  isInstructor,
   children,
 }: {
   portal: PortalKey;
@@ -31,6 +32,7 @@ export async function AppShell({
   wordmark: string;
   employers?: { id: string; name: string }[];
   isStaff?: boolean;
+  isInstructor?: boolean;
   children: React.ReactNode;
 }) {
   const profile = await getCurrentUserProfile();
@@ -42,7 +44,9 @@ export async function AppShell({
       ? `/employer/${employerId}`
       : portal === "admin"
         ? "/admin"
-        : "/";
+        : portal === "instructor"
+          ? "/instructor"
+          : "/";
 
   // The member portal is the CNS learning/careers experience: a wide top-nav
   // layout (1280–1440px) per the brief. Employer and admin keep the compact
@@ -64,7 +68,7 @@ export async function AppShell({
           </Link>
 
           <div className="ml-auto flex items-center gap-3">
-            <PortalSwitcher current={portal} employers={employers} isStaff={isStaff} />
+            <PortalSwitcher current={portal} employers={employers} isStaff={isStaff} isInstructor={isInstructor} />
             <a
               href={hubLink("/profile/me")}
               className="flex items-center gap-2 rounded-full border border-border py-1 pl-1 pr-3 transition-colors hover:bg-muted"

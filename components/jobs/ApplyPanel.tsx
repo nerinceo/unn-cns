@@ -9,7 +9,7 @@ import { hubLink } from "@/lib/hub";
 export type ScreeningQuestion = {
   id: string;
   question: string;
-  question_type: "short_answer" | "yes_no";
+  question_type: "short_answer" | "yes_no" | "number";
   is_required: boolean;
 };
 
@@ -152,6 +152,13 @@ export function ApplyPanel({
             </select>
           ) : (
             <input
+              // A numeric question is scored against a threshold, so it has to
+              // come back as a number — "about three years" cannot be compared
+              // to anything.
+              type={q.question_type === "number" ? "number" : "text"}
+              min={q.question_type === "number" ? 0 : undefined}
+              step={q.question_type === "number" ? "0.5" : undefined}
+              inputMode={q.question_type === "number" ? "decimal" : undefined}
               value={answers[q.id] ?? ""}
               onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
               className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm outline-none focus:border-primary"

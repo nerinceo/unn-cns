@@ -134,7 +134,7 @@ async function ensureTopic(subjectId, slug, name, parentId) {
   if (!id) {
     const { data, error } = await target
       .from("cns_topics")
-      .insert({ subject_id: subjectId, slug, name: name || slug, parent_id: parentId ?? null })
+      .insert({ subject_id: subjectId, slug, name: name || slug, parent_id: parentId ?? null, is_published: true })
       .select("id")
       .single();
     if (error) throw new Error("topic " + slug + ": " + error.message);
