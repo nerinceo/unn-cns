@@ -123,9 +123,9 @@ export async function middleware(request: NextRequest) {
   // the employer-facing board; none of it is theirs.
   //
   // Mostly belt-and-braces: CNS has no login, and a .nerusalem.com cookie
-  // cannot reach cns.unnhub.org, so a UHN session should not exist here. It
+  // cannot reach cns.nerusalem.com, so a UHN session should not exist here. It
   // costs three lines and closes the case where that stops being true —
-  // someone setting UHN's cookie domain to .unnhub.org, or a future shared
+  // someone setting UHN's cookie domain to .nerusalem.com, or a future shared
   // apex. Cheaper than discovering it later.
   if (scopeFromClaims(user) === "uhn") {
     return NextResponse.redirect(UHN_URL);

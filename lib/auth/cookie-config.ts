@@ -1,10 +1,10 @@
 /**
- * The single shared auth-cookie contract between app.unnhub.org (HUB) and
- * cns.unnhub.org (CNS).
+ * The single shared auth-cookie contract between unn.nerusalem.com (HUB) and
+ * cns.nerusalem.com (CNS).
  *
  * Why this file exists: Supabase auth cookies were previously written with no
  * `domain`, which makes browsers scope them host-only — so they never reach a
- * sibling subdomain. Writing them with `domain=.unnhub.org` is what gives the
+ * sibling subdomain. Writing them with `domain=.nerusalem.com` is what gives the
  * two apps one session. That value has to be identical in EVERY place that
  * writes an auth cookie (six of them, see below) or refresh-token rotation
  * desyncs and Supabase's reuse detection revokes the whole token family.
@@ -25,7 +25,7 @@
 
 /**
  * Unset on localhost and previews => host-only cookies => the exact behaviour
- * this app had before CNS existed. ".unnhub.org" in production.
+ * this app had before CNS existed. ".nerusalem.com" in production.
  *
  * Browsers reject a `domain` attribute for bare "localhost", which is why this
  * must stay empty locally. To exercise real cross-subdomain SSO on a dev

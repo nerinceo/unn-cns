@@ -56,7 +56,7 @@ export function createClient() {
 
   // cookieOptions is now always passed (it used to be `undefined` when the user
   // hadn't ticked "Stay signed in") because the cookie DOMAIN has to be applied
-  // either way — that's what lets cns.unnhub.org see this session.
+  // either way — that's what lets cns.nerusalem.com see this session.
   //
   // Caveat worth knowing: @supabase/ssr overrides cookieOptions.maxAge with its
   // own 400-day default, so the Remember Me max-age passed here is currently

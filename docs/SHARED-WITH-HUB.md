@@ -18,6 +18,7 @@ Copied from `unn-platform` at commit **`56e0ed7`** (2026-07-21).
 | `lib/supabase/client.ts` | `lib/supabase/client.ts` | Browser client + host-only cookie dedupe |
 | `lib/supabase/server.ts` | `lib/supabase/server.ts` | `getCurrentUser`, `getCurrentUserProfile` |
 | `lib/supabase/admin.ts` | `lib/supabase/admin.ts` | Service role. Server-only. |
+| `lib/users/columns.ts` | `lib/users/columns.ts` | The `public.users` column allowlist. Must match the grant in HUB migration 0024 *and* both sibling copies — a column named here but not granted errors the whole query with `42501`, which took CNS down when 0024 first ran. |
 | `lib/utils/cn.ts` | `lib/utils/cn.ts` | Never changes |
 | `components/ui/button.tsx` | same | |
 | `components/ui/input.tsx` | same | |

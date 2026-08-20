@@ -3,8 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 
 // Same font, same variable name, same Tailwind wiring as HUB. Visual identity
-// is a product requirement here: crossing between app.unnhub.org and
-// cns.unnhub.org must not feel like leaving the product.
+// is a product requirement here: crossing between unn.nerusalem.com and
+// cns.nerusalem.com must not feel like leaving the product.
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",

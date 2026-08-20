@@ -205,7 +205,7 @@ export function AttemptRunner({
               className="max-w-md"
             />
           ) : (
-            q.options.map((opt) => {
+            q.options.map((opt, i) => {
               const picked = current.selected.includes(opt.id);
               return (
                 <button
@@ -227,7 +227,18 @@ export function AttemptRunner({
                         : "border-border text-muted-foreground"
                     )}
                   >
-                    {picked ? <Check className="h-3 w-3" /> : String.fromCharCode(65 + opt.position - 1)}
+                    {/* Label from RENDER ORDER, not opt.position.
+                        `65 + opt.position - 1` assumed position was 1-based, but
+                        1,239 of 1,250 questions store it 0-based — and 65 + 0 - 1
+                        is char code 64, which is "@". So virtually the whole bank
+                        showed "@ A B C" instead of "A B C D".
+                        The rows arrive ordered by position (see OPT_COLS query in
+                        lib/cns/question-bank.ts), so the array index is already the
+                        display order and is immune to 0-based, 1-based or gapped
+                        data. Deliberately NOT fixed by renumbering the table:
+                        position is the stored ordering key, and rewriting 1,239
+                        questions to satisfy a display bug risks the answer key. */}
+                    {picked ? <Check className="h-3 w-3" /> : String.fromCharCode(65 + i)}
                   </span>
                   <span className="text-sm">{opt.option_text}</span>
                 </button>

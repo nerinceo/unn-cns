@@ -3,7 +3,7 @@
  *
  * HUB, CNS and UHN (uhn.nerusalem.com) all sit on ONE Supabase project, so
  * they share auth.users and public.users. A UHN account's email and password
- * therefore work at app.unnhub.org too — putting those users on a separate
+ * therefore work at unn.nerusalem.com too — putting those users on a separate
  * domain decides where they LIVE, not whether this app lets them in.
  *
  * `users.account_scope` is what closes that. See

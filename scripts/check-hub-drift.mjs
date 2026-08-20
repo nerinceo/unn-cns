@@ -46,6 +46,22 @@ const MIRRORED = [
   { path: "lib/supabase/client.ts", mode: "exact", critical: true },
   { path: "lib/supabase/server.ts", mode: "exact", critical: true },
   { path: "lib/supabase/admin.ts", mode: "exact", critical: true },
+  // Routes an account to the app it belongs to (scope + home destination).
+  // Drift here does not throw — it silently lands people in the wrong app, or
+  // in no app at all. UHN's copy had already lost its UHN_URL export before
+  // this was registered, and only a typecheck during an unrelated release
+  // caught it. UHN legitimately EXTENDS this module (UHN_SCOPE, UHN_ROLE,
+  // JOB_TITLE_*), so only the HUB↔CNS pair can be compared exactly.
+  { path: "lib/access.ts", mode: "exact", critical: true },
+  // The public.users column allowlist. Must match BOTH the grant in migration
+  // 0024 and the other repos' copies: a column granted in SQL but missing here
+  // reads back as absent, and one named here but not granted errors the whole
+  // query with 42501 — which is what took CNS down when 0024 first ran.
+  { path: "lib/users/columns.ts", mode: "exact", critical: true },
+  // Rich-text allowlist. docs/SHARED-WITH-HUB.md has always listed this as
+  // mirrored; it just was not enforced. Drift lets one app render markup the
+  // other strips — an XSS gap in whichever side is more permissive.
+  { path: "lib/sanitize.ts", mode: "exact" },
   { path: "lib/utils/cn.ts", mode: "exact" },
   { path: "components/ui/button.tsx", mode: "exact" },
   { path: "components/ui/input.tsx", mode: "exact" },
