@@ -365,11 +365,37 @@ export async function getMyEmployers() {
     .select("role,status,employer:employer_id(id,slug,name,status,verification_status,logo_url)")
     .eq("user_id", uid)
     .eq("status", "approved");
-  return (data ?? []) as unknown as {
+  // `employer` is an EMBEDDED JOIN, so it comes back null whenever the
+  // membership row survives but the joined row does not — a deleted employer,
+  // or one RLS hides from this viewer.
+  //
+  // The old signature asserted it was always present, and because the assertion
+  // went through `as unknown as`, TypeScript could not contradict it. Six call
+  // sites — including app/(member)/layout.tsx, the layout behind EVERY member
+  // page — were therefore type-checked against a guarantee the database does
+  // not make, and `m.employer.id` would throw a TypeError that took the whole
+  // page down as an opaque "server-side exception".
+  //
+  // Filtering here rather than at each call site makes the non-null type
+  // HONEST: callers keep their existing shape and are actually safe, instead of
+  // six copies of the same guard that someone will forget on the seventh.
+  const rows = (data ?? []) as unknown as {
     role: string;
     status: string;
-    employer: { id: string; slug: string; name: string; status: string; verification_status: string; logo_url: string | null };
+    employer: {
+      id: string;
+      slug: string;
+      name: string;
+      status: string;
+      verification_status: string;
+      logo_url: string | null;
+    } | null;
   }[];
+
+  return rows.filter(
+    (r): r is typeof r & { employer: NonNullable<(typeof r)["employer"]> } =>
+      Boolean(r.employer)
+  );
 }
 
 export async function getEmployerJobs(employerId: string) {

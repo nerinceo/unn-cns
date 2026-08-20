@@ -25,14 +25,31 @@ export async function CrawlableShell({ children }: { children: React.ReactNode }
   const user = await getCurrentUser();
 
   if (user) {
-    const [employers, staff] = await Promise.all([getMyEmployers(), isStaff()]);
+    // The CHROME must never be able to take down the page it wraps. This shell
+    // is the layout for every job and employer page — the acquisition funnel —
+    // so a failure fetching the portal switcher's contents used to render a
+    // full-page "server-side exception" over a job that was itself perfectly
+    // fine. Same principle recordJobView() already states: a thrown error costs
+    // the applicant.
+    //
+    // The console.error matters as much as the catch: a Server Component throw
+    // reaches production as an opaque digest with the message stripped, which
+    // is unreadable. Logging here puts the real error in the runtime log while
+    // the page still renders.
+    let employers: { id: string; name: string }[] = [];
+    let staff = false;
+    try {
+      // getMyEmployers() now drops memberships whose employer join came back
+      // null, so `m.employer` here is genuinely non-null rather than asserted.
+      const [rows, isStaffUser] = await Promise.all([getMyEmployers(), isStaff()]);
+      employers = rows.map((m) => ({ id: m.employer.id, name: m.employer.name }));
+      staff = isStaffUser;
+    } catch (err) {
+      console.error("[CrawlableShell] portal chrome failed; rendering without it:", err);
+    }
+
     return (
-      <AppShell
-        portal="member"
-        wordmark="CNS"
-        employers={employers.map((m) => ({ id: m.employer.id, name: m.employer.name }))}
-        isStaff={staff}
-      >
+      <AppShell portal="member" wordmark="CNS" employers={employers} isStaff={staff}>
         {children}
       </AppShell>
     );
