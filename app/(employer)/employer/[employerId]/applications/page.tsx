@@ -75,7 +75,7 @@ export default async function ApplicationsInbox({
   let q = supabase
     .from("cns_job_applications")
     .select(
-      "id,job_id,applicant_id,cover_note,profile_snapshot,status,status_changed_at,employer_note,created_at"
+      "id,job_id,applicant_id,cover_note,profile_snapshot,status,status_changed_at,employer_note,created_at,resume_id,resume_file_id"
     )
     .in("job_id", jobIds.length ? jobIds : ["00000000-0000-0000-0000-000000000000"])
     .order("created_at", { ascending: false });
@@ -181,6 +181,9 @@ export default async function ApplicationsInbox({
       createdAt: a.created_at as string,
       contact: contactById.get(a.applicant_id as string) ?? null,
       applicantName: (snapshot.full_name as string) ?? "Applicant",
+      applicantId: a.applicant_id as string,
+      // Flag only — the signed CV link is minted on click, not per render.
+      hasResume: Boolean(a.resume_file_id || a.resume_id),
       matchPercent: match.percent,
       screening: evaluateScreening(
         questionsByJob.get(a.job_id as string) ?? [],

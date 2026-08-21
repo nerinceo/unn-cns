@@ -7,6 +7,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { checkLimit } from "@/lib/ratelimit";
 import { getJobLabels } from "@/lib/cns/taxonomy";
 import { notifyUser, notifyUsers } from "@/lib/cns/notify";
+import { getApplicationResumeTarget } from "@/lib/cns/application-resume-access";
 
 function slugify(s: string) {
   return s
@@ -646,4 +647,34 @@ export async function reportJob(
   });
   if (error) return { error: error.message };
   return { ok: true };
+}
+
+/**
+ * A short-lived link to the CV a candidate attached to their application.
+ *
+ * Minted on demand rather than presigned when the pipeline renders: a page of
+ * thirty applicants would otherwise mint thirty signed URLs on every load, all
+ * expiring in ten minutes whether or not anyone clicked one.
+ *
+ * Entitlement lives in lib/cns/application-resume-access.ts and is checked
+ * there before anything is read — see that file for why this is not left to
+ * RLS.
+ */
+export async function getApplicationResumeUrl(
+  applicationId: string
+): Promise<ActionResult & { url?: string; href?: string; fileName?: string; title?: string }> {
+  const target = await getApplicationResumeTarget(applicationId);
+
+  switch (target.kind) {
+    case "file":
+      return { ok: true, url: target.url, fileName: target.fileName };
+    case "built":
+      return { ok: true, href: target.href, title: target.title };
+    case "unshared":
+      return {
+        error: `"${target.title}" is a resume built in UNN and the candidate has not enabled its share link. Ask them to turn on sharing from their Resume page.`,
+      };
+    default:
+      return { error: "No CV is attached to this application." };
+  }
 }

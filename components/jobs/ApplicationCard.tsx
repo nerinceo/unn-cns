@@ -2,11 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Mail, Phone, ChevronDown, Loader2, Sparkles } from "lucide-react";
+import { ShieldCheck, Mail, Phone, ChevronDown, Loader2, Sparkles, FileText, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { formatDate } from "@/lib/utils/date";
-import { setApplicationStatus } from "@/lib/actions/jobs";
+import { setApplicationStatus, getApplicationResumeUrl } from "@/lib/actions/jobs";
+import { hubLink } from "@/lib/hub";
 
 // Keyed on the status vocabulary the database enforces
 // (cns_job_applications_status_check): applied, under_review, shortlisted,
@@ -76,6 +77,7 @@ type Snapshot = {
 
 export function ApplicationCard({
   id, jobTitle, snapshot, coverNote, status, employerNote, createdAt, contact, matchPercent,
+  applicantId, hasResume,
 }: {
   id: string;
   jobTitle: string;
@@ -87,6 +89,8 @@ export function ApplicationCard({
   contact: { email: string | null; phone: string | null } | null;
   /** Fit against this job, computed from the snapshot. Null when unscoreable. */
   matchPercent?: number | null;
+  applicantId?: string;
+  hasResume?: boolean;
 }) {
   const s = snapshot as Snapshot;
   const [open, setOpen] = useState(false);
@@ -94,6 +98,22 @@ export function ApplicationCard({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [cvPending, setCvPending] = useState(false);
+
+  /**
+   * The CV link is minted here, on click, not when the pipeline renders — a
+   * presigned URL lives ten minutes, and pre-signing one per applicant on every
+   * page load would expire most of them unopened.
+   */
+  async function openCv() {
+    setCvPending(true);
+    setError(null);
+    const res = await getApplicationResumeUrl(id);
+    setCvPending(false);
+    if (res.error) return setError(res.error);
+    const target = res.url ?? res.href;
+    if (target) window.open(target, "_blank", "noopener,noreferrer");
+  }
 
   const verified = s.verification_status === "verified";
   const actions = NEXT_STATUS[current] ?? [];
@@ -157,6 +177,37 @@ export function ApplicationCard({
           </span>
         </div>
       </div>
+
+      {/* The CV and the profile, available from the moment they apply.
+          Unlike contact details these are NOT held back until shortlisting:
+          they are what the employer reads in order to decide whether to
+          shortlist, and the candidate consented to exactly this when they
+          applied ("your UNN profile is sent"). Withholding them made the
+          pipeline unusable — an employer had a name, a fit score and no way
+          to see the CV the candidate had attached. */}
+      {(hasResume || applicantId) && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {hasResume && (
+            <Button variant="outline" size="sm" onClick={openCv} disabled={cvPending}>
+              {cvPending ? (
+                <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Opening…</>
+              ) : (
+                <><FileText className="mr-1.5 h-3.5 w-3.5" /> View CV</>
+              )}
+            </Button>
+          )}
+          {applicantId && (
+            <a
+              href={hubLink(`/profile/${applicantId}`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> View profile
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Released only after shortlisting — the promise made on the apply screen. */}
       {contact && (contact.email || contact.phone) && (

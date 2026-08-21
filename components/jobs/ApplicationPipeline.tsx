@@ -21,6 +21,14 @@ export type PipelineRow = {
   id: string;
   jobId: string;
   jobTitle: string;
+  /** HUB user id — the employer's route through to the living profile. */
+  applicantId: string;
+  /**
+   * Whether a CV is attached at all. Only a flag: the signed URL is minted on
+   * click, so a page of thirty applicants does not mint thirty ten-minute
+   * links that nobody opens.
+   */
+  hasResume: boolean;
   snapshot: Record<string, unknown>;
   coverNote: string | null;
   status: string;
@@ -187,6 +195,8 @@ export function ApplicationPipeline({ rows }: { rows: PipelineRow[] }) {
                 createdAt={r.createdAt}
                 contact={r.contact}
                 matchPercent={r.matchPercent}
+                applicantId={r.applicantId}
+                hasResume={r.hasResume}
               />
             </div>
           ))}
