@@ -298,15 +298,48 @@ async function buildSnapshot(userId: string) {
   };
 }
 
-export async function applyToJob(
-  jobId: string,
-  input: {
-    coverNote?: string;
-    resumeId?: string;          // built resume (cns_resumes)
-    resumeFileId?: string;      // uploaded CV (cns_resume_files)
-    answers?: { questionId: string; questionText: string; answer: string }[];
-    declarationAccepted: boolean;
+/** Shape of the apply payload, shared by the wrapper and the implementation. */
+type ApplyInput = {
+  coverNote?: string;
+  resumeId?: string; // built resume (cns_resumes)
+  resumeFileId?: string; // uploaded CV (cns_resume_files)
+  answers?: { questionId: string; questionText: string; answer: string }[];
+  declarationAccepted: boolean;
+};
+
+/**
+ * A Server Action must never be allowed to THROW.
+ *
+ * Every failure this function anticipates is already returned as { error }, and
+ * ApplyPanel renders those inline. An UNANTICIPATED throw behaves completely
+ * differently: React replaces the whole route with "Application error: a
+ * server-side exception has occurred" and a digest, the message is stripped in
+ * production, and the applicant is left on a dead page with no way to retry —
+ * on the single screen the entire job board exists to funnel them to.
+ *
+ * That is what was happening here. The insert never ran (no application rows
+ * were created), so the throw was upstream of it, and the digest gave nothing
+ * to work from.
+ *
+ * So: catch everything, log it (this is what puts a readable message in the
+ * runtime log instead of an opaque digest), and hand the applicant a sentence
+ * plus a working page. Returning the message is deliberate — a stuck applicant
+ * who can tell you what it said is worth far more than a hidden internal that
+ * only shows up as a silent drop in the funnel.
+ */
+export async function applyToJob(jobId: string, input: ApplyInput): Promise<ActionResult> {
+  try {
+    return await applyToJobImpl(jobId, input);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[applyToJob] unhandled failure", { jobId, message, err });
+    return { error: `Could not submit your application: ${message}` };
   }
+}
+
+async function applyToJobImpl(
+  jobId: string,
+  input: ApplyInput
 ): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
