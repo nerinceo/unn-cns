@@ -1,6 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 /**
  * The six controlled vocabularies, read from cns_job_categories.
@@ -34,9 +34,38 @@ export type Category = {
 
 export const TAXONOMY_TAG = "cns-job-taxonomy";
 
+/**
+ * A COOKIE-FREE client, and the whole point of this function.
+ *
+ * loadAll() used the cookie-backed server client. Inside unstable_cache() that
+ * is illegal — Next throws:
+ *
+ *   used "cookies" inside a function cached with "unstable_cache(...)".
+ *   Accessing Dynamic data sources inside a cache scope is not supported.
+ *
+ * It hid for so long because it only fires on a cache MISS. For the hour the
+ * entry is warm the body never runs, so job pages render fine; then the TTL
+ * lapses (or a deploy, or a cold lambda resets it) and whoever arrives next
+ * eats the throw. Applying was the visible casualty: applyToJob -> buildSnapshot
+ * -> getJobLabels -> loadAll, and a Server Action throw replaces the entire
+ * route with an opaque digest, so applicants hit a dead page at random.
+ *
+ * The taxonomy is public reference data (is_active rows of cns_job_categories,
+ * readable by anon — verified), so it never needed the caller's session. An
+ * anon client has no cookies to read, which makes it correct to cache AND the
+ * least privilege that works. Do not swap this back to the server client.
+ */
+function taxonomyClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+}
+
 const loadAll = unstable_cache(
   async (): Promise<Category[]> => {
-    const supabase = await createClient();
+    const supabase = taxonomyClient();
     const { data } = await supabase
       .from("cns_job_categories")
       .select("kind,value,label,code,position")
