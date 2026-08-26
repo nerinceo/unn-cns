@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { GraduationCap, ClipboardList, TrendingUp, School, ArrowRight, FileText, BookOpenCheck } from "lucide-react";
+import { GraduationCap, ClipboardList, TrendingUp, School } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { getBankSubjects, getInstitutions } from "@/lib/cns/question-bank";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Learn — Central Nursing Systems" };
@@ -23,24 +22,7 @@ const TOOLS: { href: string; icon: LucideIcon; title: string; body: string; live
     body: "Structured nursing courses taught by verified nurses, with progress saved lecture by lecture.", live: true },
 ];
 
-export default async function LearnHub() {
-  const [subjects, institutions] = await Promise.all([getBankSubjects(), getInstitutions()]);
-  const totalSets = subjects.reduce((n, s) => n + s.sets.length, 0);
-  const totalDescriptive = subjects.reduce((n, s) => n + s.descriptiveCount, 0);
-
-  // Subjects belong to a university, so every deep link needs its slug.
-  const slugById = new Map(institutions.map((i) => [i.id, i.slug]));
-
-  /** Land on whatever this subject actually has, rather than a generic page. */
-  const subjectHref = (s: (typeof subjects)[number]) => {
-    const slug = s.institution_id ? slugById.get(s.institution_id) : undefined;
-    if (!slug) return "/question-bank";
-    if (s.sets.length === 1) return `/question-bank/set/${s.sets[0].id}`;
-    if (s.sets.length > 1) return `/question-bank/${slug}/mcq?subject=${s.id}`;
-    if (s.descriptiveCount > 0) return `/question-bank/${slug}/descriptive/${s.id}`;
-    return `/question-bank/${slug}`;
-  };
-
+export default function LearnHub() {
   return (
     <div className="space-y-10">
       <header className="rounded-2xl border border-border bg-card p-6 sm:p-8">
@@ -79,45 +61,6 @@ export default async function LearnHub() {
         ))}
       </section>
 
-      {subjects.length > 0 && (
-        <section>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-              Question bank by subject — {totalSets} practice{" "}
-              {totalSets === 1 ? "set" : "sets"}, {totalDescriptive.toLocaleString()} descriptive{" "}
-              {totalDescriptive === 1 ? "question" : "questions"}
-            </h2>
-            <Link href="/question-bank" className="flex items-center gap-1 text-sm text-primary hover:underline">
-              Open question bank <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {subjects.slice(0, 9).map((s) => (
-              <Link
-                key={s.id}
-                href={subjectHref(s)}
-                className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
-              >
-                <h3 className="font-medium group-hover:text-primary">{s.name}</h3>
-                <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                  {s.sets.length > 0 && (
-                    <div className="flex items-center gap-1.5">
-                      <FileText className="h-3.5 w-3.5" />
-                      {s.sets.length} {s.sets.length === 1 ? "set" : "sets"}
-                    </div>
-                  )}
-                  {s.descriptiveCount > 0 && (
-                    <div className="flex items-center gap-1.5">
-                      <BookOpenCheck className="h-3.5 w-3.5" />
-                      {s.descriptiveCount.toLocaleString()} descriptive
-                    </div>
-                  )}
-                </dl>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

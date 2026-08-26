@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
 import { getBankQuestion, getTopicIndex } from "@/lib/cns/nursing-bank";
 import { getStudySubject } from "@/lib/cns/study";
@@ -78,7 +77,6 @@ export default async function BankQuestionPage({
         href={back}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
       >
-        <ArrowLeft className="h-4 w-4" />
         {QUESTION_DETAIL_COPY.back}
       </Link>
 

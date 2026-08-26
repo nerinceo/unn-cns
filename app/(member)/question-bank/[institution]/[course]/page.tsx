@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, BookOpen } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
 import { getBankRollup, tallyBySemester } from "@/lib/cns/nursing-bank";
 import {
@@ -60,7 +60,6 @@ export default async function CourseSemesterPage({
         href={`/question-bank/${slug}`}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
       >
-        <ArrowLeft className="h-4 w-4" />
         {SEMESTER_PICKER_COPY.back}
       </Link>
 

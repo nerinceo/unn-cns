@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
 import {
   getBankRollup,
@@ -113,7 +113,6 @@ export default async function SemesterQuestionsPage({
         href={`/question-bank/${slug}/${courseKey}`}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
       >
-        <ArrowLeft className="h-4 w-4" />
         {QUESTION_LIST_COPY.back}
       </Link>
 

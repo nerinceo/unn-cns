@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, GraduationCap, Lock } from "lucide-react";
+import { GraduationCap, Lock } from "lucide-react";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
 import {
   ACCESS_COPY,
@@ -54,7 +54,6 @@ export default async function InstitutionCoursePage({
         href="/question-bank"
         className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
       >
-        <ArrowLeft className="h-4 w-4" />
         {COURSE_PICKER_COPY.back}
       </Link>
 
