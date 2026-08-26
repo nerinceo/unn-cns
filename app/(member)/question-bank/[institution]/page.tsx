@@ -1,195 +1,139 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BookOpenCheck, FileText, ArrowRight, Lock } from "lucide-react";
-import { getBankSubjects, getInstitutionBySlug } from "@/lib/cns/question-bank";
-import { BankHeader } from "@/components/question-bank/BankHeader";
+import { ArrowLeft, GraduationCap, Lock } from "lucide-react";
+import { getInstitutionBySlug } from "@/lib/cns/question-bank";
+import {
+  ACCESS_COPY,
+  BANK_DIRECTORY,
+  COURSES,
+  COURSE_PICKER_COPY,
+  bankFooter,
+} from "@/lib/cns/question-bank-content";
 
 export const dynamic = "force-dynamic";
 
+function findBank(slug: string) {
+  for (const group of BANK_DIRECTORY) {
+    const bank = group.banks.find((b) => b.key === slug);
+    if (bank) return bank;
+  }
+  return null;
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ institution: string }> }) {
-  const inst = await getInstitutionBySlug((await params).institution);
-  return {
-    title: `${inst?.short_name ?? inst?.name ?? "Question Bank"} — Question Bank — Central Nursing Systems`,
-  };
+  const bank = findBank((await params).institution);
+  return { title: `${bank?.name ?? "Question Bank"} — Central Nursing Systems` };
 }
 
 /**
- * One university's bank, subject first.
+ * One university: the course level.
  *
- * A nurse revising Pharmacology wants everything for Pharmacology, not a
- * decision about which of two formats to open. So this is one card per subject
- * carrying both counts, and the format tabs above are the shortcut for someone
- * who does know they want MCQs (or written answers) specifically.
+ * Two states share this route. A university with content (only RGUHS today)
+ * gets the course picker. One of the other 21 directory entries gets the
+ * partner-access panel — the same message the old site showed, minus its
+ * client-side code check, which was decorative: the codes shipped in the page
+ * source and the pages behind them verified nothing.
+ *
+ * Copy is verbatim from lib/cns/question-bank-content.ts.
  */
-export default async function InstitutionBankPage({
+export default async function InstitutionCoursePage({
   params,
 }: {
   params: Promise<{ institution: string }>;
 }) {
   const { institution: slug } = await params;
+
+  const bank = findBank(slug);
+  if (!bank) notFound();
+
   const institution = await getInstitutionBySlug(slug);
-  if (!institution) notFound();
-
-  const subjects = await getBankSubjects(institution.id);
-
-  const byYear = new Map<number, typeof subjects>();
-  for (const s of subjects) {
-    const y = s.year_of_study ?? 0;
-    if (!byYear.has(y)) byYear.set(y, []);
-    byYear.get(y)!.push(s);
-  }
-  const years = Array.from(byYear.keys()).sort((a, b) => a - b);
-
-  const base = `/question-bank/${institution.slug}`;
-  const totalSets = subjects.reduce((n, s) => n + s.sets.length, 0);
-  const totalDescriptive = subjects.reduce((n, s) => n + s.descriptiveCount, 0);
 
   return (
-    <div className="space-y-10">
-      <BankHeader
-        institution={institution}
-        active="overview"
-        description="Every question for your course in one place — auto-graded MCQ practice sets and written exam questions with model answers, organised by subject."
-      />
+    <div className="space-y-8">
+      <Link
+        href="/question-bank"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {COURSE_PICKER_COPY.back}
+      </Link>
 
-      {/* The two formats, with what is actually in each. */}
-      <section className="grid gap-4 sm:grid-cols-2">
-        <FormatCard
-          href={`${base}/mcq`}
-          icon={FileText}
-          title="MCQs"
-          count={`${totalSets} ${totalSets === 1 ? "practice set" : "practice sets"}`}
-          body="Timed, auto-graded sets and past papers. Answers and explanations are revealed after you submit, and your accuracy feeds Progress."
-        />
-        <FormatCard
-          href={`${base}/descriptive`}
-          icon={BookOpenCheck}
-          title="Descriptive"
-          count={`${totalDescriptive.toLocaleString()} ${totalDescriptive === 1 ? "question" : "questions"}`}
-          body="Answered in your own words, not by picking an option — essays, clinical viva, case scenarios, care plans and practicals, each with a model answer."
-        />
-      </section>
-
-      {subjects.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
-          <p className="font-medium">Nothing published yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Questions appear here once staff publish them.
+      <header className="rounded-2xl border border-border bg-card p-6 sm:p-8">
+        <div className="flex items-start gap-3">
+          <GraduationCap className="mt-0.5 h-7 w-7 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold sm:text-3xl">
+              {institution?.short_name ?? institution?.name ?? bank.name}
+            </h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">{bank.location}</p>
+          </div>
+        </div>
+        {institution && (
+          <p className="mt-3 max-w-2xl text-muted-foreground">
+            {COURSE_PICKER_COPY.heroSubtitle}
           </p>
-        </div>
+        )}
+      </header>
+
+      {!institution ? (
+        <section className="rounded-xl border border-border bg-card p-8 text-center">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <Lock className="h-5 w-5 text-muted-foreground" />
+          </span>
+          <h2 className="mt-4 text-lg font-semibold">{ACCESS_COPY.heading}</h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{ACCESS_COPY.body}</p>
+        </section>
       ) : (
-        years.map((year) => (
-          <section key={year}>
-            <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-              {year ? `Year ${year}` : "General"}
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {byYear.get(year)!.map((s) => {
-                // One set is the common case, so skip the redundant list page
-                // and send the learner straight into it.
-                const mcqHref =
-                  s.sets.length === 1
-                    ? `/question-bank/set/${s.sets[0].id}`
-                    : `${base}/mcq?subject=${s.id}`;
-                const locked = s.sets.some((set) => set.access_type === "entitled");
-
-                return (
-                  <div
-                    key={s.id}
-                    className="flex flex-col rounded-xl border border-border bg-card p-5"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="min-w-0 font-medium leading-snug">{s.name}</h3>
-                      {locked && <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
-                    </div>
-                    {s.semester != null && (
-                      <p className="mt-0.5 text-xs text-muted-foreground">Semester {s.semester}</p>
-                    )}
-
-                    <div className="mt-4 space-y-1 border-t border-border pt-3 text-sm">
-                      {s.sets.length > 0 ? (
-                        <SubjectLink
-                          href={mcqHref}
-                          icon={FileText}
-                          label={`${s.sets.length} ${s.sets.length === 1 ? "practice set" : "practice sets"}`}
-                        />
-                      ) : (
-                        <p className="flex items-center gap-2 py-1 text-muted-foreground/60">
-                          <FileText className="h-4 w-4 shrink-0" /> No practice sets
-                        </p>
-                      )}
-                      {s.descriptiveCount > 0 ? (
-                        <SubjectLink
-                          href={`${base}/descriptive/${s.id}`}
-                          icon={BookOpenCheck}
-                          label={`${s.descriptiveCount.toLocaleString()} descriptive ${s.descriptiveCount === 1 ? "question" : "questions"}`}
-                        />
-                      ) : (
-                        <p className="flex items-center gap-2 py-1 text-muted-foreground/60">
-                          <BookOpenCheck className="h-4 w-4 shrink-0" /> No descriptive questions
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        <>
+          <section>
+            <h2 className="text-xl font-semibold">{COURSE_PICKER_COPY.heading}</h2>
+            <p className="mt-2 max-w-3xl text-muted-foreground">{COURSE_PICKER_COPY.subtitle}</p>
           </section>
-        ))
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {COURSES.map((course) => {
+              const body = (
+                <>
+                  <h3 className="font-medium leading-snug">{course.name}</h3>
+                  <p className="mt-2 flex-1 text-sm text-muted-foreground">{course.description}</p>
+                  <span
+                    className={`mt-4 inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-medium ${
+                      course.available
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {course.available
+                      ? COURSE_PICKER_COPY.availableBadge
+                      : COURSE_PICKER_COPY.unavailableBadge}
+                  </span>
+                </>
+              );
+
+              return course.available ? (
+                <Link
+                  key={course.key}
+                  href={`/question-bank/${slug}/${course.key}`}
+                  className="group flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
+                >
+                  {body}
+                </Link>
+              ) : (
+                <div
+                  key={course.key}
+                  className="flex flex-col rounded-xl border border-border bg-card p-5 opacity-75"
+                >
+                  {body}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
+
+      <p className="border-t border-border pt-6 text-center text-xs text-muted-foreground">
+        {bankFooter(institution?.short_name ?? bank.name)}
+      </p>
     </div>
-  );
-}
-
-function FormatCard({
-  href,
-  icon: Icon,
-  title,
-  count,
-  body,
-}: {
-  href: string;
-  icon: typeof FileText;
-  title: string;
-  count: string;
-  body: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-start gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
-    >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-        <Icon className="h-6 w-6 text-primary" />
-      </span>
-      <div className="min-w-0">
-        <div className="flex items-baseline gap-2">
-          <h2 className="font-medium group-hover:text-primary">{title}</h2>
-          <span className="text-sm text-muted-foreground">{count}</span>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">{body}</p>
-      </div>
-    </Link>
-  );
-}
-
-function SubjectLink({
-  href,
-  icon: Icon,
-  label,
-}: {
-  href: string;
-  icon: typeof FileText;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-center gap-2 py-1 text-muted-foreground transition-colors hover:text-primary"
-    >
-      <Icon className="h-4 w-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <ArrowRight className="h-3.5 w-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
-    </Link>
   );
 }
