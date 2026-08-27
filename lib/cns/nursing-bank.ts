@@ -230,9 +230,13 @@ export async function getSemesterQuestions(opts: {
     if (term) query = query.or(`stem.ilike.%${term}%,model_answer.ilike.%${term}%`);
   }
 
+  // Ordered by id, which is a v4 uuid — so the list interleaves types and
+  // subjects instead of running all 389 Short Essays together before the first
+  // MCQ. Random-looking but deterministic, which matters: ORDER BY random()
+  // would reshuffle on every page fetch and let a question appear twice or not
+  // at all as the reader pages through.
   const { data, count } = await query
-    .order("source_question_type", { ascending: true })
-    .order("created_at", { ascending: true })
+    .order("id", { ascending: true })
     .range(page * PAGE, page * PAGE + PAGE - 1);
 
   return {

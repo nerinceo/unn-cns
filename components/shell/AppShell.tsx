@@ -56,22 +56,24 @@ export async function AppShell({
 
   return (
     <>
-      <header className="sticky top-0 z-40 h-16 border-b border-border bg-card">
+      {/* Translucent so content scrolling underneath stays faintly visible
+          rather than hitting a hard opaque edge. */}
+      <header className="sticky top-0 z-40 h-16 border-b border-border bg-card/85 backdrop-blur-md supports-[backdrop-filter]:bg-card/75">
         <div className={cn("mx-auto flex h-full items-center gap-4", container)}>
-          <Link href={homeHref} className="flex items-center gap-2">
-            <span className="rounded-md bg-primary px-2 py-1 text-sm font-bold text-primary-foreground">
+          <Link href={homeHref} className="group flex items-center gap-2.5">
+            <span className="rounded-lg bg-primary px-2 py-1 text-sm font-bold text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
               CNS
             </span>
-            <span className="hidden truncate text-lg font-semibold text-primary sm:inline">
+            <span className="hidden truncate text-lg font-semibold tracking-tight text-primary sm:inline">
               {wordmark}
             </span>
           </Link>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2.5">
             <PortalSwitcher current={portal} employers={employers} isStaff={isStaff} isInstructor={isInstructor} />
             <a
               href={hubLink("/profile/me")}
-              className="flex items-center gap-2 rounded-full border border-border py-1 pl-1 pr-3 transition-colors hover:bg-muted"
+              className="flex items-center gap-2 rounded-full border border-border py-1 pl-1 pr-3 transition-colors hover:border-primary/40 hover:bg-muted"
               title={`${name} — open profile in UNN Hub`}
             >
               {photo ? (

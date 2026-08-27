@@ -4,7 +4,6 @@ import {
   HeartHandshake, ArrowRight, ShieldCheck, MapPin,
 } from "lucide-react";
 import { getCurrentUserProfile } from "@/lib/supabase/server";
-import { getSubjectsWithSets } from "@/lib/cns/question-bank";
 import { listPublishedJobs, formatSalary } from "@/lib/cns/jobs";
 import { getJobLabels } from "@/lib/cns/taxonomy";
 
@@ -41,16 +40,14 @@ const SYSTEMS = [
 ];
 
 export default async function CnsHomePage() {
-  const [profile, subjects, jobs, labels] = await Promise.all([
+  const [profile, jobs, labels] = await Promise.all([
     getCurrentUserProfile(),
-    getSubjectsWithSets(),
     listPublishedJobs(),
     getJobLabels(),
   ]);
 
   const firstName = (profile?.full_name as string | undefined)?.split(" ")[0] ?? "there";
   const verified = profile?.verification_status === "verified";
-  const featuredSets = subjects.flatMap((s) => s.sets.map((set) => ({ ...set, subject: s.name }))).slice(0, 4);
   const featuredJobs = (jobs ?? []).slice(0, 4);
 
   return (
@@ -93,33 +90,6 @@ export default async function CnsHomePage() {
           ))}
         </div>
       </section>
-
-      {/* Featured learning */}
-      {featuredSets.length > 0 && (
-        <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-              Featured learning
-            </h2>
-            <Link href="/learn" className="flex items-center gap-1 text-sm text-primary hover:underline">
-              All learning <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {featuredSets.map((set) => (
-              <Link
-                key={set.id}
-                href={`/question-bank/set/${set.id}`}
-                className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
-              >
-                <p className="text-xs text-muted-foreground">{set.subject}</p>
-                <h3 className="mt-1 font-medium group-hover:text-primary">{set.title}</h3>
-                <p className="mt-2 text-xs uppercase tracking-wide text-primary">{set.set_type}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Featured nursing jobs */}
       {featuredJobs.length > 0 && (

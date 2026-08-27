@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ChevronRight, Search, SlidersHorizontal } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Info,
+  Search,
+  SearchX,
+  SlidersHorizontal,
+} from "lucide-react";
+import { FilterSelect } from "@/components/question-bank/FilterSelect";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
 import {
   getBankRollup,
@@ -108,10 +116,13 @@ export default async function SemesterQuestionsPage({
   const pages = Math.ceil(total / pageSize);
 
   return (
-    <div className="space-y-6">
+    // Full width of the shell. Layout width and reading width are separate
+    // problems: the cards fill the page, and the stem and answer bodies cap
+    // their own measure so long prose never runs the full 1440px.
+    <div className="space-y-5">
       <Link
         href={`/question-bank/${slug}/${courseKey}`}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
       >
         {QUESTION_LIST_COPY.back}
       </Link>
@@ -131,68 +142,69 @@ export default async function SemesterQuestionsPage({
         </div>
       </header>
 
-      <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="h-4 w-4 text-primary" />
+      <section className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="flex items-center gap-2 border-b border-border bg-primary/[0.06] px-5 py-3">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+          </span>
           <h2 className="text-[13px] font-bold uppercase tracking-wide text-primary">
             {QUESTION_LIST_COPY.filterHeading}
           </h2>
         </div>
+        <div className="p-5 pt-0">
 
-        <form action={base} method="get" className="mt-3 flex flex-wrap gap-2">
-          {selectedSubject && <input type="hidden" name="subject" value={selectedSubject} />}
-          {selectedType && <input type="hidden" name="type" value={selectedType} />}
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
+        {/* Search and both filters on one line. The source filtered on subject
+            and type too; as dropdowns rather than rails, because eleven types
+            and eight subjects as chips pushed the first question below three
+            rows of wrapping. Search submits on Enter, and the icon button
+            borrows the placeholder for its accessible name rather than
+            introducing a word the source does not have. */}
+        <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-center">
+          <form action={base} method="get" className="relative min-w-0 flex-1">
+            {selectedSubject && <input type="hidden" name="subject" value={selectedSubject} />}
+            {selectedType && <input type="hidden" name="type" value={selectedType} />}
             <input
               type="text"
               name="q"
               defaultValue={search ?? ""}
               placeholder={QUESTION_LIST_COPY.searchPlaceholder}
-              className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground outline-none transition-shadow placeholder:text-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/15 dark:placeholder:text-slate-400"
+              className="h-11 w-full rounded-xl border border-border bg-background pl-4 pr-12 text-sm text-foreground outline-none transition-shadow placeholder:text-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/15 dark:placeholder:text-slate-400"
             />
-          </div>
-          <button
-            type="submit"
-            className="h-10 shrink-0 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            {QUESTION_LIST_COPY.filterHeading}
-          </button>
-        </form>
-
-        {/* Subject rail — the old page's chips, with true counts. */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <FilterChip href={href({ subject: undefined, page: undefined })} active={!selectedSubject}>
-            {QUESTION_LIST_COPY.allSubjects}
-          </FilterChip>
-          {subjects.map((s) => (
-            <FilterChip
-              key={s.id}
-              href={href({ subject: s.id, page: undefined })}
-              active={selectedSubject === s.id}
+            <button
+              type="submit"
+              aria-label={QUESTION_LIST_COPY.searchPlaceholder}
+              className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90"
             >
-              {subjectOptionLabel(s.name, s.total)}
-            </FilterChip>
-          ))}
-        </div>
+              <Search className="h-4 w-4" />
+            </button>
+          </form>
 
-        {types.length > 1 && (
-          <div className="mt-2.5 flex flex-wrap gap-2 border-t border-border pt-3">
-            <FilterChip href={href({ type: undefined, page: undefined })} active={!selectedType}>
-              {QUESTION_LIST_COPY.allTypes}
-            </FilterChip>
-            {types.map((t) => (
-              <FilterChip
-                key={t.type}
-                href={href({ type: t.type, page: undefined })}
-                active={selectedType === t.type}
-              >
-                {t.type}{" "}
-                <span className="ml-0.5 tabular-nums opacity-60">{t.count}</span>
-              </FilterChip>
-            ))}
+          <FilterSelect
+            variant="subject"
+            allLabel={QUESTION_LIST_COPY.allSubjects}
+            allHref={href({ subject: undefined, page: undefined })}
+            widthClass="w-[19rem]"
+            options={subjects.map((s) => ({
+              label: subjectOptionLabel(s.name, s.total),
+              href: href({ subject: s.id, page: undefined }),
+              active: selectedSubject === s.id,
+            }))}
+          />
+          {types.length > 1 && (
+            <FilterSelect
+              variant="type"
+              allLabel={QUESTION_LIST_COPY.allTypes}
+              allHref={href({ type: undefined, page: undefined })}
+              options={types.map((t) => ({
+                label: t.type,
+                count: t.count,
+                href: href({ type: t.type, page: undefined }),
+                active: selectedType === t.type,
+              }))}
+            />
+          )}
           </div>
-        )}
+        </div>
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -206,7 +218,8 @@ export default async function SemesterQuestionsPage({
 
       {questions.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
-          <p className="text-[15px] font-medium text-slate-700 dark:text-slate-300">
+          <SearchX className="mx-auto h-8 w-8 text-slate-400 dark:text-slate-500" />
+          <p className="mt-3 text-[15px] font-medium text-slate-700 dark:text-slate-300">
             {QUESTION_LIST_COPY.empty}
           </p>
         </div>
@@ -268,9 +281,12 @@ export default async function SemesterQuestionsPage({
         </nav>
       )}
 
-      <p className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-[12.5px] leading-relaxed text-amber-900 dark:border-amber-400/25 dark:bg-amber-500/10 dark:text-amber-200/90">
-        <strong className="font-bold">{DISCLAIMER.label}</strong> {DISCLAIMER.body}
-      </p>
+      <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-400/25 dark:bg-amber-500/10">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+        <p className="text-[12.5px] leading-relaxed text-amber-900 dark:text-amber-200/90">
+          <strong className="font-bold">{DISCLAIMER.label}</strong> {DISCLAIMER.body}
+        </p>
+      </div>
 
       <p className="pb-2 text-center text-[12px] font-medium text-slate-500 dark:text-slate-400">
         {bankFooter(`${institution.short_name ?? institution.name} ${course.name}`)}
@@ -279,26 +295,3 @@ export default async function SemesterQuestionsPage({
   );
 }
 
-function FilterChip({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "true" : undefined}
-      className={`rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
-        active
-          ? "border-primary bg-primary text-primary-foreground shadow-sm"
-          : "border-border bg-card text-slate-700 hover:border-primary hover:text-primary dark:text-slate-300"
-      }`}
-    >
-      {children}
-    </Link>
-  );
-}

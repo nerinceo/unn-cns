@@ -1,6 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { GraduationCap, Lock } from "lucide-react";
+import {
+  ArrowRight,
+  Award,
+  BookOpen,
+  Check,
+  Clock,
+  GraduationCap,
+  Lock,
+  MapPin,
+  Stethoscope,
+} from "lucide-react";
+
+/** One icon per course, positionally matched to COURSES. */
+const COURSE_ICONS = [GraduationCap, Stethoscope, BookOpen, Award];
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
 import {
   ACCESS_COPY,
@@ -57,21 +70,29 @@ export default async function InstitutionCoursePage({
         {COURSE_PICKER_COPY.back}
       </Link>
 
-      <header className="rounded-2xl border border-border bg-card p-6 sm:p-8">
-        <div className="flex items-start gap-3">
-          <GraduationCap className="mt-0.5 h-7 w-7 shrink-0 text-primary" />
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold sm:text-3xl">
-              {institution?.short_name ?? institution?.name ?? bank.name}
-            </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">{bank.location}</p>
+      <header className="overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/[0.08] via-card to-card">
+        <span aria-hidden className="block h-1.5 w-full bg-primary" />
+        <div className="p-6 sm:p-8">
+          <div className="flex items-start gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+              <GraduationCap className="h-6 w-6" />
+            </span>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                {institution?.short_name ?? institution?.name ?? bank.name}
+              </h1>
+              <p className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                {bank.location}
+              </p>
+            </div>
           </div>
+          {institution && (
+            <p className="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted-foreground">
+              {COURSE_PICKER_COPY.heroSubtitle}
+            </p>
+          )}
         </div>
-        {institution && (
-          <p className="mt-3 max-w-2xl text-muted-foreground">
-            {COURSE_PICKER_COPY.heroSubtitle}
-          </p>
-        )}
       </header>
 
       {!institution ? (
@@ -89,38 +110,77 @@ export default async function InstitutionCoursePage({
             <p className="mt-2 max-w-3xl text-muted-foreground">{COURSE_PICKER_COPY.subtitle}</p>
           </section>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {COURSES.map((course) => {
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {COURSES.map((course, i) => {
+              const CourseIcon = COURSE_ICONS[i] ?? GraduationCap;
+              const live = course.available;
+
               const body = (
                 <>
-                  <h3 className="font-medium leading-snug">{course.name}</h3>
-                  <p className="mt-2 flex-1 text-sm text-muted-foreground">{course.description}</p>
+                  {/* A live course gets the brand bar; the rest stay neutral,
+                      so "what can I actually open" is answerable before
+                      reading a single badge. */}
                   <span
-                    className={`mt-4 inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-medium ${
-                      course.available
-                        ? "bg-primary/10 text-primary"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {course.available
-                      ? COURSE_PICKER_COPY.availableBadge
-                      : COURSE_PICKER_COPY.unavailableBadge}
-                  </span>
+                    aria-hidden
+                    className={`h-1.5 w-full ${live ? "bg-primary" : "bg-slate-200 dark:bg-slate-700"}`}
+                  />
+
+                  <div className="flex flex-1 flex-col p-5">
+                    <span
+                      className={`flex h-11 w-11 items-center justify-center rounded-xl ring-1 ring-inset ${
+                        live
+                          ? "bg-primary/10 text-primary ring-primary/20"
+                          : "bg-muted text-muted-foreground ring-border"
+                      }`}
+                    >
+                      <CourseIcon className="h-5 w-5" />
+                    </span>
+
+                    <h3
+                      className={`mt-3 text-[15px] font-bold leading-snug ${
+                        live ? "group-hover:text-primary" : "text-muted-foreground"
+                      }`}
+                    >
+                      {course.name}
+                    </h3>
+                    <p className="mt-2 flex-1 text-[13px] leading-relaxed text-muted-foreground">
+                      {course.description}
+                    </p>
+
+                    <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
+                          live
+                            ? "bg-success-soft text-success"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {live ? <Check className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                        {live
+                          ? COURSE_PICKER_COPY.availableBadge
+                          : COURSE_PICKER_COPY.unavailableBadge}
+                      </span>
+                      {live && (
+                        <ArrowRight className="h-4 w-4 -translate-x-1 text-primary opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                      )}
+                    </div>
+                  </div>
                 </>
               );
 
-              return course.available ? (
+              return live ? (
                 <Link
                   key={course.key}
                   href={`/question-bank/${slug}/${course.key}`}
-                  className="group flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
+                  className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-card-hover"
                 >
                   {body}
                 </Link>
               ) : (
                 <div
                   key={course.key}
-                  className="flex flex-col rounded-xl border border-border bg-card p-5 opacity-75"
+                  aria-disabled
+                  className="flex flex-col overflow-hidden rounded-2xl border border-dashed border-border bg-card/60"
                 >
                   {body}
                 </div>

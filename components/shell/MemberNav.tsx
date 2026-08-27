@@ -35,7 +35,7 @@ export function MemberTopNav() {
   useEffect(() => setOpen(false), [pathname]);
 
   return (
-    <nav className="hidden border-b border-border bg-card md:block">
+    <nav className="sticky top-16 z-30 hidden border-b border-border bg-card/85 backdrop-blur-md supports-[backdrop-filter]:bg-card/75 md:block">
       <div className="mx-auto flex max-w-[1440px] items-center gap-1 px-6">
         {MEMBER_PRIMARY.map((item) => (
           <TopLink key={item.href} item={item} active={isActive(item.href)} />
@@ -92,13 +92,13 @@ function TopLink({ item, active }: { item: NavItem; active: boolean }) {
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-1.5 border-b-2 px-4 py-3 text-sm transition-colors",
+        "flex items-center gap-1.5 border-b-2 px-4 py-3 text-sm font-medium transition-colors",
         active
-          ? "border-primary font-medium text-primary"
-          : "border-transparent text-muted-foreground hover:text-foreground"
+          ? "border-primary font-semibold text-primary"
+          : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
       )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className={cn("h-4 w-4", active ? "text-primary" : "text-slate-400 dark:text-slate-500")} />
       {label}
     </Link>
   );

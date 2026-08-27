@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BookOpen } from "lucide-react";
+import { ArrowRight, BookOpen, Check, FileText } from "lucide-react";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
 import { getBankRollup, tallyBySemester } from "@/lib/cns/nursing-bank";
 import {
@@ -12,6 +12,19 @@ import {
 } from "@/lib/cns/question-bank-content";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * One colour per academic year, so the eight semester cards read as four
+ * pairs rather than eight identical boxes. The year is derived from the
+ * semester number — nothing is labelled with it, since the source's semester
+ * picker carries no year text and the wording here must match it.
+ */
+const YEAR_BANDS = [
+  { bar: "bg-blue-500", chip: "bg-blue-50 text-blue-700 ring-blue-600/20", icon: "text-blue-500" },
+  { bar: "bg-emerald-500", chip: "bg-emerald-50 text-emerald-700 ring-emerald-600/20", icon: "text-emerald-500" },
+  { bar: "bg-amber-500", chip: "bg-amber-50 text-amber-800 ring-amber-600/20", icon: "text-amber-500" },
+  { bar: "bg-violet-500", chip: "bg-violet-50 text-violet-700 ring-violet-600/20", icon: "text-violet-500" },
+];
 
 export async function generateMetadata({
   params,
@@ -63,16 +76,21 @@ export default async function CourseSemesterPage({
         {SEMESTER_PICKER_COPY.back}
       </Link>
 
-      <header className="rounded-2xl border border-border bg-card p-6 sm:p-8">
-        <div className="flex items-start gap-3">
-          <BookOpen className="mt-0.5 h-7 w-7 shrink-0 text-primary" />
-          <h1 className="text-2xl font-semibold sm:text-3xl">
-            {institution.short_name ?? institution.name} {course.name}
-          </h1>
+      <header className="overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/[0.08] via-card to-card">
+        <span aria-hidden className="block h-1.5 w-full bg-primary" />
+        <div className="p-6 sm:p-8">
+          <div className="flex items-start gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+              <BookOpen className="h-6 w-6" />
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              {institution.short_name ?? institution.name} {course.name}
+            </h1>
+          </div>
+          <p className="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted-foreground">
+            {SEMESTER_PICKER_COPY.heroSubtitle}
+          </p>
         </div>
-        <p className="mt-3 max-w-2xl text-muted-foreground">
-          {SEMESTER_PICKER_COPY.heroSubtitle}
-        </p>
       </header>
 
       <section>
@@ -80,25 +98,52 @@ export default async function CourseSemesterPage({
         <p className="mt-2 max-w-3xl text-muted-foreground">{SEMESTER_PICKER_COPY.subtitle}</p>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {SEMESTERS.map((sem) => {
           const total = counts.get(sem.number) ?? 0;
+          const band = YEAR_BANDS[Math.ceil(sem.number / 2) - 1] ?? YEAR_BANDS[0];
 
           return (
             <Link
               key={sem.number}
               href={`${base}/${sem.number}`}
-              className="group flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
+              className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-card-hover"
             >
-              <h3 className="font-medium leading-snug group-hover:text-primary">{sem.name}</h3>
-              <p className="mt-2 flex-1 text-sm text-muted-foreground">{sem.description}</p>
+              {/* Colour bands the two semesters of each academic year together,
+                  so the eight cards read as four pairs at a glance. */}
+              <span aria-hidden className={`h-1.5 w-full ${band.bar}`} />
 
-              <p className="mt-4 text-sm font-medium tabular-nums">
-                {questionCountLabel(total)}
-              </p>
-              <span className="mt-2 inline-flex w-fit items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                {SEMESTER_PICKER_COPY.badge}
-              </span>
+              <div className="flex flex-1 flex-col p-5">
+                <div className="flex items-start gap-3">
+                  <span
+                    aria-hidden
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg font-bold tabular-nums ring-1 ring-inset ${band.chip}`}
+                  >
+                    {sem.number}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-[15px] font-bold leading-snug group-hover:text-primary">
+                      {sem.name}
+                    </h3>
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-success">
+                      <Check className="h-3 w-3" />
+                      {SEMESTER_PICKER_COPY.badge}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="mt-3 flex-1 text-[13px] leading-relaxed text-muted-foreground">
+                  {sem.description}
+                </p>
+
+                <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+                  <span className="inline-flex items-center gap-1.5 text-[13px] font-bold tabular-nums text-foreground">
+                    <FileText className={`h-4 w-4 ${band.icon}`} />
+                    {questionCountLabel(total)}
+                  </span>
+                  <ArrowRight className="h-4 w-4 -translate-x-1 text-primary opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                </div>
+              </div>
             </Link>
           );
         })}
