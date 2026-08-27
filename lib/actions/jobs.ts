@@ -458,12 +458,28 @@ async function applyToJobImpl(
   return { ok: true };
 }
 
+/**
+ * Withdraw, through the definer function rather than a table update.
+ *
+ * This used to be a plain UPDATE relying on the "cns applications withdraw"
+ * policy for ownership. That policy was
+ * `for update using (applicant_id = auth.uid())` with no WITH CHECK and no
+ * column restriction — RLS is row-level, so it granted the candidate EVERY
+ * column of their own application. Verified against the live schema: a
+ * candidate could set their own status to 'selected', overwrite the employer's
+ * private note, and rewrite the frozen profile_snapshot, including the
+ * verification_status the employer's list draws its "verified" badge from.
+ *
+ * UHN 0002 dropped that policy, revoked UPDATE on the table from
+ * `authenticated`, and added cns_withdraw_application(), which checks
+ * ownership, is idempotent, and writes the status-history row. This call site
+ * has to change with it or withdrawal returns "permission denied".
+ */
 export async function withdrawApplication(applicationId: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("cns_job_applications")
-    .update({ status: "withdrawn", status_changed_at: new Date().toISOString() })
-    .eq("id", applicationId);
+  const { error } = await supabase.rpc("cns_withdraw_application", {
+    p_application_id: applicationId,
+  });
   if (error) return { error: error.message };
   revalidatePath("/jobs/applications");
   return { ok: true };

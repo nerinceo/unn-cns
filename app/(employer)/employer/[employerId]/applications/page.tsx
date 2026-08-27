@@ -72,10 +72,15 @@ export default async function ApplicationsInbox({
 
   // RLS restricts these to jobs belonging to an employer the caller is an
   // approved member of.
+  // employer_note is deliberately ABSENT from this list. UHN 0002 revoked
+  // SELECT on that column from `authenticated`: the applicant's own-row policy
+  // was handing them the private note written about them. Naming it here now
+  // fails the whole query with "permission denied for column". It is fetched
+  // below through cns_employer_notes(), which re-checks employer membership.
   let q = supabase
     .from("cns_job_applications")
     .select(
-      "id,job_id,applicant_id,cover_note,profile_snapshot,status,status_changed_at,employer_note,created_at,resume_id,resume_file_id"
+      "id,job_id,applicant_id,cover_note,profile_snapshot,status,status_changed_at,created_at,resume_id,resume_file_id"
     )
     .in("job_id", jobIds.length ? jobIds : ["00000000-0000-0000-0000-000000000000"])
     .order("created_at", { ascending: false });
@@ -83,6 +88,17 @@ export default async function ApplicationsInbox({
   const { data: applications } = await q;
 
   const applicationIds = (applications ?? []).map((a) => a.id as string);
+
+  // The employer's private notes, one batched call rather than one per row.
+  const noteById = new Map<string, string | null>();
+  if (applicationIds.length) {
+    const { data: noteRows } = await supabase.rpc("cns_employer_notes", {
+      p_application_ids: applicationIds,
+    });
+    for (const n of (noteRows ?? []) as { application_id: string; note: string | null }[]) {
+      noteById.set(n.application_id, n.note);
+    }
+  }
 
   // Screening rules live on the job; answers live on the application. Both are
   // needed to say whether an applicant cleared the employer's stated bar.
@@ -177,7 +193,7 @@ export default async function ApplicationsInbox({
       snapshot,
       coverNote: (a.cover_note as string) ?? null,
       status: a.status as string,
-      employerNote: (a.employer_note as string) ?? null,
+      employerNote: noteById.get(a.id as string) ?? null,
       createdAt: a.created_at as string,
       contact: contactById.get(a.applicant_id as string) ?? null,
       applicantName: (snapshot.full_name as string) ?? "Applicant",

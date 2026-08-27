@@ -355,6 +355,15 @@ alter table public.cns_job_applications
 -- an applicant's resume ONLY for a job that person actually applied to. That
 -- has to be a database check — application code that forgets it leaks every
 -- CV on the platform.
+--
+-- !! SUPERSEDED IN PRODUCTION by unn-uhn/supabase/migrations/0001_uhn_registry.sql
+-- !! section 5, which adds a THIRD clause: a member who ticked both registry
+-- !! toggles shares their active CV with approved recruiters without applying.
+-- !!
+-- !! RE-RUNNING THIS FILE REVERTS THAT WIDENING. Both clauses below are
+-- !! reproduced verbatim in UHN 0001, so the fix is to re-run UHN 0001 after
+-- !! this one. The symptom otherwise is a registry CV button that refuses with
+-- !! "you do not have access to this file" and nothing in the logs to say why.
 -- ---------------------------------------------------------------------------
 create or replace function public.cns_can_read_resume(p_resume_id uuid)
 returns boolean
