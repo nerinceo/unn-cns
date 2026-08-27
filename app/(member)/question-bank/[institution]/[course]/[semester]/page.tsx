@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, SlidersHorizontal } from "lucide-react";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
 import {
   getBankRollup,
@@ -116,36 +116,45 @@ export default async function SemesterQuestionsPage({
         {QUESTION_LIST_COPY.back}
       </Link>
 
-      <header className="rounded-2xl border border-border bg-card p-6 sm:p-8">
-        <h1 className="text-2xl font-semibold sm:text-3xl">
-          {questionListTitle(
-            institution.short_name ?? institution.name,
-            course.name,
-            semesterNumber
-          )}
-        </h1>
-        <p className="mt-2 max-w-2xl text-muted-foreground">{QUESTION_LIST_COPY.subtitle}</p>
+      <header className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="border-b border-border bg-gradient-to-br from-primary/[0.07] via-card to-card p-6 sm:p-8">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            {questionListTitle(
+              institution.short_name ?? institution.name,
+              course.name,
+              semesterNumber
+            )}
+          </h1>
+          <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-slate-600 dark:text-slate-400">
+            {QUESTION_LIST_COPY.subtitle}
+          </p>
+        </div>
       </header>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <h2 className="text-sm font-semibold text-primary">{QUESTION_LIST_COPY.filterHeading}</h2>
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4 text-primary" />
+          <h2 className="text-[13px] font-bold uppercase tracking-wide text-primary">
+            {QUESTION_LIST_COPY.filterHeading}
+          </h2>
+        </div>
 
-        <form action={base} method="get" className="mt-3 flex flex-wrap gap-3">
+        <form action={base} method="get" className="mt-3 flex flex-wrap gap-2">
           {selectedSubject && <input type="hidden" name="subject" value={selectedSubject} />}
           {selectedType && <input type="hidden" name="type" value={selectedType} />}
           <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
             <input
               type="text"
               name="q"
               defaultValue={search ?? ""}
               placeholder={QUESTION_LIST_COPY.searchPlaceholder}
-              className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary"
+              className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground outline-none transition-shadow placeholder:text-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/15 dark:placeholder:text-slate-400"
             />
           </div>
           <button
             type="submit"
-            className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            className="h-10 shrink-0 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
             {QUESTION_LIST_COPY.filterHeading}
           </button>
@@ -168,7 +177,7 @@ export default async function SemesterQuestionsPage({
         </div>
 
         {types.length > 1 && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2.5 flex flex-wrap gap-2 border-t border-border pt-3">
             <FilterChip href={href({ type: undefined, page: undefined })} active={!selectedType}>
               {QUESTION_LIST_COPY.allTypes}
             </FilterChip>
@@ -178,25 +187,28 @@ export default async function SemesterQuestionsPage({
                 href={href({ type: t.type, page: undefined })}
                 active={selectedType === t.type}
               >
-                {t.type} <span className="opacity-70">{t.count}</span>
+                {t.type}{" "}
+                <span className="ml-0.5 tabular-nums opacity-60">{t.count}</span>
               </FilterChip>
             ))}
           </div>
         )}
-
-        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4 text-sm">
-          <span className="text-muted-foreground">
-            {total > 0 ? showingLabel(shown, total) : QUESTION_LIST_COPY.exhausted}
-          </span>
-          <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs tabular-nums">
-            {countPillLabel(total)}
-          </span>
-        </div>
       </section>
 
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
+          {total > 0 ? showingLabel(shown, total) : QUESTION_LIST_COPY.exhausted}
+        </span>
+        <span className="rounded-full bg-primary px-3 py-1 text-[12px] font-bold tabular-nums text-primary-foreground">
+          {countPillLabel(total)}
+        </span>
+      </div>
+
       {questions.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
-          <p className="text-muted-foreground">{QUESTION_LIST_COPY.empty}</p>
+        <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
+          <p className="text-[15px] font-medium text-slate-700 dark:text-slate-300">
+            {QUESTION_LIST_COPY.empty}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -229,24 +241,24 @@ export default async function SemesterQuestionsPage({
       )}
 
       {pages > 1 && (
-        <nav className="flex items-center justify-between border-t border-border pt-4 text-sm">
+        <nav className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 text-[13px]">
           {page > 0 ? (
             <Link
               href={href({ page: page - 1 })}
-              className="inline-flex items-center gap-1 text-primary hover:underline"
+              className="inline-flex h-9 items-center gap-1 rounded-lg border border-border px-3 font-semibold text-slate-700 transition-colors hover:border-primary hover:text-primary dark:text-slate-300"
             >
               <ChevronLeft className="h-4 w-4" /> Previous
             </Link>
           ) : (
             <span />
           )}
-          <span className="text-muted-foreground">
+          <span className="font-medium tabular-nums text-slate-600 dark:text-slate-400">
             Page {page + 1} of {pages}
           </span>
           {page < pages - 1 ? (
             <Link
               href={href({ page: page + 1 })}
-              className="inline-flex items-center gap-1 text-primary hover:underline"
+              className="inline-flex h-9 items-center gap-1 rounded-lg bg-primary px-4 font-semibold text-primary-foreground transition-opacity hover:opacity-90"
             >
               {QUESTION_LIST_COPY.loadMore} <ChevronRight className="h-4 w-4" />
             </Link>
@@ -256,11 +268,11 @@ export default async function SemesterQuestionsPage({
         </nav>
       )}
 
-      <p className="rounded-xl border border-border bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground">
-        <strong className="font-semibold">{DISCLAIMER.label}</strong> {DISCLAIMER.body}
+      <p className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-[12.5px] leading-relaxed text-amber-900 dark:border-amber-400/25 dark:bg-amber-500/10 dark:text-amber-200/90">
+        <strong className="font-bold">{DISCLAIMER.label}</strong> {DISCLAIMER.body}
       </p>
 
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="pb-2 text-center text-[12px] font-medium text-slate-500 dark:text-slate-400">
         {bankFooter(`${institution.short_name ?? institution.name} ${course.name}`)}
       </p>
     </div>
@@ -279,10 +291,11 @@ function FilterChip({
   return (
     <Link
       href={href}
-      className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+      aria-current={active ? "true" : undefined}
+      className={`rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
         active
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border text-muted-foreground hover:border-primary"
+          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+          : "border-border bg-card text-slate-700 hover:border-primary hover:text-primary dark:text-slate-300"
       }`}
     >
       {children}
