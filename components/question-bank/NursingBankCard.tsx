@@ -16,6 +16,7 @@ import {
 import { questionTone } from "@/components/question-bank/question-tone";
 import {
   ANSWER_LABELS_INLINE,
+  dedupeModelAnswer,
   QUESTION_LIST_COPY,
   marksLabel,
   metaChain,
@@ -172,8 +173,12 @@ export function NursingBankCard({
               </span>
             </p>
           )}
-          {modelAnswer && (
-            <Section icon={BookOpenCheck} label={ANSWER_LABELS_INLINE.answer} body={modelAnswer} />
+          {dedupeModelAnswer(modelAnswer, rationale) && (
+            <Section
+              icon={BookOpenCheck}
+              label={ANSWER_LABELS_INLINE.answer}
+              body={dedupeModelAnswer(modelAnswer, rationale) as string}
+            />
           )}
           {rationale && (
             <Section icon={Lightbulb} label={ANSWER_LABELS_INLINE.rationale} body={rationale} />

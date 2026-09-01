@@ -416,6 +416,46 @@ export function metaChain(parts: (string | number | null | undefined)[]): string
   return parts.filter((p) => p !== null && p !== undefined && p !== "").join(" · ");
 }
 
+/**
+ * Drop a trailing `Rationale: …` from a model answer when the question's own
+ * `rationale` column already says exactly the same thing.
+ *
+ * WHY: the RGUHS import packed a composite blob into model_answer —
+ *
+ *     Correct Answer: A. Encoding, Storage, Retrieval
+ *     Rationale: The information processing model describes memory as …
+ *
+ * — while ALSO filling the discrete `rationale` column. Both are rendered as
+ * their own section, so the reader sees the identical sentence twice, once
+ * under "Answer:" and again under "Rationale:".
+ *
+ * Measured over all 8,929 questions:
+ *     309  tail is an exact duplicate of the column  -> stripped here
+ *     910  tail DIFFERS from the column              -> kept, both are content
+ *      34  column is empty, tail is the only copy    -> kept, or the rationale
+ *                                                       would vanish entirely
+ *
+ * So this only ever removes a byte-for-byte repeat. Deliberately a render-time
+ * normaliser rather than a data migration: the source rows stay intact, and a
+ * re-import cannot reintroduce the duplicate display.
+ *
+ * The `Correct Answer: X` line is left alone on purpose — the "Correct Option"
+ * badge shows only the letter, so that line still carries the option's text.
+ */
+export function dedupeModelAnswer(
+  modelAnswer: string | null | undefined,
+  rationale: string | null | undefined
+): string | null {
+  if (!modelAnswer) return modelAnswer ?? null;
+  if (!rationale) return modelAnswer;
+  const m = modelAnswer.match(/^([\s\S]*?)\n\s*Rationale:\s*([\s\S]*)$/i);
+  if (!m) return modelAnswer;
+  const squash = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  if (squash(m[2]) !== squash(rationale)) return modelAnswer;
+  const head = m[1].trim();
+  return head.length > 0 ? head : modelAnswer;
+}
+
 /** Shown on pages that display question content, never on navigation pages. */
 export const DISCLAIMER = {
   label: "Educational Disclaimer:",

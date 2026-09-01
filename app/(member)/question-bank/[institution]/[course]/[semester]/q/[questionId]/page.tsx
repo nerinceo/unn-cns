@@ -16,6 +16,7 @@ import { getStudySubject } from "@/lib/cns/study";
 import { questionTone } from "@/components/question-bank/question-tone";
 import {
   ANSWER_LABELS_HEADING,
+  dedupeModelAnswer,
   COURSES,
   DISCLAIMER,
   QUESTION_DETAIL_COPY,
@@ -156,8 +157,12 @@ export default async function BankQuestionPage({
               </p>
             </div>
           )}
-          {q.model_answer && (
-            <Panel icon={BookOpenCheck} heading={ANSWER_LABELS_HEADING.answer} body={q.model_answer} />
+          {dedupeModelAnswer(q.model_answer, q.rationale) && (
+            <Panel
+              icon={BookOpenCheck}
+              heading={ANSWER_LABELS_HEADING.answer}
+              body={dedupeModelAnswer(q.model_answer, q.rationale) as string}
+            />
           )}
           {q.rationale && (
             <Panel icon={Lightbulb} heading={ANSWER_LABELS_HEADING.rationale} body={q.rationale} />
