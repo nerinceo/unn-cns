@@ -294,6 +294,53 @@ export async function listArticlesInSubtree(
   return ((data ?? []) as Record<string, unknown>[]).map(toCard);
 }
 
+export type TocItem = { id: string; text: string };
+
+/**
+ * Give every section heading a stable id, and return the contents list.
+ *
+ * The corpus makes this simple and worth doing: every article carries 13–14
+ * headings, all of them h2, none with attributes, following one template
+ * (Overview, Purpose, Normal Range, … References, Disclaimer). That is long
+ * enough that a reader landing on "Critical Values" should not have to scroll
+ * for it, and regular enough that a flat one-level list is the correct shape —
+ * a nested tree would render with nothing nested.
+ *
+ * Ids are derived from the heading text so a link into a section survives
+ * re-imports; a positional id would move the moment a section is added.
+ * Duplicate headings within one article get a numeric suffix rather than
+ * silently colliding, which would send every "Overview" link to the first one.
+ *
+ * Any existing attributes are preserved rather than replaced. Today the
+ * sanitizer strips them all, so this never fires — but rebuilding the tag from
+ * scratch would quietly delete them if that ever changes.
+ */
+export function buildToc(html: string | null): { html: string; toc: TocItem[] } {
+  const toc: TocItem[] = [];
+  if (!html) return { html: "", toc };
+
+  const seen = new Map<string, number>();
+  const out = html.replace(
+    /<h2(\s[^>]*)?>([\s\S]*?)<\/h2>/gi,
+    (whole, attrs: string | undefined, inner: string) => {
+      const text = inner.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+      if (!text) return whole;
+
+      const base =
+        text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) ||
+        "section";
+      const n = (seen.get(base) ?? 0) + 1;
+      seen.set(base, n);
+      const id = n > 1 ? `${base}-${n}` : base;
+
+      toc.push({ id, text });
+      return `<h2${attrs ?? ""} id="${id}">${inner}</h2>`;
+    }
+  );
+
+  return { html: out, toc };
+}
+
 /** One article and the terms it is filed under. */
 export async function getArticle(slug: string): Promise<LibraryArticle | null> {
   const supabase = await createClient();
