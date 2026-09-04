@@ -142,8 +142,14 @@ export default async function SemesterQuestionsPage({
         </div>
       </header>
 
-      <section className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="flex items-center gap-2 border-b border-border bg-primary/[0.06] px-5 py-3">
+      {/* NOT overflow-hidden, despite the rounded corners.
+          FilterSelect opens an absolutely-positioned panel, and `overflow`
+          clips absolutely-positioned descendants — so the dropdowns opened
+          into a clipped region and appeared to do nothing at all. The tinted
+          header rounds its own top corners instead, which is all the clipping
+          was doing here. */}
+      <section className="rounded-xl border border-border bg-card">
+        <div className="flex items-center gap-2 rounded-t-xl border-b border-border bg-primary/[0.06] px-5 py-3">
           <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <SlidersHorizontal className="h-3.5 w-3.5" />
           </span>
