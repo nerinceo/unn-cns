@@ -47,6 +47,16 @@ const nextConfig = {
       },
       { source: "/revision", destination: "/question-bank", permanent: true },
       { source: "/revision/:subjectId", destination: "/question-bank/subject/:subjectId", permanent: true },
+
+      // The timed MCQ quiz (practice sets → attempt → result) is gone. Its
+      // 1,239 questions were only ever a second copy of the MCQs already listed
+      // in the browse tree, so there is nothing to send a learner to but the
+      // bank itself. A set or attempt id names no university, so those two land
+      // at the top; the per-university tab keeps its university.
+      { source: "/question-bank/:institution/mcq", destination: "/question-bank/:institution", permanent: true },
+      { source: "/question-bank/set/:setId", destination: "/question-bank", permanent: true },
+      { source: "/question-bank/attempt/:path*", destination: "/question-bank", permanent: true },
+
       { source: "/question-bank/mcq", destination: "/question-bank", permanent: true },
       { source: "/question-bank/revision", destination: "/question-bank", permanent: true },
       {

@@ -48,11 +48,11 @@ export async function generateMetadata({
  * every filter change anyway, and server-rendered filters keep a filtered view
  * shareable and back-button-correct.
  *
- * MCQs are counted on the semester card but are not listed here. Their answer
- * key is revoked from `authenticated` at the column level and is only readable
- * through `cns_attempt_review` after an attempt is submitted, so an inline
- * "Show Answer" over them would render blanks. They are surfaced as a link into
- * the practice-set flow instead.
+ * MCQs are listed here alongside every other type, options and correct answer
+ * included. They are read from cns_study_questions — the browse copies, whose
+ * answers are plain readable columns. The originals in cns_questions keep their
+ * answer key revoked from `authenticated`, which is why the two copies exist;
+ * only the browse half can be shown inline.
  *
  * Copy is verbatim from lib/cns/question-bank-content.ts.
  */

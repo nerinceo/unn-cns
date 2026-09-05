@@ -15,7 +15,7 @@ export const metadata = { title: "Learn — Central Nursing Systems" };
  */
 const TOOLS: { href: string; icon: LucideIcon; title: string; body: string; live: boolean }[] = [
   { href: "/question-bank", icon: ClipboardList, title: "Question Bank",
-    body: "Your university's bank — auto-graded MCQ practice sets and past papers, plus written exam questions with model answers.", live: true },
+    body: "Your university's bank, semester by semester — MCQs, short answers, essays, clinical viva and case scenarios, each with its answer or model answer.", live: true },
   { href: "/progress", icon: TrendingUp, title: "Progress",
     body: "Your attempts, scores and where to focus next.", live: true },
   { href: "/lms", icon: School, title: "Courses",

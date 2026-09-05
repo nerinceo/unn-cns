@@ -7,12 +7,14 @@ import type { CnsInstitution } from "@/lib/cns/question-bank";
  *
  * All content is owned by an institution, so the browse tree is
  * university → format → subject and this header is the university level made
- * visible. The tab row is the only navigation between formats, and is rendered
- * by the browse pages rather than by a layout — a layout would put navigation
- * chrome on the timed attempt runner.
+ * visible.
+ *
+ * Only /descriptive renders it now. It kept a third "MCQs" tab into the timed
+ * quiz until that was removed: the quiz asked a second copy of the same 1,239
+ * MCQs the main browse tree already lists inline, answers included.
  */
 
-export type BankTab = "overview" | "mcq" | "descriptive";
+export type BankTab = "overview" | "descriptive";
 
 export function BankHeader({
   institution,
@@ -26,7 +28,6 @@ export function BankHeader({
   const base = `/question-bank/${institution.slug}`;
   const tabs: { key: BankTab; href: string; label: string }[] = [
     { key: "overview", href: base, label: "Overview" },
-    { key: "mcq", href: `${base}/mcq`, label: "MCQs" },
     { key: "descriptive", href: `${base}/descriptive`, label: "Descriptive" },
   ];
 

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ChevronRight, FileText } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { getStudySubject, getStudyQuestions, getStudyTypes } from "@/lib/cns/study";
-import { getInstitutionBySlug, getSubjectsWithSets } from "@/lib/cns/question-bank";
+import { getInstitutionBySlug } from "@/lib/cns/question-bank";
 import { StudyCard } from "@/components/question-bank/StudyCard";
 
 export const dynamic = "force-dynamic";
@@ -22,11 +22,10 @@ export default async function DescriptiveSubjectPage({
   const institution = await getInstitutionBySlug(slug);
   if (!institution) notFound();
 
-  const [subject, types, { questions, total, pageSize }, bankSubjects] = await Promise.all([
+  const [subject, types, { questions, total, pageSize }] = await Promise.all([
     getStudySubject(subjectId),
     getStudyTypes(subjectId),
     getStudyQuestions({ subjectId, type, page }),
-    getSubjectsWithSets(institution.id),
   ]);
   if (!subject) notFound();
 
@@ -35,12 +34,7 @@ export default async function DescriptiveSubjectPage({
   // content under someone else's breadcrumb once a second university exists.
   if (subject.institution_id !== institution.id) notFound();
 
-  // The same subject's MCQ side, so a learner can switch format without going
-  // back up two levels.
-  const mcqSets = bankSubjects.find((s) => s.id === subjectId)?.sets ?? [];
   const base = `/question-bank/${institution.slug}`;
-  const mcqHref =
-    mcqSets.length === 1 ? `/question-bank/set/${mcqSets[0].id}` : `${base}/mcq?subject=${subjectId}`;
 
   const pages = Math.ceil(total / pageSize);
   const qs = (extra: Record<string, string | number | undefined>) => {
@@ -73,20 +67,9 @@ export default async function DescriptiveSubjectPage({
           <span className="text-foreground">{subject.name as string}</span>
         </nav>
 
-        <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold">{subject.name as string}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{total} descriptive questions</p>
-          </div>
-          {mcqSets.length > 0 && (
-            <Link
-              href={mcqHref}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors hover:border-primary hover:text-primary"
-            >
-              <FileText className="h-4 w-4" />
-              {mcqSets.length === 1 ? "Practice MCQs" : `Practice MCQs (${mcqSets.length} sets)`}
-            </Link>
-          )}
+        <div className="mt-3">
+          <h1 className="text-2xl font-semibold">{subject.name as string}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{total} descriptive questions</p>
         </div>
       </div>
 
