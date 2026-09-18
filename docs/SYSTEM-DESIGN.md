@@ -13,7 +13,7 @@ These are already load-bearing. Every module inherits them.
 
 | Principle | Consequence |
 |---|---|
-| **HUB owns identity.** CNS has no login UI at all. | Session arrives via the `.unnhub.org` cookie, verified locally against the shared JWKS. Never build auth here. |
+| **HUB owns identity.** CNS has no login UI at all. | Session arrives via the `.nerusalem.com` cookie, verified locally against the shared JWKS. Never build auth here. |
 | **CNS never gains a capability it doesn't need.** | No Stripe, Resend, Firebase or `R2_DIGITAL_BUCKET`. A runaway loop cannot charge, email or reach paid content. Grant one at a time. |
 | **Additive-only migrations.** | `cns_*` tables only. Never `ALTER` a HUB table. The one permitted coupling is an inbound FK to `public.users(id)`. |
 | **Secrets live in the database, not in application code.** | Answer keys are unreadable by `authenticated` — enforced by column grants, not by filtering in JS. This pattern repeats for anything that must not reach the browser. |

@@ -32,8 +32,12 @@ Copied from `unn-platform` at commit **`56e0ed7`** (2026-07-21).
 ## Why the auth cookie files matter more than the rest
 
 The two apps share **one session**. That works because both write the Supabase
-auth cookies with `domain=.unnhub.org`, so the browser sends them to
-`app.unnhub.org` and `cns.unnhub.org` alike.
+auth cookies with `domain=.nerusalem.com`, so the browser sends them to
+`unn.nerusalem.com` and `cns.nerusalem.com` alike.
+
+(This previously read `.unnhub.org` / `app.unnhub.org` / `cns.unnhub.org`. Those
+hosts are retired — `cns.unnhub.org` 404s and `app.unnhub.org` only redirects —
+and that domain cannot hold a session at all.)
 
 If the cookie handling diverges — different domain, different `maxAge`, one app
 omitting the domain — then a token rotation performed in one app writes cookies
