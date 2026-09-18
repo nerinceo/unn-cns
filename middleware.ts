@@ -4,7 +4,7 @@ import {
   REMEMBER_ME_COOKIE,
   withAuthCookieOptions,
 } from "@/lib/auth/cookie-config";
-import { UHN_URL, scopeFromClaims } from "@/lib/access";
+import { PRO_ROOT, isCnsProfessionalPath, scopeFromClaims } from "@/lib/access";
 
 /**
  * CNS auth gate.
@@ -119,16 +119,24 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/welcome", HUB_URL));
   }
 
-  // UHN accounts belong to uhn.nerusalem.com. CNS is nursing education plus
-  // the employer-facing board; none of it is theirs.
+  // Non-nurse healthcare professionals may use the JOB BOARD here, and nothing
+  // else.
   //
-  // Mostly belt-and-braces: CNS has no login, and a .nerusalem.com cookie
-  // cannot reach cns.nerusalem.com, so a UHN session should not exist here. It
-  // costs three lines and closes the case where that stops being true —
-  // someone setting UHN's cookie domain to .nerusalem.com, or a future shared
-  // apex. Cheaper than discovering it later.
-  if (scopeFromClaims(user) === "uhn") {
-    return NextResponse.redirect(UHN_URL);
+  // This was an unconditional redirect to uhn.nerusalem.com. It is now an
+  // allowlist, because the professional's jobs and applications data already
+  // lives in CNS tables (cns_jobs, cns_job_applications) and the board is the
+  // one part of this app that was ever meant for them.
+  //
+  // The allowlist is the load-bearing half. Everything else in CNS — the LMS,
+  // the instructor tools, the library — is gated by nothing but a session, so
+  // removing the redirect WITHOUT this check would hand a professional the
+  // entire nursing curriculum rather than a job board. The two halves must ship
+  // together; neither is safe alone.
+  //
+  // Sent to HUB's /pro rather than to UHN: that is their home now, and it is
+  // the only page guaranteed to render for them.
+  if (scopeFromClaims(user) === "uhn" && !isCnsProfessionalPath(path)) {
+    return NextResponse.redirect(new URL(PRO_ROOT, HUB_URL));
   }
 
   return supabaseResponse;

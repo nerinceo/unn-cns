@@ -42,6 +42,28 @@ export const MEMBER_MORE: NavItem[] = [
   { href: "/services", label: "Services", icon: HeartHandshake },
 ];
 
+/**
+ * Non-nurse healthcare professionals ('uhn' scope) see ONLY the job board.
+ *
+ * They reach CNS because their jobs and applications data has always lived in
+ * cns_* tables; everything else here — the LMS, the question bank, the library
+ * — is the nursing curriculum and is not theirs. Middleware enforces that (see
+ * isCnsProfessionalPath in lib/access.ts); this array is what stops the nav
+ * offering them four destinations that would bounce them straight back out.
+ *
+ * A separate array rather than a filter over MEMBER_PRIMARY: the nurse nav then
+ * cannot be changed by accident while editing this one, and what a professional
+ * sees is legible in one place.
+ *
+ * No Applications item. CNS has a page at /applications, but it is the NURSE's
+ * list; a professional's lives in HUB at /pro/applications alongside the rest of
+ * their account. The header's account chip links back there.
+ */
+export const PROFESSIONAL_PRIMARY: NavItem[] = [
+  { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/saved", label: "Saved", icon: Bookmark },
+];
+
 /** The "More" trigger for the bottom bar (mobile). */
 export const MORE_ICON: LucideIcon = LayoutGrid;
 

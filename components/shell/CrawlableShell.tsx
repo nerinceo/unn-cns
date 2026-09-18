@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/supabase/server";
+import { getCurrentUser, getCurrentUserProfile } from "@/lib/supabase/server";
+import { toAccountScope } from "@/lib/access";
 import { AppShell } from "@/components/shell/AppShell";
 import { getMyEmployers } from "@/lib/cns/jobs";
 import { isStaff } from "@/lib/cns/admin";
@@ -38,18 +39,35 @@ export async function CrawlableShell({ children }: { children: React.ReactNode }
     // the page still renders.
     let employers: { id: string; name: string }[] = [];
     let staff = false;
+    // A 'uhn'-scoped professional gets the job-board nav rather than the nursing
+    // one. Inside the same try as the chrome lookups: if the profile read fails
+    // this falls back to `false`, which shows the nurse nav — wrong, but every
+    // item on it is refused by middleware, so the failure mode is a confusing
+    // page rather than an exposed one.
+    let professional = false;
     try {
       // getMyEmployers() now drops memberships whose employer join came back
       // null, so `m.employer` here is genuinely non-null rather than asserted.
-      const [rows, isStaffUser] = await Promise.all([getMyEmployers(), isStaff()]);
+      const [rows, isStaffUser, profile] = await Promise.all([
+        getMyEmployers(),
+        isStaff(),
+        getCurrentUserProfile(),
+      ]);
       employers = rows.map((m) => ({ id: m.employer.id, name: m.employer.name }));
       staff = isStaffUser;
+      professional = toAccountScope(profile?.account_scope) === "uhn";
     } catch (err) {
       console.error("[CrawlableShell] portal chrome failed; rendering without it:", err);
     }
 
     return (
-      <AppShell portal="member" wordmark="CNS" employers={employers} isStaff={staff}>
+      <AppShell
+        portal="member"
+        wordmark="CNS"
+        employers={employers}
+        isStaff={staff}
+        professional={professional}
+      >
         {children}
       </AppShell>
     );

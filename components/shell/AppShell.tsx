@@ -25,6 +25,7 @@ export async function AppShell({
   employers,
   isStaff,
   isInstructor,
+  professional = false,
   children,
 }: {
   portal: PortalKey;
@@ -33,6 +34,8 @@ export async function AppShell({
   employers?: { id: string; name: string }[];
   isStaff?: boolean;
   isInstructor?: boolean;
+  /** A 'uhn'-scoped viewer: job board only, and their account lives in HUB /pro. */
+  professional?: boolean;
   children: React.ReactNode;
 }) {
   const profile = await getCurrentUserProfile();
@@ -70,11 +73,18 @@ export async function AppShell({
           </Link>
 
           <div className="ml-auto flex items-center gap-2.5">
-            <PortalSwitcher current={portal} employers={employers} isStaff={isStaff} isInstructor={isInstructor} />
+            {/* The switcher offers member/instructor/employer/admin portals. A
+                professional holds none of those roles, and every destination in
+                it would bounce them back out. */}
+            {professional ? null : (
+              <PortalSwitcher current={portal} employers={employers} isStaff={isStaff} isInstructor={isInstructor} />
+            )}
             <a
-              href={hubLink("/profile/me")}
+              // HUB's /profile/me is a nurse route; a professional's account
+              // lives at /pro, and middleware would redirect them there anyway.
+              href={hubLink(professional ? "/pro" : "/profile/me")}
               className="flex items-center gap-2 rounded-full border border-border py-1 pl-1 pr-3 transition-colors hover:border-primary/40 hover:bg-muted"
-              title={`${name} — open profile in UNN Hub`}
+              title={`${name} — open ${professional ? "your account" : "profile"} in UNN Hub`}
             >
               {photo ? (
                 <Image
@@ -97,11 +107,11 @@ export async function AppShell({
 
       {isMember ? (
         <>
-          <MemberTopNav />
+          <MemberTopNav professional={professional} />
           <div className={cn("mx-auto pb-24 pt-6 md:pb-10", container)}>
             <main className="min-w-0">{children}</main>
           </div>
-          <MemberBottomNav />
+          <MemberBottomNav professional={professional} />
         </>
       ) : (
         <>

@@ -12,7 +12,22 @@
  *
  *   'full' — nurses. This app and CNS. The DEFAULT, so every account that
  *            existed before UHN is unaffected and nothing needed backfilling.
- *   'uhn'  — non-nurse healthcare professionals. UHN only.
+ *   'uhn'  — non-nurse healthcare professionals.
+ *
+ * WHAT 'uhn' MEANS CHANGED. It used to mean "UHN only", enforced by a hard
+ * redirect at the top of HUB's and CNS's middleware. The professional now lives
+ * HERE, in a restricted shell, and reaches CNS for the job board:
+ *
+ *   HUB  /pro/*       their whole experience — registry, units, applications
+ *   CNS  the job board and saved jobs, and nothing else
+ *   UHN  only if they administer an organisation
+ *
+ * The two allowlists below are what replaced those redirects. They live in this
+ * file, rather than in each app's middleware, for one reason: this module is
+ * mirrored into all three repos and covered by the drift check, so the rule
+ * cannot be tightened in one app and forgotten in another. A professional who
+ * can reach a page in HUB that CNS's copy would have refused is not a cosmetic
+ * inconsistency — it is a hole.
  *
  * Dependency-free: middleware imports it on the edge runtime.
  */
@@ -21,6 +36,64 @@ export type AccountScope = "full" | "uhn";
 
 /** Where a UHN account belongs. Not env-driven — it is a fixed sibling host. */
 export const UHN_URL = process.env.NEXT_PUBLIC_UHN_URL ?? "https://uhn.nerusalem.com";
+
+/**
+ * The professional's root in HUB. Everything they can reach here hangs off it.
+ *
+ * A single prefix rather than a set of scattered routes is deliberate: the gate
+ * is then one string comparison that cannot drift out of step with the pages,
+ * and deleting the folder is a complete revert. It also keeps professionals off
+ * HUB's own /units and /settings, which belong to nurses and must not gain a
+ * scope conditional.
+ */
+export const PRO_ROOT = "/pro";
+
+/**
+ * May a 'uhn' account reach this path in HUB?
+ *
+ * Deny-by-default: anything not under /pro is refused, including /api. The
+ * professional pages drive every write through server actions (which POST to
+ * their own route, not to /api), so nothing under /pro needs an API route — and
+ * letting /api through "just in case" would leave HUB's marketplace, Stripe and
+ * messaging endpoints reachable by a population that has no business there.
+ *
+ * Auth and public paths are NOT handled here. The caller checks those first,
+ * because they apply to signed-out visitors too and this function only has an
+ * opinion about accounts that already have a scope.
+ */
+export function isProfessionalPath(pathname: string): boolean {
+  return pathname === PRO_ROOT || pathname.startsWith(`${PRO_ROOT}/`);
+}
+
+/**
+ * May a 'uhn' account reach this path in CNS?
+ *
+ * CNS assumes every signed-in user is a nurse — the LMS, the instructor tools
+ * and the ~9k-post library all sit behind nothing but the session. Dropping
+ * CNS's scope redirect without this list would not "give professionals the job
+ * board", it would give them all of that. So the allowlist is the job board and
+ * its immediate dependencies, and nothing else.
+ */
+const CNS_PROFESSIONAL_PREFIXES = [
+  "/jobs",
+  "/saved",
+  // Every job listing links to the employer behind it. Omitting this makes the
+  // hospital's name on a job page a dead end for the one population most likely
+  // to click it.
+  "/employers",
+];
+
+// NOT "/applications". CNS has a page at that path, but it is the NURSE's
+// applications list. A professional's lives in HUB at /pro/applications, which
+// is the one place their account now lives. Allowing both would mean two
+// screens answering the same question from the same table, and only one of them
+// carrying the withdraw button.
+
+export function isCnsProfessionalPath(pathname: string): boolean {
+  return CNS_PROFESSIONAL_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
+}
 
 /**
  * Read the scope from a verified JWT's claims.
@@ -65,6 +138,11 @@ export function toAccountScope(value: unknown): AccountScope {
  * MIRRORED FILE — this module exists in unn-platform, unn-cns and unn-uhn and
  * must stay identical. Drift here does not throw; it silently lands people in
  * the wrong app. See docs/SHARED-WITH-HUB.md.
+ *
+ * The "uhn" key is a stored value in users.preferred_home, so it keeps its name
+ * even though it now opens HUB's /pro rather than the UHN host. Renaming it to
+ * "pro" would make toHomeKey() reject every preference already saved, silently
+ * dropping people back to the computed default.
  */
 export type HomeKey = "feed" | "instructor" | "vendor" | "uhn" | "org";
 
@@ -126,8 +204,10 @@ export function homeUrl(key: HomeKey): string {
   const cns = (process.env.NEXT_PUBLIC_CNS_URL ?? "https://cns.nerusalem.com").replace(/\/+$/, "");
   const uhn = UHN_URL.replace(/\/+$/, "");
   switch (key) {
+    // HUB-relative, like "feed" and "vendor" below: the professional's home is
+    // now a route in this app, not a sibling host.
     case "uhn":
-      return uhn;
+      return PRO_ROOT;
     case "org":
       return `${uhn}/org`;
     case "instructor":
