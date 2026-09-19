@@ -61,6 +61,37 @@ const PUBLIC_PATHS = [
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "https://unn.nerusalem.com";
 
+/**
+ * Signing in happens on nerusalem.com now, for all three apps.
+ *
+ * CNS has never had a login page of its own and still does not — this only
+ * changes WHERE a signed-out visitor is sent. It used to be HUB's /welcome,
+ * which then had to be clicked through to a sign-in form; those forms have moved
+ * off the apps onto nerusalem.com, which is the only place that enforces
+ * two-factor, bounds password guessing and refuses a suspended account.
+ *
+ * Not env-driven: these are static pages on separate hosting, so a preview
+ * deployment has no copy of its own to point at.
+ *
+ * Mirrors ACCOUNT_SITE_URL in unn-platform and unn-uhn lib/site-url.ts. Not a
+ * drift-checked file (see docs/SHARED-WITH-HUB.md), but keep the value in step.
+ */
+const ACCOUNT_SITE_URL = "https://nerusalem.com";
+const OWN_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cns.nerusalem.com";
+
+/**
+ * The sign-in page, carrying where to come back to.
+ *
+ * `next` has to be absolute — the visitor is being sent to another origin, which
+ * cannot resolve a CNS path. That page only honours hosts under nerusalem.com,
+ * so on a preview deployment the value is simply ignored and the visitor lands
+ * on their normal home instead of being sent somewhere wrong.
+ */
+function signInUrl(next?: string): string {
+  const base = `${ACCOUNT_SITE_URL}/signin.html`;
+  return next ? `${base}?next=${encodeURIComponent(next)}` : base;
+}
+
 export async function middleware(request: NextRequest) {
   // Pre-SSO escape hatch. Until NEXT_PUBLIC_COOKIE_DOMAIN is live on HUB, the
   // session cookie is host-only and never reaches this app, so every visitor
@@ -115,8 +146,12 @@ export async function middleware(request: NextRequest) {
   if (PUBLIC_PATHS.some((p) => path.startsWith(p))) return supabaseResponse;
 
   if (!user) {
-    // Redirect to HUB, never to a local login page.
-    return NextResponse.redirect(new URL("/welcome", HUB_URL));
+    // Straight to the sign-in page, never to a local login page — CNS has none.
+    // Carrying the intended page means a library or course link shared with a
+    // signed-out nurse opens that page after signing in, instead of dropping her
+    // on a generic home screen with no idea what she was sent.
+    const intended = `${OWN_SITE_URL.replace(/\/+$/, "")}${path}${request.nextUrl.search}`;
+    return NextResponse.redirect(signInUrl(intended));
   }
 
   // Non-nurse healthcare professionals may use the JOB BOARD here, and nothing
