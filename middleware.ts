@@ -4,7 +4,7 @@ import {
   REMEMBER_ME_COOKIE,
   withAuthCookieOptions,
 } from "@/lib/auth/cookie-config";
-import { PRO_ROOT, isCnsProfessionalPath, scopeFromClaims } from "@/lib/access";
+import { confinedRoot, mayEnterCns, scopeFromClaims } from "@/lib/access";
 
 /**
  * CNS auth gate.
@@ -170,8 +170,23 @@ export async function middleware(request: NextRequest) {
   //
   // Sent to HUB's /pro rather than to UHN: that is their home now, and it is
   // the only page guaranteed to render for them.
-  if (scopeFromClaims(user) === "uhn" && !isCnsProfessionalPath(path)) {
-    return NextResponse.redirect(new URL(PRO_ROOT, HUB_URL));
+  //
+  // MARKETPLACE VENDORS ARE REFUSED OUTRIGHT — mayEnterCns() answers false for
+  // every path when the scope is 'vendor', and that is the entire reason this
+  // branch is keyed off the shared helper rather than off `=== "uhn"`.
+  //
+  // CNS and HUB share one Supabase project and one `.nerusalem.com` session
+  // cookie, so a seller who signs in at HUB is ALREADY signed in here. Adding
+  // the vendor scope in HUB alone would not have isolated them; it would only
+  // have changed where they land, leaving the LMS, the instructor tools and the
+  // ~9k-post library one typed URL away behind nothing but that session. The
+  // old `=== "uhn"` test would have read 'vendor' as "not a professional,
+  // therefore a nurse" and let them straight through.
+  const scope = scopeFromClaims(user);
+  if (!mayEnterCns(scope, path)) {
+    // Each scope goes to its own home in HUB, not to a generic one: a page
+    // that refuses them on arrival is not a redirect, it is a loop.
+    return NextResponse.redirect(new URL(confinedRoot(scope) ?? "/", HUB_URL));
   }
 
   return supabaseResponse;

@@ -7,7 +7,7 @@ that a small set of files exists in both repos and can drift.
 This file is the manifest. **If you change one of these in either repo, change
 it in both**, and update the SHA below.
 
-Copied from `unn-platform` at commit **`56e0ed7`** (2026-07-21).
+Copied from `unn-platform` at commit **`e63d766`** (2026-09-20).
 
 | CNS path | HUB origin | Notes |
 |---|---|---|
