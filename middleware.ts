@@ -143,6 +143,25 @@ export async function middleware(request: NextRequest) {
   const user = data?.claims ?? null;
 
   const path = request.nextUrl.pathname;
+
+  // The instructor dashboard moved to UHN.
+  //
+  // CNS still DELIVERS courses — the player, lessons, enrolments and the
+  // ~9k-post library are all still here. Only the authoring desk left, because
+  // authoring is operator work and UHN is the operator app.
+  //
+  // Placed before the public-path check so it also catches a signed-out visitor
+  // following an old /instructor bookmark: UHN owns signing in for its own
+  // routes, and bouncing them through CNS's sign-in first would authenticate
+  // them here and still have nowhere to put them.
+  //
+  // Every sub-path collapses to /teaching, which resolves the caller's own
+  // portal — the old paths carried no instructor id.
+  if (path === "/instructor" || path.startsWith("/instructor/")) {
+    const uhn = (process.env.NEXT_PUBLIC_UHN_URL ?? "https://uhn.nerusalem.com").replace(/\/+$/, "");
+    return NextResponse.redirect(`${uhn}/teaching`);
+  }
+
   if (PUBLIC_PATHS.some((p) => path.startsWith(p))) return supabaseResponse;
 
   if (!user) {

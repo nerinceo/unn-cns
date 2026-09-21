@@ -82,34 +82,56 @@ export function isProfessionalPath(pathname: string): boolean {
 }
 
 /**
- * The vendor's root in HUB. Everything a marketplace seller can reach hangs
- * off it, for the same single-prefix reason PRO_ROOT is one string.
+ * The vendor's home, which is NO LONGER IN HUB.
  *
- * NOT "/marketplace/market/dashboard", which is where the seller dashboard
- * used to live. That path sits under /marketplace — the nurse-facing shop — so
- * a prefix gate built on it would either have to admit the entire storefront
- * or special-case a sub-path of it. /seller is a sibling of /marketplace, not a
- * child, precisely so the gate stays one comparison.
+ * The seller portal moved to UHN (/shop/{vendorId}) along with every other
+ * dashboard. HUB keeps the marketplace's BUY side — the storefront nurses shop
+ * in — and nothing of the sell side at all.
+ *
+ * An ABSOLUTE url rather than a path, and that is the whole change here:
+ * middleware resolves it with `new URL(confined, request.url)`, which follows
+ * an absolute url to the other host and resolves a bare path against HUB. A
+ * path would now send a vendor to a HUB route that does not exist.
+ *
+ * /shop with no id resolves the caller's own shop — see app/(shop)/shop/page.tsx
+ * in UHN. It exists so this constant can stay a plain string, because this
+ * module runs on the edge runtime and cannot look an id up.
  */
-export const VENDOR_ROOT = "/seller";
+export const VENDOR_HOME = `${UHN_URL.replace(/\/+$/, "")}/shop`;
+
+/**
+ * The instructor's home, likewise moved — from CNS to UHN.
+ */
+export const INSTRUCTOR_HOME = `${UHN_URL.replace(/\/+$/, "")}/teaching`;
+
+/**
+ * The ONE HUB path a vendor may still reach.
+ *
+ * Stripe Connect onboarding creates an Express account and needs
+ * STRIPE_SECRET_KEY, which only HUB holds — so the payouts screen in UHN links
+ * out to this endpoint, and the browser follows it carrying the vendor's
+ * session. Without this exemption the redirect below would eject them and
+ * "Connect payouts" would bounce to their shop instead of to Stripe, silently.
+ *
+ * Exactly one path, not a /api prefix. HUB's API surface includes the
+ * marketplace admin endpoints, Stripe webhooks and the order routes; a
+ * population whose entire relationship with the platform is commercial is
+ * precisely the one that must not reach those by hand.
+ */
+export const VENDOR_HUB_ALLOWED = "/api/stripe/connect";
 
 /**
  * May a 'vendor' account reach this path in HUB?
  *
- * Deny-by-default, exactly like isProfessionalPath. Everything outside /seller
- * is refused — the feed, the nurse marketplace, messaging, units, settings and
- * /api alike.
+ * ALMOST NEVER, now that the portal has moved. This used to admit /seller/*;
+ * those routes are gone, so the honest answer for every page in HUB is no —
+ * the feed, the nurse marketplace, messaging, units and settings alike.
  *
- * /api IS REFUSED, and that matters more here than it did for professionals.
- * HUB's API surface includes the marketplace's own admin endpoints, Stripe
- * webhooks and the order routes; a population whose entire relationship with
- * the platform is commercial is exactly the one that must not be able to reach
- * them by hand. Every /seller page drives its writes through server actions,
- * which POST to their own route rather than to /api, so nothing under /seller
- * needs an exception.
+ * The single exception is Stripe Connect onboarding, which HUB still owns
+ * because it holds the Stripe secret. See VENDOR_HUB_ALLOWED.
  */
 export function isVendorPath(pathname: string): boolean {
-  return pathname === VENDOR_ROOT || pathname.startsWith(`${VENDOR_ROOT}/`);
+  return pathname === VENDOR_HUB_ALLOWED;
 }
 
 /**
@@ -121,7 +143,8 @@ export function isVendorPath(pathname: string): boolean {
  */
 export function confinedRoot(scope: AccountScope): string | null {
   if (scope === "uhn") return PRO_ROOT;
-  if (scope === "vendor") return VENDOR_ROOT;
+  // Absolute — a vendor's home is on the other host now. See VENDOR_HOME.
+  if (scope === "vendor") return VENDOR_HOME;
   return null;
 }
 
@@ -322,14 +345,13 @@ export function homeUrl(key: HomeKey): string {
       return PRO_ROOT;
     case "org":
       return `${uhn}/org`;
+    // Both moved to UHN with every other dashboard. Each is an index route
+    // that resolves the caller's own portal, because this function is
+    // synchronous and edge-safe and cannot look an id up.
     case "instructor":
-      return `${cns}/instructor`;
-    // The seller's own portal, not the old page inside the nurse shop. Both a
-    // 'vendor'-scoped account and a nurse who happens to sell land here — the
-    // PAGES are the same for both, only the surrounding shell differs (see
-    // app/(platform)/seller/layout.tsx).
+      return INSTRUCTOR_HOME;
     case "vendor":
-      return VENDOR_ROOT;
+      return VENDOR_HOME;
     default:
       return "/home";
   }

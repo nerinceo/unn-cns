@@ -1,0 +1,20 @@
+// See unn-platform/.eslintrc.json for the reasoning — this repo had no ESLint
+// config either, and uses the same split: correctness rules gate, cleanup rules
+// warn. This file is NOT in the mirrored set (docs/SHARED-WITH-HUB.md); it is
+// kept deliberately similar so a rule that fires in one repo means the same
+// thing in the other.
+{
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "@next/next/no-html-link-for-pages": "off",
+
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+    ],
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-empty-object-type": "warn",
+    "prefer-const": "warn",
+    "react/no-unescaped-entities": "warn"
+  }
+}

@@ -98,6 +98,19 @@ const MIRRORED = [
   // other strips — an XSS gap in whichever side is more permissive.
   { path: "lib/sanitize.ts", mode: "exact" },
   { path: "lib/utils/cn.ts", mode: "exact", uhn: true },
+  // Marketplace vocabulary — sections, listing types, categories, delivery
+  // kinds, price helpers. Mirrored into UHN when the vendor portal moved there
+  // (HUB keeps it for the BUY side, which is not moving), and it is dependency
+  // -free, so copying it costs nothing but drift risk. Drift here does not
+  // throw: it lets one app accept a listing category or delivery kind the other
+  // refuses, which surfaces as a listing that saves in the portal and then
+  // renders wrong in the shop. NOT in CNS — it sells courses through HUB.
+  { path: "lib/marketplace/index.ts", mode: "exact", uhn: true, skipCns: true },
+  // Fee constants and money formatting. Pure: no Stripe SDK, no secret, no
+  // env. The portal shows a vendor their commission, so it needs the same
+  // numbers HUB charges — a divergence here misquotes a seller's payout.
+  { path: "lib/stripe/config.ts", mode: "exact", uhn: true, skipCns: true },
+  { path: "lib/stripe/money.ts", mode: "exact", uhn: true, skipCns: true },
   { path: "components/ui/button.tsx", mode: "exact" },
   { path: "components/ui/input.tsx", mode: "exact", uhn: true },
   // Not uhn: UHN's badge is a strict SUPERSET (semantic variants plus a `dot`
@@ -133,31 +146,40 @@ const rows = [];
 // has only two of the three repos checked out.
 const haveUhn = existsSync(UHN_ROOT);
 
-for (const { path: rel, mode, critical, uhn: alsoUhn } of MIRRORED) {
+for (const { path: rel, mode, critical, uhn: alsoUhn, skipCns } of MIRRORED) {
   const hubPath = join(HUB_ROOT, rel);
   const cnsPath = join(CNS_ROOT, rel);
 
-  if (!existsSync(hubPath) || !existsSync(cnsPath)) {
+  // `skipCns` is for files mirrored HUB→UHN only. The marketplace vocabulary is
+  // the case: HUB keeps it for the shop's buy side, UHN needs it for the vendor
+  // portal, and CNS sells courses through HUB and has no use for it. Without
+  // this the file would be reported permanently MISSING in CNS, and a check
+  // that is always red is a check nobody reads.
+  if (!existsSync(hubPath) || (!skipCns && !existsSync(cnsPath))) {
     missing.push({ rel, which: !existsSync(hubPath) ? "HUB" : "CNS" });
     rows.push(["MISSING", rel, !existsSync(hubPath) ? "not in HUB" : "not in CNS"]);
     continue;
   }
 
   const hub = norm(readFileSync(hubPath, "utf8"));
-  const cns = norm(readFileSync(cnsPath, "utf8"));
-
-  const ok = mode === "prefix" ? cns.startsWith(hub) : hub === cns;
 
   const notes = [];
-  if (ok) {
-    if (mode === "prefix" && cns.length > hub.length) {
-      notes.push(`+${cns.slice(hub.length).split("\n").length - 1} CNS-only lines`);
-    }
+  let ok = true;
+  if (skipCns) {
+    notes.push("cns n/a");
   } else {
-    drifted.push({ rel, critical, mode, which: "CNS" });
-    notes.push(
-      mode === "prefix" ? "shared prefix was edited" : `hub:${sha(hub)} cns:${sha(cns)}`
-    );
+    const cns = norm(readFileSync(cnsPath, "utf8"));
+    ok = mode === "prefix" ? cns.startsWith(hub) : hub === cns;
+    if (ok) {
+      if (mode === "prefix" && cns.length > hub.length) {
+        notes.push(`+${cns.slice(hub.length).split("\n").length - 1} CNS-only lines`);
+      }
+    } else {
+      drifted.push({ rel, critical, mode, which: "CNS" });
+      notes.push(
+        mode === "prefix" ? "shared prefix was edited" : `hub:${sha(hub)} cns:${sha(cns)}`
+      );
+    }
   }
 
   // The third copy. Compared against HUB, which is the origin for all of them.
