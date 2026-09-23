@@ -258,7 +258,12 @@ export function CoursePlayer({
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-800">
           {data.isOwner
             ? "You're previewing your own course. Progress isn't recorded."
-            : "This is a free preview. Buy the course on the UNN marketplace to unlock everything and track your progress."}
+            : Number(data.course?.price ?? 0) === 0
+              ? // A free course is not bought, it is claimed — telling the
+                // learner to "buy" it sends them to a listing with no buy
+                // button, which is how a free course used to become unreachable.
+                "This is a free preview. Enrol free on the UNN marketplace to unlock everything and track your progress."
+              : "This is a free preview. Buy the course on the UNN marketplace to unlock everything and track your progress."}
         </div>
       )}
 
