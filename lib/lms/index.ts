@@ -51,13 +51,35 @@ export const LMS_LEVELS: { value: LmsCourseLevel; label: string }[] = [
 // UNN marketplace listing from the course. One source of truth, so a figure
 // shown to an instructor can never disagree with what a buyer is charged.
 //
-// Fixed bands rather than free entry: it keeps the catalogue coherent and stops
-// the $9.99 race that made Udemy's marketplace miserable for its instructors.
-export const LMS_PRICE_BANDS = [0, 19, 29, 39, 49, 69, 89, 119, 149, 199, 249, 299] as const;
+// The price is the instructor's to choose. This used to be a fixed set of
+// bands; it is now free entry, bounded only by what a storefront and a payment
+// processor can actually handle:
+//
+//   - 0 is free, and stays a first-class option — a free course needs no payout
+//     account at all (see sellerReadiness).
+//   - anything else sits between MIN and MAX, in whole cents.
+//
+// The ceiling is not taste, it is a typo guard: 99999 typed into a price field
+// reaches a live listing and a real checkout otherwise. Two decimals because
+// Stripe charges in cents, and a third would be silently rounded somewhere
+// between here and the receipt.
+export const MIN_COURSE_PRICE = 1;
+export const MAX_COURSE_PRICE = 999.99;
 
-export function isLmsPriceBand(v: unknown): boolean {
-  return typeof v === "number" && (LMS_PRICE_BANDS as readonly number[]).includes(v);
+export function isValidCoursePrice(v: unknown): boolean {
+  // An empty string must not become a free course. Number("") is 0, so without
+  // this an untouched price box would validate as "free" and publish as one.
+  if (typeof v === "string" && v.trim() === "") return false;
+  const n = typeof v === "string" ? Number(v) : v;
+  if (typeof n !== "number" || !Number.isFinite(n) || n < 0) return false;
+  if (n === 0) return true;
+  if (n < MIN_COURSE_PRICE || n > MAX_COURSE_PRICE) return false;
+  // Whole cents only: 24.99 yes, 24.999 no.
+  return Math.round(n * 100) === Number((n * 100).toFixed(2));
 }
+
+/** The message shown wherever a price is refused, so the wording is identical. */
+export const COURSE_PRICE_HINT = `Enter 0 for a free course, or a price between $${MIN_COURSE_PRICE} and $${MAX_COURSE_PRICE}.`;
 
 /**
  * UNN's cut, in basis points.
@@ -82,8 +104,13 @@ export function instructorEarnings(price: number): number {
 
 // ── Course readiness ─────────────────────────────────────────────────────────
 export const MIN_COURSE_LECTURES = 5;
-export const MIN_COURSE_DURATION_S = 30 * 60; // 30 minutes
 export const MIN_LEARNING_OUTCOMES = 4;
+
+// NO MINIMUM DURATION. There was a 30-minute floor here; it was removed because
+// it measures the wrong thing. total_duration_s only counts VIDEO, so a course
+// written as articles scored zero however much was in it, and the checklist
+// told a finished text course it was not ready. Length is not quality, and the
+// lecture count already stops an empty course reaching review.
 
 /**
  * The publish gate, evaluated identically by the builder sidebar and by
@@ -124,11 +151,6 @@ export function courseReadiness(
       key: "lectures",
       label: `At least ${MIN_COURSE_LECTURES} lectures`,
       done: (course.lecture_count ?? 0) >= MIN_COURSE_LECTURES,
-    },
-    {
-      key: "duration",
-      label: `At least ${Math.round(MIN_COURSE_DURATION_S / 60)} minutes of content`,
-      done: (course.total_duration_s ?? 0) >= MIN_COURSE_DURATION_S,
     },
     {
       key: "preview",

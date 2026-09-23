@@ -29,7 +29,10 @@ import {
 } from "@/lib/lms/cover";
 import {
   isLmsCategory,
-  isLmsPriceBand,
+  isValidCoursePrice,
+  COURSE_PRICE_HINT,
+  MIN_COURSE_PRICE,
+  MAX_COURSE_PRICE,
   courseSlug,
   courseReadiness,
   MIN_LEARNING_OUTCOMES,
@@ -286,14 +289,18 @@ export async function updateCoursePricing(
   const owned = await ownedCourse(courseId);
   if ("error" in owned) return owned;
 
-  const price = Number(formData.get("price"));
-  if (!isLmsPriceBand(price)) return { error: "Choose one of the listed price points." };
+  const priceRaw = String(formData.get("price") ?? "").trim();
+  const price = Number(priceRaw);
+  if (priceRaw === "" || !isValidCoursePrice(price)) return { error: COURSE_PRICE_HINT };
 
   const saleRaw = String(formData.get("sale_price") ?? "").trim();
   let salePrice: number | null = null;
   if (saleRaw) {
     const n = Number(saleRaw);
-    if (!isLmsPriceBand(n)) return { error: "The sale price must also be a listed price point." };
+    // A sale price of 0 would make a paid course free without saying so; a sale
+    // is a discount, and giving it away is a price change.
+    if (!isValidCoursePrice(n) || n === 0)
+      return { error: `The sale price must be between $${MIN_COURSE_PRICE} and $${MAX_COURSE_PRICE}.` };
     if (n >= price) return { error: "The sale price has to be lower than the list price." };
     salePrice = n;
   }

@@ -304,8 +304,14 @@ export function CoursePlayer({
                 {lecture.content ? (
                   // Sanitized at write time by the builder, against the same
                   // allowlist HUB uses. Never render unsanitized input here.
+                  //
+                  // Any <img> that survived that pass points at our own media
+                  // domain — see isOwnMediaUrl in lib/sanitize.ts. The explicit
+                  // prose-img rules bound an instructor's full-resolution photo
+                  // to the column instead of trusting a plugin default, since a
+                  // 4000px wide image would otherwise decide the page width.
                   <div
-                    className="prose prose-sm max-w-none dark:prose-invert"
+                    className="prose prose-sm max-w-none dark:prose-invert prose-img:my-4 prose-img:h-auto prose-img:max-w-full prose-img:rounded-lg prose-img:border prose-img:border-border"
                     dangerouslySetInnerHTML={{ __html: lecture.content }}
                   />
                 ) : (

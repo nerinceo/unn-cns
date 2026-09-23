@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, Loader2, ShoppingBag, TrendingUp } from "lucide-react";
 import { updateCoursePricing, type CourseForEdit } from "@/lib/actions/lms-courses";
 import {
-  LMS_PRICE_BANDS,
+  MIN_COURSE_PRICE,
+  MAX_COURSE_PRICE,
   INSTRUCTOR_SHARE_PERCENT,
   instructorEarnings,
+  isValidCoursePrice,
 } from "@/lib/lms";
 
 const field =
@@ -19,19 +21,30 @@ export function PricingStep({ course }: { course: CourseForEdit }) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const [price, setPrice] = useState<number>(course.price ?? 0);
+  // Held as strings: a number state cannot represent "24." halfway through
+  // typing "24.99", and coercing on every keystroke fights the instructor.
+  const [priceText, setPriceText] = useState<string>(
+    course.price != null ? String(course.price) : "0",
+  );
   const [salePrice, setSalePrice] = useState<string>(
     course.sale_price != null ? String(course.sale_price) : "",
   );
 
-  const earnings = instructorEarnings(price);
+  const price = Number(priceText);
+  const priceIsValid = priceText.trim() !== "" && isValidCoursePrice(price);
+  const saleNumber = Number(salePrice);
+  const saleIsValid =
+    salePrice.trim() === "" ||
+    (isValidCoursePrice(saleNumber) && saleNumber > 0 && saleNumber < price);
+
+  const earnings = instructorEarnings(priceIsValid ? price : 0);
   const isLive = course.status === "approved";
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    formData.set("price", String(price));
-    formData.set("sale_price", salePrice);
+    formData.set("price", priceText.trim());
+    formData.set("sale_price", salePrice.trim());
 
     setError(null);
     setSaved(false);
@@ -64,28 +77,45 @@ export function PricingStep({ course }: { course: CourseForEdit }) {
       <div className="rounded-2xl border border-border bg-card p-5">
         <h2 className="mb-1 text-sm font-semibold">Price</h2>
         <p className="mb-4 text-xs text-muted-foreground">
-          Fixed price points keep the catalogue coherent. UNN will never discount your course
-          without your say-so.
+          Your course, your price. Enter <strong>0</strong> to make it free, or anything from $
+          {MIN_COURSE_PRICE} to ${MAX_COURSE_PRICE}. UNN will never discount your course without
+          your say-so.
         </p>
 
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {LMS_PRICE_BANDS.map((band) => {
-            const active = price === band;
-            return (
-              <button
-                key={band}
-                type="button"
-                onClick={() => setPrice(band)}
-                className={`rounded-lg border px-2 py-2.5 text-sm font-medium transition-colors ${
-                  active
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-background hover:bg-muted"
-                }`}
-              >
-                {band === 0 ? "Free" : `$${band}`}
-              </button>
-            );
-          })}
+        <div className="flex items-start gap-3">
+          <div className="relative w-40">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+              $
+            </span>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={MAX_COURSE_PRICE}
+              step="0.01"
+              value={priceText}
+              onChange={(e) => setPriceText(e.target.value)}
+              aria-label="Course price in US dollars"
+              aria-invalid={!priceIsValid}
+              className={`${field} pl-6 ${
+                priceIsValid ? "" : "border-red-300 focus:border-red-400 focus:ring-red-200"
+              }`}
+            />
+          </div>
+          <div className="min-w-0 pt-2">
+            {priceIsValid ? (
+              <p className="text-xs text-muted-foreground">
+                {price === 0
+                  ? "Free — anyone enrolled can watch it, and you need no payout account."
+                  : `Priced in USD. Learners are charged $${price.toFixed(2)}.`}
+              </p>
+            ) : (
+              <p className="text-xs text-red-600">
+                Enter 0 for a free course, or a price between ${MIN_COURSE_PRICE} and $
+                {MAX_COURSE_PRICE}, in whole cents.
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -121,19 +151,34 @@ export function PricingStep({ course }: { course: CourseForEdit }) {
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
-              <label className="mb-1.5 block text-xs font-medium">Sale price</label>
-              <select
-                value={salePrice}
-                onChange={(e) => setSalePrice(e.target.value)}
-                className={field}
-              >
-                <option value="">No sale</option>
-                {LMS_PRICE_BANDS.filter((b) => b > 0 && b < price).map((b) => (
-                  <option key={b} value={b}>
-                    ${b}
-                  </option>
-                ))}
-              </select>
+              <label className="mb-1.5 block text-xs font-medium" htmlFor="lms-sale-price">
+                Sale price
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  $
+                </span>
+                <input
+                  id="lms-sale-price"
+                  type="number"
+                  inputMode="decimal"
+                  min={MIN_COURSE_PRICE}
+                  max={MAX_COURSE_PRICE}
+                  step="0.01"
+                  placeholder="No sale"
+                  value={salePrice}
+                  onChange={(e) => setSalePrice(e.target.value)}
+                  aria-invalid={!saleIsValid}
+                  className={`${field} pl-6 ${
+                    saleIsValid ? "" : "border-red-300 focus:border-red-400 focus:ring-red-200"
+                  }`}
+                />
+              </div>
+              {!saleIsValid && (
+                <p className="mt-1 text-xs text-red-600">
+                  Must be below the list price, and at least ${MIN_COURSE_PRICE}.
+                </p>
+              )}
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium">Starts</label>
@@ -157,9 +202,9 @@ export function PricingStep({ course }: { course: CourseForEdit }) {
             </div>
           </div>
 
-          {salePrice && (
+          {salePrice && saleIsValid && (
             <p className="text-xs text-muted-foreground">
-              On sale you earn ${instructorEarnings(Number(salePrice)).toFixed(2)} per sale.
+              On sale you earn ${instructorEarnings(saleNumber).toFixed(2)} per sale.
             </p>
           )}
         </div>
@@ -175,7 +220,7 @@ export function PricingStep({ course }: { course: CourseForEdit }) {
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || !priceIsValid || !saleIsValid}
           className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {pending && <Loader2 className="h-4 w-4 animate-spin" />}
