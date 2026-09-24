@@ -65,20 +65,51 @@ export const UHN_URL = process.env.NEXT_PUBLIC_UHN_URL ?? "https://uhn.nerusalem
 export const PRO_ROOT = "/pro";
 
 /**
+ * Units are shared ground, not a nurse-only surface.
+ *
+ * A unit is the same record whoever is looking at it: the same discussions,
+ * chat, events, resources and member list. Professionals were confined out of
+ * /units, so the only unit pages they could reach were a cut-down copy under
+ * /pro/units that had a front page, announcements and members and none of the
+ * rest. Two implementations of one feature, one of them permanently behind.
+ *
+ * Admitting the real thing instead of widening the copy is what makes this a
+ * deletion rather than an addition — see app/(platform)/units/[slug]/, which
+ * resolves a unit by slug and has never filtered by organization_id.
+ *
+ * SAFE BECAUSE THE SHELL FOLLOWS THE ACCOUNT, NOT THE PATH.
+ * app/(platform)/layout.tsx picks its chrome from account_scope
+ * (showsNurseChrome), so a professional here gets the professional sidebar,
+ * not the nurse one. /pro is inside that same group for exactly this reason.
+ *
+ * AND BECAUSE EVERY PAGE UNDER IT GATES ITSELF. The unit layout enforces
+ * visibility and membership, /units/create enforces verification status. This
+ * function decides which app you are in, never what you may do once inside —
+ * "scope says where you LIVE; a row says what you may DO".
+ */
+export const UNITS_ROOT = "/units";
+
+/**
  * May a 'uhn' account reach this path in HUB?
  *
- * Deny-by-default: anything not under /pro is refused, including /api. The
- * professional pages drive every write through server actions (which POST to
- * their own route, not to /api), so nothing under /pro needs an API route — and
- * letting /api through "just in case" would leave HUB's marketplace, Stripe and
- * messaging endpoints reachable by a population that has no business there.
+ * Deny-by-default: anything outside /pro and /units is refused, including
+ * /api. The professional pages drive every write through server actions (which
+ * POST to their own route, not to /api), so nothing under /pro needs an API
+ * route — and letting /api through "just in case" would leave HUB's
+ * marketplace, Stripe and messaging endpoints reachable by a population that
+ * has no business there.
  *
  * Auth and public paths are NOT handled here. The caller checks those first,
  * because they apply to signed-out visitors too and this function only has an
  * opinion about accounts that already have a scope.
  */
 export function isProfessionalPath(pathname: string): boolean {
-  return pathname === PRO_ROOT || pathname.startsWith(`${PRO_ROOT}/`);
+  return (
+    pathname === PRO_ROOT ||
+    pathname.startsWith(`${PRO_ROOT}/`) ||
+    pathname === UNITS_ROOT ||
+    pathname.startsWith(`${UNITS_ROOT}/`)
+  );
 }
 
 /**
@@ -290,6 +321,15 @@ export type HomeFacts = {
   isInstructor?: boolean;
   /** An APPROVED vendor, likewise. */
   isVendor?: boolean;
+  /**
+   * users.role === 'platform_admin'. Staff, not a seller.
+   *
+   * Platform staff are ordinary nurse accounts that happen to run the place, and
+   * several of them also own a shop or teach. Without this fact, owning a shop
+   * made them a vendor for routing purposes and every sign-in dropped them into
+   * a storefront dashboard instead of the app they actually administer.
+   */
+  isPlatformAdmin?: boolean;
   /** users.preferred_home, if they've ever used the portal switcher. */
   preferred?: unknown;
 };
@@ -320,6 +360,20 @@ export function resolveHomeKey(facts: HomeFacts): HomeKey {
 
   const preferred = toHomeKey(facts.preferred);
   if (preferred && eligible(preferred)) return preferred;
+
+  // PLATFORM STAFF LAND IN THE APP THEY ADMINISTER, not in a side business.
+  //
+  // Staff accounts are nurse accounts (see the account-scope notes in
+  // CLAUDE.md), and more than one of them also owns a shop or teaches. The
+  // "most-specialised first" order below reads that shop as their workplace and
+  // opens a storefront dashboard every time they sign in — the admin console,
+  // the feed and the queues they are actually responsible for are all behind a
+  // menu they have to find first.
+  //
+  // This does not take the shop away: a preferred_home of "vendor" or
+  // "instructor" is honoured above, because an explicit choice is still a
+  // choice. It only stops the DEFAULT being someone else's job.
+  if (facts.isPlatformAdmin) return "feed";
 
   // Computed default, most-specialised first.
   if (facts.scope === "uhn") return facts.isOrgAdmin ? "org" : "uhn";

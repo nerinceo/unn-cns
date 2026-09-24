@@ -162,6 +162,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(`${uhn}/teaching`);
   }
 
+  // A PUBLIC PATH IS PUBLIC TO STRANGERS — IT IS NOT AN EXEMPTION FROM
+  // CONFINEMENT.
+  //
+  // This check used to sit below the PUBLIC_PATHS return, which meant the one
+  // public page with a signed-in experience leaked: /jobs is deliberately
+  // crawlable, so a marketplace vendor typing it reached the board and was
+  // served the personalised, nurse-targeted version of it ("Get roles matched
+  // to you"). Five of the six CNS surfaces ejected them correctly and this one
+  // did not, purely because of the order of two ifs.
+  //
+  // Keyed off `user`, so nothing changes for the anonymous visitor the public
+  // list exists for: a crawler and a signed-out nurse still get /jobs,
+  // /employers, the health check and the sitemap exactly as before. Only an
+  // account that HAS a scope is measured against it, and mayEnterCns() still
+  // admits professionals to the board — it answers false only for vendors.
+  if (user) {
+    const scope = scopeFromClaims(user);
+    if (!mayEnterCns(scope, path)) {
+      // Each scope goes to its own home, not to a generic one: a page that
+      // refuses them on arrival is not a redirect, it is a loop.
+      return NextResponse.redirect(new URL(confinedRoot(scope) ?? "/", HUB_URL));
+    }
+  }
+
   if (PUBLIC_PATHS.some((p) => path.startsWith(p))) return supabaseResponse;
 
   if (!user) {
@@ -201,12 +225,10 @@ export async function middleware(request: NextRequest) {
   // ~9k-post library one typed URL away behind nothing but that session. The
   // old `=== "uhn"` test would have read 'vendor' as "not a professional,
   // therefore a nurse" and let them straight through.
-  const scope = scopeFromClaims(user);
-  if (!mayEnterCns(scope, path)) {
-    // Each scope goes to its own home in HUB, not to a generic one: a page
-    // that refuses them on arrival is not a redirect, it is a loop.
-    return NextResponse.redirect(new URL(confinedRoot(scope) ?? "/", HUB_URL));
-  }
+  //
+  // THE CHECK ITSELF NOW RUNS ABOVE, before the public-path return, so that a
+  // confined account is refused on /jobs too. It is deliberately not repeated
+  // here: one gate, one place to change it.
 
   return supabaseResponse;
 }
