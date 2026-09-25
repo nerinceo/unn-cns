@@ -172,10 +172,50 @@ export function isVendorPath(pathname: string): boolean {
  * the run of the app ('full'). Centralised so that adding a fourth scope later
  * is one case here rather than a new conditional in three middlewares.
  */
-export function confinedRoot(scope: AccountScope): string | null {
+/**
+ * What kind of business a 'vendor' account is.
+ *
+ * The scope says "this login is a business, confined to its dashboard". The
+ * KIND says which dashboard. A marketplace seller belongs in /shop, a course
+ * provider in /teaching, a hospital in /org — three products, one confinement
+ * rule, and until now one hardcoded destination.
+ *
+ * Carried in the JWT beside the scope (app_metadata, service-role-only) because
+ * middleware decides confinement with no database round trip. users.business_kind
+ * is the durable copy that those token writes read from — see 0042.
+ */
+export type BusinessKind = "marketplace" | "course" | "hospital";
+
+export function toBusinessKind(value: unknown): BusinessKind | null {
+  return value === "marketplace" || value === "course" || value === "hospital"
+    ? value
+    : null;
+}
+
+/** Read the business kind from a verified JWT's claims. Null for non-business. */
+export function businessKindFromClaims(claims: unknown): BusinessKind | null {
+  if (!claims || typeof claims !== "object") return null;
+  const appMeta = (claims as { app_metadata?: unknown }).app_metadata;
+  if (!appMeta || typeof appMeta !== "object") return null;
+  return toBusinessKind((appMeta as { business_kind?: unknown }).business_kind);
+}
+
+/** Where each kind of business lives. All absolute: every one is on UHN. */
+export function businessHome(kind: BusinessKind | null): string {
+  const uhn = UHN_URL.replace(/\/+$/, "");
+  if (kind === "course") return INSTRUCTOR_HOME;
+  if (kind === "hospital") return `${uhn}/org`;
+  // MARKETPLACE IS THE FALLBACK, and that is deliberate rather than tidy.
+  // The four accounts that were scope 'vendor' before 0042 hold tokens minted
+  // without a business_kind claim, and they are all marketplace sellers. A null
+  // kind must therefore land where they already live, not somewhere new.
+  return VENDOR_HOME;
+}
+
+export function confinedRoot(scope: AccountScope, kind?: BusinessKind | null): string | null {
   if (scope === "uhn") return PRO_ROOT;
-  // Absolute — a vendor's home is on the other host now. See VENDOR_HOME.
-  if (scope === "vendor") return VENDOR_HOME;
+  // Absolute — a business's home is on the other host. See businessHome().
+  if (scope === "vendor") return businessHome(kind ?? null);
   return null;
 }
 
@@ -330,6 +370,8 @@ export type HomeFacts = {
    * a storefront dashboard instead of the app they actually administer.
    */
   isPlatformAdmin?: boolean;
+  /** users.business_kind — which dashboard a 'vendor' account belongs to. */
+  businessKind?: BusinessKind | null;
   /** users.preferred_home, if they've ever used the portal switcher. */
   preferred?: unknown;
 };
@@ -348,7 +390,17 @@ export function resolveHomeKey(facts: HomeFacts): HomeKey {
   // when that was a legal choice, and honouring it would send them to a page
   // middleware then bounces — an infinite redirect between /home and /seller,
   // not merely a wrong landing.
-  if (facts.scope === "vendor") return "vendor";
+  // A BUSINESS LANDS ON ITS OWN KIND'S DASHBOARD, and no stored preference can
+  // override it, for the reason below: a business login has exactly one place
+  // it is allowed to be, and honouring "feed" would bounce it forever.
+  //
+  // The three kinds map onto home keys that already exist, so nothing new has
+  // to be taught to homeUrl() or to users.preferred_home's allowlist.
+  if (facts.scope === "vendor") {
+    if (facts.businessKind === "course") return "instructor";
+    if (facts.businessKind === "hospital") return "org";
+    return "vendor";
+  }
 
   const eligible = (key: HomeKey): boolean => {
     if (key === "uhn") return facts.scope === "uhn";

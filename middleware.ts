@@ -4,7 +4,12 @@ import {
   REMEMBER_ME_COOKIE,
   withAuthCookieOptions,
 } from "@/lib/auth/cookie-config";
-import { confinedRoot, mayEnterCns, scopeFromClaims } from "@/lib/access";
+import {
+  confinedRoot,
+  mayEnterCns,
+  scopeFromClaims,
+  businessKindFromClaims,
+} from "@/lib/access";
 
 /**
  * CNS auth gate.
@@ -182,7 +187,12 @@ export async function middleware(request: NextRequest) {
     if (!mayEnterCns(scope, path)) {
       // Each scope goes to its own home, not to a generic one: a page that
       // refuses them on arrival is not a redirect, it is a loop.
-      return NextResponse.redirect(new URL(confinedRoot(scope) ?? "/", HUB_URL));
+      //
+      // The business KIND is read too, because "its own home" differs by kind
+      // now: a course provider bounced off CNS belongs in /teaching, not in the
+      // marketplace's /shop.
+      const home = confinedRoot(scope, businessKindFromClaims(user));
+      return NextResponse.redirect(new URL(home ?? "/", HUB_URL));
     }
   }
 
