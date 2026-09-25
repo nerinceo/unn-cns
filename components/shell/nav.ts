@@ -36,7 +36,10 @@ export const MEMBER_PRIMARY: NavItem[] = [
 /** Behind the "More" menu. */
 export const MEMBER_MORE: NavItem[] = [
   { href: "/lms", label: "LMS", icon: School },
-  { href: "/registry", label: "Registry", icon: BadgeCheck },
+  // Registry is gone: the career profile, its documents and its consent
+  // switches are one page in HUB now (/profile/career). A nav entry that
+  // bounces you to another app on click is worse than no entry — the old
+  // routes still redirect for anyone arriving from a bookmark.
   { href: "/library", label: "Library", icon: Library },
   { href: "/resources", label: "Resources", icon: Calculator },
   { href: "/services", label: "Services", icon: HeartHandshake },

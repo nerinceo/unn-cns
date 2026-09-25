@@ -10,6 +10,7 @@ import { JobCard } from "@/components/jobs/JobCard";
 import { JobSort } from "@/components/jobs/JobSort";
 import { JobPagination } from "@/components/jobs/JobPagination";
 import { createClient } from "@/lib/supabase/server";
+import { hubLink } from "@/lib/hub";
 import type { SeekerProfile } from "@/lib/cns/seeker";
 
 export const dynamic = "force-dynamic";
@@ -247,12 +248,15 @@ async function RecommendedForYou({
               </p>
             </div>
           </div>
-          <Link
-            href="/profile"
+          {/* HUB owns the editing surface now, so this is cross-origin and
+              must be a plain anchor — next/link cannot client-route to another
+              origin and would prefetch it for nothing. */}
+          <a
+            href={hubLink("/profile/career")}
             className="inline-flex h-10 shrink-0 items-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground"
           >
             Complete your profile
-          </Link>
+          </a>
         </div>
       </section>
     );
@@ -283,9 +287,9 @@ async function RecommendedForYou({
           <Sparkles className="h-4 w-4 text-primary" />
           Recommended for you
         </h2>
-        <Link href="/profile" className="text-xs text-muted-foreground underline hover:text-foreground">
+        <a href={hubLink("/profile/career")} className="text-xs text-muted-foreground underline hover:text-foreground">
           Tune your preferences
-        </Link>
+        </a>
       </div>
       <ul className="space-y-3">
         {ranked.map(({ job, employer, match }) => (

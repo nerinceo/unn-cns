@@ -4,6 +4,7 @@ import {
   HeartHandshake, ArrowRight, ShieldCheck, MapPin,
 } from "lucide-react";
 import { getCurrentUserProfile } from "@/lib/supabase/server";
+import { hubLink } from "@/lib/hub";
 import { listPublishedJobs, formatSalary } from "@/lib/cns/jobs";
 import { getJobLabels } from "@/lib/cns/taxonomy";
 
@@ -29,7 +30,9 @@ const SYSTEMS = [
     body: "A personal companion for learning, planning, reminders, career support and daily guidance." },
   { href: "/lms", icon: School, title: "LMS",
     body: "Explore nursing courses and colleges from different countries through connected learning management systems." },
-  { href: "/registry", icon: BadgeCheck, title: "Registry",
+  // Opens HUB: the career profile, its documents and its consent switches are
+  // one page there now, next to the profile they belong to.
+  { href: hubLink("/profile/career"), external: true, icon: BadgeCheck, title: "Registry",
     body: "Create a professional nursing profile, securely store documents, complete verification and keep credentials updated." },
   { href: "/library", icon: Library, title: "Library",
     body: "Access nursing books, articles, guidelines, research, Nursepedia and clinical reference materials." },
@@ -75,19 +78,25 @@ export default async function CnsHomePage() {
           Systems
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {SYSTEMS.map(({ href, icon: Icon, title, body }) => (
-            <Link
-              key={href}
-              href={href}
-              className="group flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
-            >
-              <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
-                <Icon className="h-6 w-6 text-primary" />
-              </span>
-              <h3 className="mt-4 font-medium group-hover:text-primary">{title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{body}</p>
-            </Link>
-          ))}
+          {SYSTEMS.map(({ href, external, icon: Icon, title, body }) => {
+            // A card that leaves this origin is a plain anchor. next/link
+            // cannot client-route across origins and would prefetch another
+            // app for nothing — see the header of lib/hub.ts.
+            const Card = external ? "a" : Link;
+            return (
+              <Card
+                key={href}
+                href={href}
+                className="group flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
+                  <Icon className="h-6 w-6 text-primary" />
+                </span>
+                <h3 className="mt-4 font-medium group-hover:text-primary">{title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+              </Card>
+            );
+          })}
         </div>
       </section>
 
