@@ -184,11 +184,13 @@ export function isVendorPath(pathname: string): boolean {
  * middleware decides confinement with no database round trip. users.business_kind
  * is the durable copy that those token writes read from — see 0042.
  */
-export type BusinessKind = "marketplace" | "course" | "hospital";
+export type BusinessKind = "marketplace" | "course" | "hospital" | "college";
+
+const BUSINESS_KINDS: BusinessKind[] = ["marketplace", "course", "hospital", "college"];
 
 export function toBusinessKind(value: unknown): BusinessKind | null {
-  return value === "marketplace" || value === "course" || value === "hospital"
-    ? value
+  return typeof value === "string" && (BUSINESS_KINDS as string[]).includes(value)
+    ? (value as BusinessKind)
     : null;
 }
 
@@ -204,7 +206,10 @@ export function businessKindFromClaims(claims: unknown): BusinessKind | null {
 export function businessHome(kind: BusinessKind | null): string {
   const uhn = UHN_URL.replace(/\/+$/, "");
   if (kind === "course") return INSTRUCTOR_HOME;
-  if (kind === "hospital") return `${uhn}/org`;
+  // Hospital and college are the same portal wearing different words —
+  // org-vocabulary.ts renders "College portal" and "campuses" off
+  // organizations.org_type — so they share a destination.
+  if (kind === "hospital" || kind === "college") return `${uhn}/org`;
   // MARKETPLACE IS THE FALLBACK, and that is deliberate rather than tidy.
   // The four accounts that were scope 'vendor' before 0042 hold tokens minted
   // without a business_kind claim, and they are all marketplace sellers. A null
@@ -398,7 +403,7 @@ export function resolveHomeKey(facts: HomeFacts): HomeKey {
   // to be taught to homeUrl() or to users.preferred_home's allowlist.
   if (facts.scope === "vendor") {
     if (facts.businessKind === "course") return "instructor";
-    if (facts.businessKind === "hospital") return "org";
+    if (facts.businessKind === "hospital" || facts.businessKind === "college") return "org";
     return "vendor";
   }
 
