@@ -126,11 +126,54 @@ export function sanitizeRichText(input: string | null | undefined): string {
 }
 
 /**
+ * Undo the entity encoding sanitize-html applies on its way out.
+ *
+ * `&amp;` LAST, and that order is the whole correctness of this function.
+ * Decoding it first would turn the encoded form of a literal "&lt;" —
+ * "&amp;lt;" — into "<", inventing a character the user never typed and
+ * undoing the tag stripping that just happened.
+ */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&amp;/g, "&");
+}
+
+/**
  * Sanitize a plain-text field (comment_text, reply_text, etc.). Strips ALL
  * HTML so nothing renders as markup. Use this for anything that is displayed
  * as text in the UI — cheaper and tighter than the rich-text allowlist.
+ *
+ * RETURNS TEXT, NOT HTML-SAFE TEXT, and that is the fix.
+ *
+ * sanitize-html exists to produce output safe to interpolate into markup, so
+ * it entity-encodes `&`, `<` and `>` on the way out. These fields are never
+ * interpolated into markup: they are stored as plain text and rendered by
+ * React, which escapes on output anyway. So the value was encoded twice and
+ * the reader saw the entities themselves — a nurse typing "SpO2 < 92%" or
+ * "Q&A" got "SpO2 &lt; 92%" and "Q&amp;A" on the published announcement.
+ *
+ * Worse, it COMPOUNDS: the encoded value is read back into the edit form and
+ * re-saved, so "&" becomes "&amp;" becomes "&amp;amp;" with each edit. The
+ * professional module hit this and forked its own copy rather than touch this
+ * one (see lib/pro/sanitize.ts, which documents the same bug and concluded
+ * HUB's behaviour was "correct for the nurse-facing callers"). It was not —
+ * those callers are React components, which escape again.
+ *
+ * STILL SAFE. Tags are stripped by sanitize-html BEFORE anything is decoded,
+ * so no markup survives to be reconstituted: "<script>x</script>" is discarded
+ * tag and contents alike, and a typed-out "&lt;script&gt;" decodes back to the
+ * literal text the user typed, which React then escapes on render. The one
+ * thing this output must never do is reach dangerouslySetInnerHTML — that is
+ * what sanitizeRichText() above is for, and it is deliberately unchanged.
  */
 export function sanitizePlainText(input: string | null | undefined): string {
   if (!input) return "";
-  return sanitizeHtml(input, { allowedTags: [], allowedAttributes: {} });
+  return decodeEntities(
+    sanitizeHtml(input, { allowedTags: [], allowedAttributes: {} })
+  );
 }
