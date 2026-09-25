@@ -32,7 +32,7 @@ export default async function RegistryVisibilityPage() {
       : Promise.resolve({ data: null }),
     uid
       ? supabase
-          .from("cns_job_seeker_profiles")
+          .from("career_profiles")
           .select("nursing_role, experience_level")
           .eq("user_id", uid)
           .maybeSingle()

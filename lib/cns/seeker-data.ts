@@ -20,8 +20,13 @@ export async function getMySeekerProfile(): Promise<SeekerProfile | null> {
   // RLS already scopes this to the caller; the explicit eq is belt-and-braces
   // and lets the query use the primary key rather than a policy scan.
   const { data } = await supabase
-    .from("cns_job_seeker_profiles")
-    .select("*")
+    .from("career_profiles")
+    .select(
+      // Explicit, not "*": career_profiles carries columns this app does not
+      // manage (headline, summary, consent), and spreading them into a form
+      // payload risks writing back a stale copy of something HUB owns.
+      "nursing_role, is_student, experience_level, total_years, specialties, licence_country, licence_type, licence_number, licence_status, highest_qualification, institution, graduation_year, preferred_countries, preferred_roles, preferred_employment_types, preferred_work_settings"
+    )
     .eq("user_id", uid)
     .maybeSingle();
 

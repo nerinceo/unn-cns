@@ -13,8 +13,11 @@ export default async function JobProfilePage() {
 
   const [{ data: row }, { data: resume }, hubProfile, taxonomy] = await Promise.all([
     supabase
-      .from("cns_job_seeker_profiles")
-      .select("*")
+      .from("career_profiles")
+      // Explicit, not "*" — see the note in lib/cns/seeker-data.ts.
+      .select(
+        "nursing_role, is_student, experience_level, total_years, specialties, licence_country, licence_type, licence_number, licence_status, highest_qualification, institution, graduation_year, preferred_countries, preferred_roles, preferred_employment_types, preferred_work_settings"
+      )
       .eq("user_id", user!.id)
       .maybeSingle(),
     supabase

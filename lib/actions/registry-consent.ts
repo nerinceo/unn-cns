@@ -46,7 +46,7 @@ export async function setRegistryConsent(
     // shows up in the count, wastes their time and never converts. Nothing
     // blocks turning consent OFF — withdrawal is always immediate.
     const { data: profile } = await supabase
-      .from("cns_job_seeker_profiles")
+      .from("career_profiles")
       .select("nursing_role, experience_level")
       .eq("user_id", user.id)
       .maybeSingle();
@@ -59,7 +59,7 @@ export async function setRegistryConsent(
     }
   }
 
-  const { error } = await supabase.from("cns_job_seeker_profiles").upsert(
+  const { error } = await supabase.from("career_profiles").upsert(
     {
       user_id: user.id,
       registry_opt_in: optIn,
@@ -91,7 +91,7 @@ export async function getRegistryConsent(): Promise<{
 
   const supabase = await createClient();
   const { data } = await supabase
-    .from("cns_job_seeker_profiles")
+    .from("career_profiles")
     .select("registry_opt_in, registry_opt_in_at, registry_share_resume")
     .eq("user_id", user.id)
     .maybeSingle();

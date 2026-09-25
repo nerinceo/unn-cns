@@ -244,7 +244,7 @@ async function buildSnapshot(userId: string) {
     // the generic HUB profile and none of the role, experience, specialties,
     // licensure or qualifications the applicant actually entered.
     supabase
-      .from("cns_job_seeker_profiles")
+      .from("career_profiles")
       .select("nursing_role,is_student,experience_level,total_years,specialties,licence_country,licence_type,licence_status,highest_qualification,institution,graduation_year,preferred_countries,preferred_roles,preferred_employment_types,preferred_work_settings")
       .eq("user_id", userId)
       .maybeSingle(),

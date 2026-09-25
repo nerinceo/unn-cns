@@ -22,7 +22,6 @@ export type SeekerProfile = {
   preferred_roles: string[];
   preferred_employment_types: string[];
   preferred_work_settings: string[];
-  phone: string | null;
 };
 
 export const EMPTY_SEEKER: SeekerProfile = {
@@ -30,7 +29,7 @@ export const EMPTY_SEEKER: SeekerProfile = {
   specialties: [], licence_country: null, licence_type: null, licence_number: null,
   licence_status: null, highest_qualification: null, institution: null,
   graduation_year: null, preferred_countries: [], preferred_roles: [],
-  preferred_employment_types: [], preferred_work_settings: [], phone: null,
+  preferred_employment_types: [], preferred_work_settings: [],
 };
 
 /**

@@ -36,7 +36,7 @@ export async function saveSeekerProfile(patch: Partial<SeekerProfile>): Promise<
 
   const supabase = await createClient();
   const { error } = await supabase
-    .from("cns_job_seeker_profiles")
+    .from("career_profiles")
     .upsert(
       { user_id: user.id, ...safe, updated_at: new Date().toISOString() },
       { onConflict: "user_id" }
