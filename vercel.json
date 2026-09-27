@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "regions": ["bom1", "iad1"],
+  "regions": ["iad1"],
   "crons": [
     {
       "path": "/api/cron/close-expired-jobs",

@@ -5,6 +5,8 @@ import { notifyUsers, type NotifyInput } from "@/lib/cns/notify";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+const ALERT_PAGE = 1000;
+
 /**
  * Daily job alerts (blueprint §6.4).
  *
@@ -28,12 +30,30 @@ export async function GET(request: NextRequest) {
   try {
     const admin = createAdminClient();
 
-    const { data: alerts } = await admin
-      .from("cns_job_alerts")
-      .select("id,user_id,countries,roles,last_sent_at")
-      .eq("is_active", true);
+    // PAGED. PostgREST returns at most 1,000 rows per request, so a single
+    // select silently dropped every subscriber past the first thousand — they
+    // just never got a digest. Ordered by id so the pages are stable.
+    type AlertRow = {
+      id: string;
+      user_id: string;
+      countries: string[] | null;
+      roles: string[] | null;
+      last_sent_at: string | null;
+    };
+    const alerts: AlertRow[] = [];
+    for (let from = 0; ; from += ALERT_PAGE) {
+      const { data: page, error } = await admin
+        .from("cns_job_alerts")
+        .select("id,user_id,countries,roles,last_sent_at")
+        .eq("is_active", true)
+        .order("id")
+        .range(from, from + ALERT_PAGE - 1);
+      if (error) throw new Error(error.message);
+      alerts.push(...((page ?? []) as AlertRow[]));
+      if (!page || page.length < ALERT_PAGE) break;
+    }
 
-    if (!alerts?.length) return NextResponse.json({ ok: true, sent: 0 });
+    if (!alerts.length) return NextResponse.json({ ok: true, sent: 0 });
 
     // One read of everything published in the last day, matched in memory.
     // Far cheaper than a query per subscriber, and the volume is tiny.
@@ -98,10 +118,15 @@ export async function GET(request: NextRequest) {
 
     if (notifications.length) {
       await notifyUsers(notifications);
-      await admin
-        .from("cns_job_alerts")
-        .update({ last_sent_at: new Date().toISOString() })
-        .in("id", sentFor);
+      // Chunked: `.in()` rides in the URL, and thousands of ids overflow it —
+      // the update then failed and every alert re-sent the next day.
+      const now = new Date().toISOString();
+      for (let i = 0; i < sentFor.length; i += 150) {
+        await admin
+          .from("cns_job_alerts")
+          .update({ last_sent_at: now })
+          .in("id", sentFor.slice(i, i + 150));
+      }
     }
 
     console.log(`[cron] job-alerts: ${notifications.length} sent, ${fresh.length} new jobs`);

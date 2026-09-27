@@ -25,7 +25,20 @@ import { createAdminClient } from "@/lib/supabase/admin";
  *   message; a lost in-app row loses the record permanently.
  */
 
-const RESEND_ENDPOINT = "https://api.resend.com/emails";
+const RESEND_BATCH_ENDPOINT = "https://api.resend.com/emails/batch";
+// Resend's batch endpoint takes up to 100 messages per call.
+const RESEND_BATCH_MAX = 100;
+// PostgREST carries `.in()` lists in the URL — keep each one short.
+const IN_LIST_CHUNK = 150;
+// One POST per chunk of in-app rows, so a daily digest to thousands of members
+// is a handful of inserts rather than one enormous body.
+const INSERT_CHUNK = 500;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
 
 /** Sending is off until a key exists. This is the only switch. */
 export function emailEnabled(): boolean {
@@ -59,30 +72,36 @@ export async function notifyUser(input: NotifyInput): Promise<void> {
 }
 
 /**
- * Batched: one insert for the in-app rows, then sends in parallel.
+ * Batched at every step: in-app rows in chunked inserts, recipient lookups in
+ * chunked reads, email through Resend's BATCH endpoint (100 per call, calls
+ * one after another).
  *
  * The employer fan-out ("new application") hits every approved member of an
- * organisation, and issuing one insert per member turned a single apply into
- * N round trips.
+ * organisation, and the daily job-alert digest hits every subscriber. Email
+ * used to go out as one request per recipient, all at once — against Resend's
+ * ~10 requests/second ceiling, so a digest to a few hundred members came back
+ * mostly 429 and was dropped. Batched, 1,000 recipients is 10 calls.
  */
 export async function notifyUsers(inputs: NotifyInput[]): Promise<void> {
   if (!inputs.length) return;
   const admin = createAdminClient();
 
   // 1. In-app. Never conditional on email working.
-  try {
-    await admin.from("notifications").insert(
-      inputs.map((n) => ({
-        user_id: n.userId,
-        notification_type: n.type,
-        message: n.message,
-        reference_id: n.referenceId ?? null,
-      }))
-    );
-  } catch {
-    // A failed insert must not take down the action that triggered it — an
-    // employer shortlisting someone should not see an error because the
-    // notification table was briefly unavailable.
+  for (const part of chunk(inputs, INSERT_CHUNK)) {
+    try {
+      await admin.from("notifications").insert(
+        part.map((n) => ({
+          user_id: n.userId,
+          notification_type: n.type,
+          message: n.message,
+          reference_id: n.referenceId ?? null,
+        }))
+      );
+    } catch {
+      // A failed insert must not take down the action that triggered it — an
+      // employer shortlisting someone should not see an error because the
+      // notification table was briefly unavailable.
+    }
   }
 
   // 2. Email, if allowed.
@@ -92,58 +111,86 @@ export async function notifyUsers(inputs: NotifyInput[]): Promise<void> {
   try {
     // users.email left the session grant in migration 0020, so it is only
     // readable through the service role.
-    const { data: rows } = await admin
-      .from("users")
-      .select("id,email,full_name")
-      .in("id", Array.from(new Set(wantEmail.map((n) => n.userId))));
+    const byId = new Map<string, { email: string | null; name: string | null }>();
+    const ids = Array.from(new Set(wantEmail.map((n) => n.userId)));
+    for (const part of chunk(ids, IN_LIST_CHUNK)) {
+      const { data: rows } = await admin.from("users").select("id,email,full_name").in("id", part);
+      for (const r of rows ?? []) {
+        byId.set(r.id as string, {
+          email: r.email as string | null,
+          name: (r.full_name as string | null) ?? null,
+        });
+      }
+    }
 
-    const byId = new Map(
-      (rows ?? []).map((r) => [
-        r.id as string,
-        { email: r.email as string | null, name: (r.full_name as string | null) ?? null },
-      ])
-    );
+    const messages = wantEmail.flatMap((n) => {
+      const to = byId.get(n.userId);
+      return to?.email ? [buildMessage(to.email, to.name, n.email!)] : [];
+    });
 
-    await Promise.allSettled(
-      wantEmail.map((n) => {
-        const to = byId.get(n.userId);
-        if (!to?.email) return Promise.resolve();
-        return sendEmail(to.email, to.name, n.email!);
-      })
-    );
+    for (const batch of chunk(messages, RESEND_BATCH_MAX)) {
+      await sendBatch(batch);
+    }
   } catch {
     // Same rule: delivery is best-effort, the in-app record is the source of
     // truth, and neither failure is worth surfacing to the person who acted.
   }
 }
 
-async function sendEmail(to: string, name: string | null, content: EmailContent): Promise<void> {
+type OutgoingEmail = { from: string; to: string[]; subject: string; html: string; text: string };
+
+function buildMessage(to: string, name: string | null, content: EmailContent): OutgoingEmail {
   const href = content.ctaHref
     ? content.ctaHref.startsWith("http")
       ? content.ctaHref
       : `${SITE}${content.ctaHref.startsWith("/") ? "" : "/"}${content.ctaHref}`
     : null;
 
-  const res = await fetch(RESEND_ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: FROM,
-      to: [to],
-      subject: content.subject,
-      html: renderEmail(name, content, href),
-      text: `${content.heading}\n\n${content.body}${href ? `\n\n${href}` : ""}`,
-    }),
-    // A hung mail API must not hold an employer's status change open.
-    signal: AbortSignal.timeout(8000),
-  });
+  return {
+    from: FROM,
+    to: [to],
+    subject: content.subject,
+    html: renderEmail(name, content, href),
+    text: `${content.heading}\n\n${content.body}${href ? `\n\n${href}` : ""}`,
+  };
+}
 
-  if (!res.ok) {
-    // Logged, not thrown. Visible in Vercel logs without breaking the action.
-    console.error("[cns/notify] resend failed", res.status, await res.text().catch(() => ""));
+/**
+ * One batch call. A 429 or 5xx is retried twice with jittered backoff — safe,
+ * because Resend rejects a failed batch whole, so a retry cannot double-send.
+ * Anything else is logged, not thrown.
+ */
+async function sendBatch(batch: OutgoingEmail[]): Promise<void> {
+  const delays = [500, 1500];
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    let status = 0;
+    try {
+      const res = await fetch(RESEND_BATCH_ENDPOINT, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(batch),
+        // A hung mail API must not hold an employer's status change open.
+        signal: AbortSignal.timeout(8000),
+      });
+      if (res.ok) return;
+      status = res.status;
+      if (status !== 429 && status < 500) {
+        // Logged, not thrown. Visible in Vercel logs without breaking the action.
+        console.error("[cns/notify] resend batch failed", status, await res.text().catch(() => ""));
+        return;
+      }
+    } catch {
+      // Timeout / network — retry.
+    }
+    if (attempt === delays.length) {
+      console.error(`[cns/notify] resend batch of ${batch.length} failed after retries`, status);
+      return;
+    }
+    const base = delays[attempt];
+    await new Promise((r) => setTimeout(r, Math.random() * base + base / 2));
   }
 }
 
