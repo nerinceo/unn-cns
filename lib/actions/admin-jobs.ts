@@ -2,6 +2,7 @@
 
 
 import type { ActionResult } from "@/lib/actions/result";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -41,7 +42,7 @@ export async function reviewEmployer(
   // change to HUB. In-app only — CNS holds no email or push credentials.
   const employer = data[0];
   if (employer.created_by) {
-    await supabase.from("notifications").insert({
+    await createAdminClient().from("notifications").insert({
       user_id: employer.created_by,
       notification_type: `cns_employer_${decision}`,
       message:
@@ -132,7 +133,7 @@ export async function reviewJob(jobId: string, decision: JobDecision, reason?: s
             : `"${job.title}" has been removed. ${reason}`;
 
   if (members?.length) {
-    await supabase.from("notifications").insert(
+    await createAdminClient().from("notifications").insert(
       members.map((m) => ({
         user_id: m.user_id,
         notification_type: `cns_job_${decision}`,
