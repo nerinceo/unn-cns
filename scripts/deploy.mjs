@@ -87,6 +87,11 @@ const ENV_FROM_LOCAL = [
   "R2_SECRET_ACCESS_KEY",
   "R2_BUCKET",
   "R2_PUBLIC_URL",
+  // Question bank source (lib/cns/bank-source.ts). The content key can only
+  // EXECUTE the qbank_* read functions in the unn-content project.
+  "QB_SOURCE",
+  "CONTENT_SUPABASE_URL",
+  "CONTENT_SUPABASE_SECRET_KEY",
 ];
 
 const ENV_LITERAL = {

@@ -1,6 +1,13 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { bankSource } from "@/lib/cns/bank-source";
+import {
+  contentStudyQuestions,
+  contentStudySubject,
+  contentStudySubjects,
+  contentStudyTypes,
+} from "@/lib/cns/bank-content";
 
 /**
  * Read every matching row, not just the first 1000.
@@ -33,6 +40,10 @@ async function selectAll(
  * questions, browsed by subject and topic. Everything here is published content
  * a signed-in learner may read in full — there are no secret columns, unlike
  * cns_questions where the answer key is revoked.
+ *
+ * Each reader first checks bankSource(): with QB_SOURCE=content it returns the
+ * same shape from the source bank (lib/cns/bank-content.ts); otherwise the
+ * legacy body below runs unchanged.
  */
 
 export type StudySubject = {
@@ -52,6 +63,7 @@ export type StudySubject = {
  * way, and the subject list is the thing a university actually owns.
  */
 export async function getStudySubjects(institutionId?: string): Promise<StudySubject[]> {
+  if (bankSource() === "content") return contentStudySubjects(institutionId);
   const supabase = await createClient();
 
   // One count query per subject would be dozens of round trips. Instead read
@@ -108,6 +120,7 @@ export async function getStudyQuestions(opts: {
   type?: string;
   page?: number;
 }): Promise<{ questions: StudyQuestion[]; total: number; page: number; pageSize: number }> {
+  if (bankSource() === "content") return contentStudyQuestions(opts);
   const supabase = await createClient();
   const page = Math.max(0, opts.page ?? 0);
 
@@ -133,6 +146,7 @@ export async function getStudyQuestions(opts: {
 }
 
 export async function getStudySubject(subjectId: string) {
+  if (bankSource() === "content") return contentStudySubject(subjectId);
   const supabase = await createClient();
   const { data } = await supabase
     .from("cns_subjects")
@@ -144,6 +158,7 @@ export async function getStudySubject(subjectId: string) {
 
 /** Distinct question types present in a subject, for the filter chips. */
 export async function getStudyTypes(subjectId: string): Promise<{ type: string; count: number }[]> {
+  if (bankSource() === "content") return contentStudyTypes(subjectId);
   const supabase = await createClient();
   const rows = await selectAll(supabase, (from, to) =>
     supabase

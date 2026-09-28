@@ -1,10 +1,22 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { bankSource } from "@/lib/cns/bank-source";
+import {
+  contentBankQuestion,
+  contentBankRollup,
+  contentSemesterQuestions,
+  contentSemesterTypes,
+  contentTopicIndex,
+} from "@/lib/cns/bank-content";
 
 /**
  * Reads for the Nursing Bank browse tree: university -> course -> semester ->
  * questions.
+ *
+ * Each reader first checks bankSource(): with QB_SOURCE=content it returns the
+ * same shape from the source bank (lib/cns/bank-content.ts); otherwise the
+ * legacy body below runs unchanged.
  *
  * This is the legacy unnhub.org/nursingbank hierarchy rebuilt on CNS tables.
  * The old site had one flat denormalised table with a `semester_number` column
@@ -58,6 +70,7 @@ export type SemesterSubject = {
  * on each page cannot disagree with each other.
  */
 export async function getBankRollup(institutionId: string): Promise<SemesterSubject[]> {
+  if (bankSource() === "content") return contentBankRollup(institutionId);
   const supabase = await createClient();
 
   // The browse bank is cns_study_questions. MCQs are being migrated into it
@@ -128,6 +141,7 @@ export type TopicLabel = { name: string; unitName: string | null };
  * topic's parent in the tree the importer built.
  */
 export async function getTopicIndex(subjectIds: string[]): Promise<Map<string, TopicLabel>> {
+  if (bankSource() === "content") return contentTopicIndex(subjectIds);
   const out = new Map<string, TopicLabel>();
   if (subjectIds.length === 0) return out;
 
@@ -208,6 +222,7 @@ export async function getSemesterQuestions(opts: {
   search?: string;
   page?: number;
 }): Promise<{ questions: BankQuestion[]; total: number; page: number; pageSize: number }> {
+  if (bankSource() === "content") return contentSemesterQuestions(opts);
   const supabase = await createClient();
   const page = Math.max(0, opts.page ?? 0);
 
@@ -249,6 +264,7 @@ export async function getSemesterQuestions(opts: {
 
 /** One question for the full-page view. */
 export async function getBankQuestion(id: string): Promise<BankQuestion | null> {
+  if (bankSource() === "content") return contentBankQuestion(id);
   const supabase = await createClient();
   const { data } = await supabase
     .from("cns_study_questions")
@@ -263,6 +279,7 @@ export async function getBankQuestion(id: string): Promise<BankQuestion | null> 
 export async function getSemesterTypes(
   subjectIds: string[]
 ): Promise<{ type: string; count: number }[]> {
+  if (bankSource() === "content") return contentSemesterTypes(subjectIds);
   if (subjectIds.length === 0) return [];
   const supabase = await createClient();
   const rows = await selectAll(supabase, (from, to) =>
