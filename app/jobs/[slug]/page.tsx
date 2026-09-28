@@ -1,3 +1,4 @@
+import { jsonLdHtml } from "@/lib/json-ld";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -115,7 +116,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
       */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
       />
 
       <Link

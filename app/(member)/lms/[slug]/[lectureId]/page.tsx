@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getPlayerData } from "@/lib/cns/lms";
 import { CoursePlayer } from "@/components/lms/CoursePlayer";
+import { sanitizeRichText } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -33,5 +34,22 @@ export default async function CoursePlayerPage({
   // show even if we tried.
   if (current.locked) redirect(`/lms/${slug}`);
 
-  return <CoursePlayer data={data} currentLectureId={current.id} slug={slug} />;
+  // Sanitise at RENDER as well as at write. CoursePlayer injects lecture HTML
+  // with dangerouslySetInnerHTML, and a course owner can write
+  // lms_lectures.content straight through the REST API (lms_lectures_write),
+  // skipping the write-time sanitizeRichText in lib/actions/lms-courses.ts — so
+  // an instructor could run script in every learner's session. Same allowlist
+  // as the write path, so content saved through the app is unchanged (checked
+  // against production 2026-09-28: 0 of 11 lectures with content differ).
+  const safeData = {
+    ...data,
+    sections: data.sections.map((s) => ({
+      ...s,
+      lectures: s.lectures.map((l) =>
+        l.content ? { ...l, content: sanitizeRichText(l.content) } : l
+      ),
+    })),
+  };
+
+  return <CoursePlayer data={safeData} currentLectureId={current.id} slug={slug} />;
 }

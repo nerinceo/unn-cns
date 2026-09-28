@@ -1,3 +1,4 @@
+import { jsonLdHtml } from "@/lib/json-ld";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -106,7 +107,7 @@ export default async function EmployerProfilePage({
     <div className="space-y-8">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
       />
 
       <Link
