@@ -19,12 +19,14 @@ export async function GET(request: NextRequest) {
   // Vercel sends `Authorization: Bearer <CRON_SECRET>`. CNS uses its OWN
   // secret — HUB's CRON_SECRET is deliberately withheld from this app so it
   // can never trigger HUB's cron endpoints.
+  //
+  // FAILS CLOSED (2026-09-28). This used to skip the check entirely when
+  // CNS_CRON_SECRET was unset, so a missing env var made the endpoint public.
+  // The project's CRON_SECRET (what Vercel sends) must equal CNS_CRON_SECRET.
   const secret = process.env.CNS_CRON_SECRET;
-  if (secret) {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  const auth = request.headers.get("authorization");
+  if (!secret || auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   try {

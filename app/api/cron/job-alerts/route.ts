@@ -20,11 +20,12 @@ const ALERT_PAGE = 1000;
  * happen to open it, which for the people this is most useful to is not soon.
  */
 export async function GET(request: NextRequest) {
+  // FAILS CLOSED (2026-09-28). With CNS_CRON_SECRET unset this used to skip
+  // the check, so anyone could trigger job-alert emails to every subscriber.
+  // The project's CRON_SECRET (what Vercel sends) must equal CNS_CRON_SECRET.
   const secret = process.env.CNS_CRON_SECRET;
-  if (secret) {
-    if (request.headers.get("authorization") !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   try {
