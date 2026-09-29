@@ -23,7 +23,15 @@ const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 let redis: Redis | null = null;
 function getRedis(): Redis | null {
   if (!url || !token) return null;
-  redis ??= new Redis({ url, token });
+  // Bounded, same as HUB's lib/redis.ts: SDK defaults (5 retries, no fetch
+  // timeout) turned a slow Upstash into seconds of stall on every limited
+  // action. Limit checks fail open, so a fast failure means "allow".
+  redis ??= new Redis({
+    url,
+    token,
+    retry: { retries: 1, backoff: () => 50 },
+    signal: () => AbortSignal.timeout(1000),
+  });
   return redis;
 }
 
