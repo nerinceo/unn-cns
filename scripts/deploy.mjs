@@ -142,14 +142,17 @@ async function main() {
     console.log(`project created: ${project.name} (${project.id})`);
   }
 
-  // Node 20.x explicitly — 24.x has caused build failures on this account, and
-  // the create endpoint rejects nodeVersion, so it has to be a follow-up PATCH.
-  if (project.nodeVersion !== "20.x") {
+  // Node 22.x explicitly. 20.x is deprecated on Vercel (builds refused from
+  // 2026-10-01); 24.x has caused build failures on this account; 22 is an LTS
+  // line and what every local build is run on. The create endpoint rejects
+  // nodeVersion, so it has to be a follow-up PATCH.
+  const NODE = "22.x";
+  if (project.nodeVersion !== NODE) {
     const nv = await api(`/v9/projects/${project.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ nodeVersion: "20.x" }),
+      body: JSON.stringify({ nodeVersion: NODE }),
     });
-    console.log(`node version: ${nv.status < 300 ? "20.x" : `FAILED ${nv.status}`}`);
+    console.log(`node version: ${nv.status < 300 ? NODE : `FAILED ${nv.status}`}`);
   }
 
   // ---- env vars ---------------------------------------------------------
