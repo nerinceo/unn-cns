@@ -31,32 +31,3 @@ export const EMPTY_SEEKER: SeekerProfile = {
   graduation_year: null, preferred_countries: [], preferred_roles: [],
   preferred_employment_types: [], preferred_work_settings: [],
 };
-
-/**
- * Profile completeness (blueprint §8.4).
- *
- * Weighted by what an employer actually looks at rather than by field count: a
- * role and some experience matter far more than a preferred-country list. A
- * percentage is only useful if it moves for the right reasons.
- */
-export function profileCompleteness(
-  p: SeekerProfile,
-  hasResume: boolean,
-  hasName: boolean
-): { percent: number; missing: string[] } {
-  const checks = [
-    { done: hasName, weight: 10, label: "Your name" },
-    { done: Boolean(p.nursing_role), weight: 20, label: "Your nursing role" },
-    { done: Boolean(p.experience_level), weight: 15, label: "Experience level" },
-    { done: p.specialties.length > 0, weight: 15, label: "At least one specialty" },
-    { done: hasResume, weight: 20, label: "A resume" },
-    { done: Boolean(p.highest_qualification), weight: 10, label: "Your qualification" },
-    { done: p.preferred_countries.length > 0, weight: 10, label: "Preferred countries" },
-  ];
-  const total = checks.reduce((n, c) => n + c.weight, 0);
-  const got = checks.filter((c) => c.done).reduce((n, c) => n + c.weight, 0);
-  return {
-    percent: Math.round((got / total) * 100),
-    missing: checks.filter((c) => !c.done).map((c) => c.label),
-  };
-}
