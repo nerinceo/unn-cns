@@ -118,7 +118,7 @@ function CourseSection({
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="mb-0.5 text-[11px] font-medium text-primary">{course.category}</p>
+              <p className="mb-0.5 text-[12px] font-medium text-primary">{course.category}</p>
               <h3 className="text-sm font-semibold">{course.title}</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {course.instructor?.display_name ?? "Nerusalem instructor"} · {course.lecture_count}{" "}
@@ -136,7 +136,7 @@ function CourseSection({
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
-                <p className="mt-1 text-[11px] tabular-nums text-muted-foreground">
+                <p className="mt-1 text-[12px] tabular-nums text-muted-foreground">
                   {completedAt ? (
                     <span className="inline-flex items-center gap-1 text-emerald-600">
                       <CheckCircle2 className="h-3 w-3" />

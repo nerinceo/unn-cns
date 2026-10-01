@@ -95,7 +95,7 @@ export default async function BankQuestionPage({
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
           {QUESTION_DETAIL_COPY.heading}
         </h1>
-        <p className="mt-2 text-[15px] font-medium text-slate-600 dark:text-slate-400">
+        <p className="mt-2 text-[16px] font-medium text-slate-600 dark:text-slate-400">
           {metaChain([subject.name as string, t?.unitName])}
         </p>
       </header>
@@ -107,25 +107,25 @@ export default async function BankQuestionPage({
           <div className="flex flex-wrap items-center gap-2">
             {q.source_question_type && (
               <span
-                className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wider ring-1 ring-inset ${tone.badge}`}
+                className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-bold uppercase tracking-wider ring-1 ring-inset ${tone.badge}`}
               >
                 <TypeIcon className="h-3.5 w-3.5" />
                 {q.source_question_type}
               </span>
             )}
             {q.marks != null && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-[11px] font-semibold tabular-nums text-slate-600 dark:text-slate-300">
+              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-[12px] font-semibold tabular-nums text-slate-600 dark:text-slate-300">
                 <Award className="h-3.5 w-3.5" />
                 {marksLabel(q.marks)}
               </span>
             )}
           </div>
 
-          <p className="mt-3 text-[12.5px] font-medium leading-snug text-slate-600 dark:text-slate-400">
+          <p className="mt-3 text-[13.5px] font-medium leading-snug text-slate-600 dark:text-slate-400">
             {meta}
           </p>
 
-          <p className="mt-2 max-w-[78ch] whitespace-pre-wrap text-[17px] font-semibold leading-[1.6] tracking-[-0.005em] text-foreground">
+          <p className="mt-2 max-w-[78ch] whitespace-pre-wrap text-[18px] font-semibold leading-[1.6] tracking-[-0.005em] text-foreground">
             {q.stem}
           </p>
 
@@ -134,7 +134,7 @@ export default async function BankQuestionPage({
               {options.map(([letter, text]) => (
                 <li
                   key={letter}
-                  className="rounded-lg border border-border/70 bg-background/60 px-3 py-2.5 text-[14px] leading-relaxed text-slate-800 dark:text-slate-200"
+                  className="rounded-lg border border-border/70 bg-background/60 px-3 py-2.5 text-[15px] leading-relaxed text-slate-800 dark:text-slate-200"
                 >
                   <span className="font-bold text-primary dark:text-blue-300">{letter}.</span> {text}
                 </li>
@@ -146,12 +146,12 @@ export default async function BankQuestionPage({
         <div className="space-y-4 border-t border-border bg-background/70 px-6 py-5 pl-7">
           {q.correct_option && (
             <div className="border-l-[3px] border-primary/30 pl-3.5">
-              <p className="flex items-center gap-1.5 text-[14.5px] font-bold text-primary dark:text-blue-300">
+              <p className="flex items-center gap-1.5 text-[15.5px] font-bold text-primary dark:text-blue-300">
                 <CheckCircle2 className="h-[18px] w-[18px] shrink-0" />
                 {ANSWER_LABELS_HEADING.correctOption}
               </p>
               <p className="mt-1.5">
-                <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-emerald-50 px-2.5 text-[15px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/25">
+                <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-emerald-50 px-2.5 text-[16px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/25">
                   {q.correct_option}
                 </span>
               </p>
@@ -176,12 +176,12 @@ export default async function BankQuestionPage({
 
       <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-400/25 dark:bg-amber-500/10">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
-        <p className="text-[12.5px] leading-relaxed text-amber-900 dark:text-amber-200/90">
+        <p className="text-[13.5px] leading-relaxed text-amber-900 dark:text-amber-200/90">
           <strong className="font-bold">{DISCLAIMER.label}</strong> {DISCLAIMER.body}
         </p>
       </div>
 
-      <p className="pb-2 text-center text-[12px] font-medium text-slate-500 dark:text-slate-400">
+      <p className="pb-2 text-center text-[13px] font-medium text-slate-500 dark:text-slate-400">
         {bankFooter(`${institution.short_name ?? institution.name} ${course.name}`)}
       </p>
     </div>
@@ -199,11 +199,11 @@ function Panel({
 }) {
   return (
     <div className="border-l-[3px] border-primary/30 pl-3.5">
-      <p className="flex items-center gap-1.5 text-[14.5px] font-bold text-primary dark:text-blue-300">
+      <p className="flex items-center gap-1.5 text-[15.5px] font-bold text-primary dark:text-blue-300">
         <Icon className="h-[18px] w-[18px] shrink-0" />
         {heading}
       </p>
-      <p className="mt-1.5 max-w-[78ch] whitespace-pre-wrap text-[15px] font-medium leading-[1.7] text-slate-800 dark:text-slate-200">
+      <p className="mt-1.5 max-w-[78ch] whitespace-pre-wrap text-[16px] font-medium leading-[1.7] text-slate-800 dark:text-slate-200">
         {body}
       </p>
     </div>

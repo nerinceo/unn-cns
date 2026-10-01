@@ -166,7 +166,7 @@ export default async function LibraryArticlePage({
             page to scroll sideways on a phone.
           */}
           <div
-            className="max-w-[68ch] overflow-x-auto text-[17px] leading-[1.8] text-foreground
+            className="max-w-[68ch] overflow-x-auto text-[18px] leading-[1.8] text-foreground
               [&_p]:my-5
               [&_h2]:mb-4 [&_h2]:mt-14 [&_h2]:scroll-mt-28 [&_h2]:text-[1.4rem] [&_h2]:font-semibold [&_h2]:leading-tight [&_h2]:tracking-tight [&_h2:first-child]:mt-0
               [&_h3]:mb-3 [&_h3]:mt-10 [&_h3]:scroll-mt-28 [&_h3]:text-lg [&_h3]:font-semibold
@@ -180,8 +180,8 @@ export default async function LibraryArticlePage({
               [&_figure]:my-8 [&_figcaption]:mt-2 [&_figcaption]:text-center [&_figcaption]:text-sm [&_figcaption]:text-muted-foreground
               [&_blockquote]:my-8 [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-5 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
               [&_pre]:my-8 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-muted [&_pre]:p-4 [&_pre]:text-sm
-              [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[14px]
-              [&_table]:my-8 [&_table]:w-full [&_table]:border-collapse [&_table]:text-[15px]
+              [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[15px]
+              [&_table]:my-8 [&_table]:w-full [&_table]:border-collapse [&_table]:text-[16px]
               [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-2.5 [&_th]:text-left [&_th]:font-semibold
               [&_td]:border [&_td]:border-border [&_td]:p-2.5
               [&_iframe]:my-8 [&_iframe]:aspect-video [&_iframe]:w-full [&_iframe]:rounded-xl [&_iframe]:border [&_iframe]:border-border
@@ -191,7 +191,7 @@ export default async function LibraryArticlePage({
 
           {tags.length ? (
             <footer className="mt-14 max-w-[68ch] border-t border-border pt-6">
-              <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              <h2 className="mb-3 text-[12px] font-bold uppercase tracking-wider text-muted-foreground">
                 Tags
               </h2>
               <div className="flex flex-wrap gap-2">

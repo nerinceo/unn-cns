@@ -56,12 +56,12 @@ export default async function CnsHomePage() {
   return (
     <div className="space-y-12">
       {/* Introduction */}
-      <section className="rounded-2xl border border-border bg-card p-6 sm:p-10">
-        <p className="text-sm font-medium text-primary">Central Nursing Systems</p>
-        <h1 className="mt-2 max-w-3xl text-2xl font-semibold sm:text-4xl">
+      <section className="unn-panel-wash rounded-2xl border border-border bg-card p-6 sm:p-10 xl:p-12">
+        <p className="text-sm font-semibold text-primary">Central Nursing Systems</p>
+        <h1 className="mt-2 max-w-3xl text-3xl font-bold sm:text-4xl xl:text-5xl">
           Welcome back, {firstName}
         </h1>
-        <p className="mt-3 max-w-2xl text-muted-foreground sm:text-lg">
+        <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
           Access nursing courses, jobs, Registry, Nubo, resources, services and advanced learning
           systems — all in one place, with your Nerusalem account.
         </p>
@@ -77,7 +77,7 @@ export default async function CnsHomePage() {
         <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-muted-foreground">
           Systems
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {SYSTEMS.map(({ href, external, icon: Icon, title, body }) => {
             // A card that leaves this origin is a plain anchor. next/link
             // cannot client-route across origins and would prefetch another
@@ -87,13 +87,13 @@ export default async function CnsHomePage() {
               <Card
                 key={href}
                 href={href}
-                className="group flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
+                className="group flex flex-col rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/40"
               >
-                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
+                <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-50 ring-1 ring-inset ring-primary/10">
                   <Icon className="h-6 w-6 text-primary" />
                 </span>
-                <h3 className="mt-4 font-medium group-hover:text-primary">{title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+                <h3 className="mt-5 text-lg font-semibold group-hover:text-primary">{title}</h3>
+                <p className="mt-1.5 text-sm text-muted-foreground">{body}</p>
               </Card>
             );
           })}
@@ -119,9 +119,9 @@ export default async function CnsHomePage() {
                 <Link
                   key={job.id}
                   href={`/jobs/${job.slug}`}
-                  className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
+                  className="group rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/40"
                 >
-                  <h3 className="font-medium group-hover:text-primary">{job.title}</h3>
+                  <h3 className="text-base font-semibold group-hover:text-primary">{job.title}</h3>
                   {employer && <p className="mt-0.5 text-sm text-muted-foreground">{employer.name}</p>}
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                     {where && (

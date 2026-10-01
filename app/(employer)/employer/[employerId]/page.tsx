@@ -97,7 +97,7 @@ export default async function EmployerDashboard({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Stat icon={FileEdit} label="Drafts" value={drafts} href={`/employer/${employerId}/jobs`} />
         <Stat icon={Briefcase} label="Live roles" value={live} href={`/employer/${employerId}/jobs`} />
         <Stat icon={Eye} label="Views" value={totalViews} href={`/employer/${employerId}/jobs`} />

@@ -136,7 +136,7 @@ export default async function SemesterQuestionsPage({
               semesterNumber
             )}
           </h1>
-          <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-slate-600 dark:text-slate-400">
+          <p className="mt-2 max-w-2xl text-[16px] leading-relaxed text-slate-600 dark:text-slate-400">
             {QUESTION_LIST_COPY.subtitle}
           </p>
         </div>
@@ -153,7 +153,7 @@ export default async function SemesterQuestionsPage({
           <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <SlidersHorizontal className="h-3.5 w-3.5" />
           </span>
-          <h2 className="text-[13px] font-bold uppercase tracking-wide text-primary">
+          <h2 className="text-[14px] font-bold uppercase tracking-wide text-primary">
             {QUESTION_LIST_COPY.filterHeading}
           </h2>
         </div>
@@ -214,10 +214,10 @@ export default async function SemesterQuestionsPage({
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
+        <span className="text-[14px] font-semibold text-slate-700 dark:text-slate-300">
           {total > 0 ? showingLabel(shown, total) : QUESTION_LIST_COPY.exhausted}
         </span>
-        <span className="rounded-full bg-primary px-3 py-1 text-[12px] font-bold tabular-nums text-primary-foreground">
+        <span className="rounded-full bg-primary px-3 py-1 text-[13px] font-bold tabular-nums text-primary-foreground">
           {countPillLabel(total)}
         </span>
       </div>
@@ -225,7 +225,7 @@ export default async function SemesterQuestionsPage({
       {questions.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
           <SearchX className="mx-auto h-8 w-8 text-slate-400 dark:text-slate-500" />
-          <p className="mt-3 text-[15px] font-medium text-slate-700 dark:text-slate-300">
+          <p className="mt-3 text-[16px] font-medium text-slate-700 dark:text-slate-300">
             {QUESTION_LIST_COPY.empty}
           </p>
         </div>
@@ -260,7 +260,7 @@ export default async function SemesterQuestionsPage({
       )}
 
       {pages > 1 && (
-        <nav className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 text-[13px]">
+        <nav className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 text-[14px]">
           {page > 0 ? (
             <Link
               href={href({ page: page - 1 })}
@@ -289,12 +289,12 @@ export default async function SemesterQuestionsPage({
 
       <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-400/25 dark:bg-amber-500/10">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
-        <p className="text-[12.5px] leading-relaxed text-amber-900 dark:text-amber-200/90">
+        <p className="text-[13.5px] leading-relaxed text-amber-900 dark:text-amber-200/90">
           <strong className="font-bold">{DISCLAIMER.label}</strong> {DISCLAIMER.body}
         </p>
       </div>
 
-      <p className="pb-2 text-center text-[12px] font-medium text-slate-500 dark:text-slate-400">
+      <p className="pb-2 text-center text-[13px] font-medium text-slate-500 dark:text-slate-400">
         {bankFooter(`${institution.short_name ?? institution.name} ${course.name}`)}
       </p>
     </div>

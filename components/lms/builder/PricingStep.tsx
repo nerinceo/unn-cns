@@ -131,7 +131,7 @@ export function PricingStep({ course }: { course: CourseForEdit }) {
                 That&apos;s {INSTRUCTOR_SHARE_PERCENT}% of ${price}. For comparison, Udemy pays
                 its instructors 37% on an organic sale.
               </p>
-              <p className="mt-2 text-[11px] text-emerald-700">
+              <p className="mt-2 text-[12px] text-emerald-700">
                 An estimate at list price. Your dashboard shows what each sale actually paid,
                 after any promo code and before refunds.
               </p>

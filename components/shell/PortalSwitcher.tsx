@@ -43,14 +43,14 @@ export function PortalSwitcher({
     <div className="group relative">
       <button
         type="button"
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-border transition-colors hover:bg-muted"
+        className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         aria-label="Switch portal"
       >
-        <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+        <LayoutGrid className="h-5 w-5" />
       </button>
 
       <div className="invisible absolute right-0 top-full z-50 w-72 pt-2 opacity-0 transition-all group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-lg">
+        <div className="overflow-hidden rounded-xl border border-border bg-white shadow-popover">
           {portals.map((p) => {
             const active =
               (current === "member" && p.key === "member") ||

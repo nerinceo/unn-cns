@@ -70,10 +70,10 @@ export function JobCard({
               <Hospital className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <h2 className="text-[15px] font-bold leading-snug group-hover:text-primary">
+              <h2 className="text-[16px] font-bold leading-snug group-hover:text-primary">
                 {job.title}
               </h2>
-              <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[13px] font-medium text-muted-foreground">
+              <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[14px] font-medium text-muted-foreground">
                 <Building2 className="h-3.5 w-3.5 shrink-0" />
                 {employer?.name ?? "Employer"}
                 {verified && (
@@ -89,7 +89,7 @@ export function JobCard({
           <div className="flex shrink-0 flex-col items-end gap-1.5">
             {match && <MatchBadge match={match} />}
             {job.specialty && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-600/20 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/25">
+              <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-[12px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-600/20 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/25">
                 <Stethoscope className="h-3 w-3" />
                 {labels.specialty[job.specialty] ?? job.specialty}
               </span>
@@ -153,7 +153,7 @@ function Fact({
 
   return (
     <div
-      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12.5px] font-medium ring-1 ring-inset ${tones[tone]}`}
+      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[13.5px] font-medium ring-1 ring-inset ${tones[tone]}`}
     >
       {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
       {children}

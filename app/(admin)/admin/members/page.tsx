@@ -45,7 +45,7 @@ export default async function AdminMembersPage() {
         </p>
       </header>
 
-      <dl className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <dl className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
         {stats.map((s) => (
           <div key={s.label} className="rounded-lg border border-border bg-card p-4">
             <dt className="text-xs text-muted-foreground">{s.label}</dt>

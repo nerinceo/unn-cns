@@ -1,6 +1,12 @@
 import Link from "next/link";
-import { ClipboardList, GraduationCap, ArrowRight, MapPin } from "lucide-react";
-import { BANK_DIRECTORY, BANK_IDENTITY, DIRECTORY_COPY } from "@/lib/cns/question-bank-content";
+import { ClipboardList, GraduationCap, ArrowRight, MapPin, Clock } from "lucide-react";
+import { getInstitutions } from "@/lib/cns/question-bank";
+import {
+  ACCESS_COPY,
+  BANK_DIRECTORY,
+  BANK_IDENTITY,
+  DIRECTORY_COPY,
+} from "@/lib/cns/question-bank-content";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Question Bank — Central Nursing Systems" };
@@ -30,14 +36,22 @@ const REGION_FALLBACK = {
  * All 22 banks from the legacy site are listed, grouped by country, because the
  * directory is the product: a student should see that their university is
  * coming even when it has no content yet. Only RGUHS has questions behind it;
- * the rest land on the access panel at the next level rather than 404ing, which
- * is what the old site did (minus its client-side code check, which gated
- * nothing).
+ * the rest render as "Coming Soon" cards (partner-college access, not yet
+ * open) and their URLs show the same state rather than 404ing.
  *
  * Copy is verbatim from lib/cns/question-bank-content.ts — do not edit strings
  * inline here.
  */
-export default function QuestionBankPage() {
+export default async function QuestionBankPage() {
+  // A bank is open when its university has a cns_institutions row — the same
+  // test the institution page uses. Read failure returns [] (getInstitutions
+  // swallows it); in that case nothing is known, so every card stays a link
+  // and the institution page decides, rather than RGUHS flipping to "Coming
+  // Soon" because of a transient error.
+  const institutions = await getInstitutions();
+  const live = new Set(institutions.map((i) => i.slug));
+  const isOpen = (key: string) => live.size === 0 || live.has(key);
+
   return (
     <div className="space-y-10">
       <header className="rounded-2xl border border-border bg-gradient-to-br from-primary/[0.08] via-card to-card p-6 sm:p-8">
@@ -47,7 +61,7 @@ export default function QuestionBankPage() {
           </span>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{BANK_IDENTITY.name}</h1>
         </div>
-        <p className="mt-3 text-[15px] font-medium text-muted-foreground">
+        <p className="mt-3 text-[16px] font-medium text-muted-foreground">
           {BANK_IDENTITY.tagline}
         </p>
       </header>
@@ -59,7 +73,7 @@ export default function QuestionBankPage() {
 
       {BANK_DIRECTORY.map((group) => (
         <section key={group.country}>
-          <h3 className="mb-4 flex items-center gap-2.5 text-[13px] font-bold uppercase tracking-wider text-foreground">
+          <h3 className="mb-4 flex items-center gap-2.5 text-[14px] font-bold uppercase tracking-wider text-foreground">
             <span
               aria-hidden
               className={`h-4 w-1 rounded-full ${(REGION[group.country] ?? REGION_FALLBACK).bar}`}
@@ -71,46 +85,85 @@ export default function QuestionBankPage() {
               group sizes are 4/3/3/3/3/2/2 — at four columns every group but
               India left one or two dead cells and squeezed the cards narrow.
               At three, four of the seven groups fill their row exactly. */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {group.banks.map((bank) => {
               const tone = REGION[group.country] ?? REGION_FALLBACK;
+              const open = isOpen(bank.key);
 
-              return (
-                <Link
-                  key={bank.key}
-                  href={`/question-bank/${bank.key}`}
-                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-card-hover"
-                >
-                  <span aria-hidden className={`h-1.5 w-full ${tone.bar}`} />
+              const body = (
+                <>
+                  {/* Open banks keep their region colour; coming-soon ones go
+                      neutral, so "what can I open" is answerable at a glance —
+                      the same convention as the course picker one level down. */}
+                  <span
+                    aria-hidden
+                    className={`h-1.5 w-full ${open ? tone.bar : "bg-slate-200 dark:bg-slate-700"}`}
+                  />
 
-                  <div className="flex flex-1 flex-col p-5">
-                    <div className="flex items-start gap-3">
+                  <div className="flex flex-1 flex-col p-6">
+                    <div className="flex items-start gap-3.5">
                       <span
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset ${tone.chip}`}
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset ${
+                          open ? tone.chip : "bg-muted text-muted-foreground ring-border"
+                        }`}
                       >
-                        <GraduationCap className="h-5 w-5" />
+                        <GraduationCap className="h-6 w-6" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <h4 className="text-[15px] font-bold leading-snug group-hover:text-primary">
+                        <h4
+                          className={`text-[17px] font-bold leading-snug ${
+                            open ? "group-hover:text-primary" : "text-foreground/80"
+                          }`}
+                        >
                           {bank.name}
                         </h4>
-                        <p className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-muted-foreground">
-                          <MapPin className="h-3 w-3 shrink-0" />
+                        <p className="mt-1 inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5 shrink-0" />
                           {bank.location}
                         </p>
                       </div>
                     </div>
 
-                    <p className="mt-3 flex-1 text-[13px] leading-relaxed text-muted-foreground">
+                    <p className="mt-3 flex-1 text-[14px] leading-relaxed text-muted-foreground">
                       {bank.description}
                     </p>
 
-                    <span className="mt-4 inline-flex items-center justify-between gap-1.5 border-t border-border pt-3 text-[13px] font-bold text-primary">
-                      {DIRECTORY_COPY.cardCta}
-                      <ArrowRight className="h-4 w-4 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
-                    </span>
+                    {open ? (
+                      <span className="mt-5 inline-flex items-center justify-between gap-1.5 border-t border-border pt-4 text-[14px] font-bold text-primary">
+                        {DIRECTORY_COPY.cardCta}
+                        <ArrowRight className="h-4 w-4 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                      </span>
+                    ) : (
+                      <span className="mt-5 flex items-center justify-between gap-2 border-t border-border pt-4">
+                        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-warning-soft px-2.5 py-1 text-[12px] font-bold uppercase tracking-wide text-warning">
+                          <Clock className="h-3.5 w-3.5" />
+                          {ACCESS_COPY.badge}
+                        </span>
+                        <span className="truncate text-[13px] font-medium text-muted-foreground">
+                          {DIRECTORY_COPY.comingSoonCta}
+                        </span>
+                      </span>
+                    )}
                   </div>
+                </>
+              );
+
+              return open ? (
+                <Link
+                  key={bank.key}
+                  href={`/question-bank/${bank.key}`}
+                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-primary/40"
+                >
+                  {body}
                 </Link>
+              ) : (
+                <div
+                  key={bank.key}
+                  aria-disabled
+                  className="relative flex flex-col overflow-hidden rounded-2xl border border-dashed border-border bg-card"
+                >
+                  {body}
+                </div>
               );
             })}
           </div>

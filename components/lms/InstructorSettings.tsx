@@ -355,7 +355,7 @@ function Credentials({ instructor }: { instructor: MyInstructor }) {
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{lmsDocLabel(d.doc_type)}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">
+                  <p className="truncate text-[12px] text-muted-foreground">
                     {d.file_name}
                     {d.expiry_date ? ` · expires ${d.expiry_date.slice(0, 10)}` : ""}
                     {d.status ? ` · ${d.status}` : ""}
@@ -605,7 +605,7 @@ function Payouts({ connected, hubUrl }: { connected: boolean; hubUrl: string }) 
         <CreditCard className="h-4 w-4" />
         {connected ? "Update your Stripe details" : "Set up payments with Stripe"}
       </a>
-      <p className="mt-2 text-[11px] text-muted-foreground">
+      <p className="mt-2 text-[12px] text-muted-foreground">
         Opens Stripe, who handle identity and bank details. Nerusalem never sees your bank
         credentials.
       </p>

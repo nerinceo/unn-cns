@@ -93,14 +93,14 @@ export function NursingBankCard({
         <div className="flex flex-wrap items-center gap-2">
           {type && (
             <span
-              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wider ring-1 ring-inset ${tone.badge}`}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-bold uppercase tracking-wider ring-1 ring-inset ${tone.badge}`}
             >
               <TypeIcon className="h-3.5 w-3.5" />
               {type}
             </span>
           )}
           {marks != null && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-[11px] font-semibold tabular-nums text-slate-600 dark:text-slate-300">
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-[12px] font-semibold tabular-nums text-slate-600 dark:text-slate-300">
               <Award className="h-3.5 w-3.5" />
               {marksLabel(marks)}
             </span>
@@ -108,7 +108,7 @@ export function NursingBankCard({
         </div>
 
         {meta && (
-          <p className="mt-3 text-[12.5px] font-medium leading-snug text-slate-600 dark:text-slate-400">
+          <p className="mt-3 text-[13.5px] font-medium leading-snug text-slate-600 dark:text-slate-400">
             {meta}
           </p>
         )}
@@ -116,7 +116,7 @@ export function NursingBankCard({
         {/* Capped independently of the card: the container is wide so the
             filters and option grid have room, but a stem running the full
             width would be well past a readable measure. */}
-        <p className="mt-1.5 max-w-[78ch] whitespace-pre-wrap text-[15.5px] font-semibold leading-[1.6] tracking-[-0.005em] text-foreground">
+        <p className="mt-1.5 max-w-[78ch] whitespace-pre-wrap text-[16.5px] font-semibold leading-[1.6] tracking-[-0.005em] text-foreground">
           {stem}
         </p>
 
@@ -125,7 +125,7 @@ export function NursingBankCard({
             {options.map(([letter, text]) => (
               <li
                 key={letter}
-                className="rounded-lg border border-border/70 bg-background/60 px-3 py-2.5 text-[14px] leading-relaxed text-slate-800 dark:text-slate-200"
+                className="rounded-lg border border-border/70 bg-background/60 px-3 py-2.5 text-[15px] leading-relaxed text-slate-800 dark:text-slate-200"
               >
                 {/* "A. " with its period, exactly as the source renders an option. */}
                 <span className="font-bold text-primary dark:text-blue-300">{letter}.</span> {text}
@@ -140,7 +140,7 @@ export function NursingBankCard({
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-controls={`answer-${id}`}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-[14px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
             {QUESTION_LIST_COPY.showAnswer}
             <ChevronDown
@@ -149,7 +149,7 @@ export function NursingBankCard({
           </button>
           <Link
             href={href}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-4 text-[13px] font-semibold text-slate-700 transition-colors hover:border-primary hover:text-primary dark:text-slate-300"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-4 text-[14px] font-semibold text-slate-700 transition-colors hover:border-primary hover:text-primary dark:text-slate-300"
           >
             {QUESTION_LIST_COPY.openFull}
             <ExternalLink className="h-3.5 w-3.5" />
@@ -164,11 +164,11 @@ export function NursingBankCard({
         >
           {correctOption && (
             <p className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 text-[14.5px] font-bold text-primary dark:text-blue-300">
+              <span className="inline-flex items-center gap-1.5 text-[15.5px] font-bold text-primary dark:text-blue-300">
                 <CheckCircle2 className="h-[18px] w-[18px]" />
                 {ANSWER_LABELS_INLINE.correctOption}
               </span>
-              <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-emerald-50 px-2.5 text-[15px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/25">
+              <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-emerald-50 px-2.5 text-[16px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/25">
                 {correctOption}
               </span>
             </p>
@@ -202,13 +202,13 @@ function Section({
 }) {
   return (
     <div className="border-l-[3px] border-primary/30 pl-3.5">
-      <p className="flex items-center gap-1.5 text-[14.5px] font-bold text-primary dark:text-blue-300">
+      <p className="flex items-center gap-1.5 text-[15.5px] font-bold text-primary dark:text-blue-300">
         <Icon className="h-[18px] w-[18px] shrink-0" />
         {label}
       </p>
       {/* The answer is what the reader came for — set at the same size as the
           question rather than as fine print under it. */}
-      <p className="mt-1.5 max-w-[78ch] whitespace-pre-wrap text-[15px] font-medium leading-[1.7] text-slate-800 dark:text-slate-200">
+      <p className="mt-1.5 max-w-[78ch] whitespace-pre-wrap text-[16px] font-medium leading-[1.7] text-slate-800 dark:text-slate-200">
         {body}
       </p>
     </div>

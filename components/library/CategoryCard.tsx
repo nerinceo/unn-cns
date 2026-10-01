@@ -79,16 +79,16 @@ export function CategoryCard({
         <div className="absolute inset-x-0 bottom-0 p-5">
           {/* Glass count chip. backdrop-blur only over artwork, never over
               text, so it costs one small composited layer. */}
-          <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white ring-1 ring-inset ring-white/25 backdrop-blur-sm">
+          <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-[12px] font-semibold uppercase tracking-wide text-white ring-1 ring-inset ring-white/25 backdrop-blur-sm">
             {articles.toLocaleString("en-GB")} {articles === 1 ? "article" : "articles"}
           </span>
 
-          <h3 className="mt-2.5 text-[19px] font-semibold leading-tight tracking-tight text-white">
+          <h3 className="mt-2.5 text-[20px] font-semibold leading-tight tracking-tight text-white">
             {name}
           </h3>
 
           {subtopics > 0 ? (
-            <p className="mt-1 text-[13px] font-medium text-white/80">
+            <p className="mt-1 text-[14px] font-medium text-white/80">
               {subtopics} {subtopics === 1 ? "subtopic" : "subtopics"}
             </p>
           ) : null}
@@ -102,13 +102,13 @@ export function CategoryCard({
           {shown.map((topic) => (
             <span
               key={topic}
-              className="max-w-[8.5rem] truncate rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+              className="max-w-[8.5rem] truncate rounded-full bg-muted px-2.5 py-1 text-[12px] font-medium text-muted-foreground"
             >
               {topic}
             </span>
           ))}
           {rest > 0 ? (
-            <span className="text-[11px] font-semibold text-muted-foreground">+{rest}</span>
+            <span className="text-[12px] font-semibold text-muted-foreground">+{rest}</span>
           ) : null}
         </div>
 

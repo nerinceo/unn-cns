@@ -46,7 +46,7 @@ export default async function LibraryPage({
           </span>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Library</h1>
         </div>
-        <p className="mt-3 max-w-2xl text-[15px] font-medium text-muted-foreground">
+        <p className="mt-3 max-w-2xl text-[16px] font-medium text-muted-foreground">
           Nursing articles, clinical guidelines and reference material, organised by subject.
         </p>
 
@@ -61,7 +61,7 @@ export default async function LibraryPage({
               defaultValue={query}
               placeholder="Search the library"
               aria-label="Search the library"
-              className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-[15px] outline-none ring-primary/30 placeholder:text-muted-foreground focus:ring-2"
+              className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-[16px] outline-none ring-primary/30 placeholder:text-muted-foreground focus:ring-2"
             />
           </div>
           <button
@@ -105,7 +105,7 @@ export default async function LibraryPage({
         </p>
 
         {sections.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {sections.map((cat) => (
               // subtree_count, not article_count. Every section holds zero
               // articles directly — a direct count would read 0 on all ten.

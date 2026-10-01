@@ -46,7 +46,7 @@ export function ArticleToc({ items }: { items: TocItem[] }) {
 
   return (
     <nav aria-label="On this page" className="text-sm">
-      <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+      <p className="mb-3 text-[12px] font-bold uppercase tracking-wider text-muted-foreground">
         On this page
       </p>
       <ul className="space-y-0.5 border-l border-border">

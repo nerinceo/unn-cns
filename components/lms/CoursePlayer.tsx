@@ -483,7 +483,7 @@ export function CoursePlayer({
                         <p className="text-xs font-medium">
                           {sectionIndex + 1}. {section.title}
                         </p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        <p className="mt-0.5 text-[12px] text-muted-foreground">
                           {done}/{section.lectures.length} complete
                         </p>
                       </div>
@@ -538,7 +538,7 @@ function CurriculumRow({
         <span className={`block truncate ${active ? "font-medium text-primary" : ""}`}>
           {lecture.title}
         </span>
-        <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted-foreground">
           <Icon className="h-3 w-3" />
           {lecture.duration_s > 0 ? formatDuration(lecture.duration_s) : lecture.kind}
           {partCount > 1 && <span>· {partCount} videos</span>}
@@ -590,7 +590,7 @@ function ResourceLink({ id, name }: { id: string; name: string }) {
         )}
         {name}
       </button>
-      {error && <p className="mt-0.5 text-[11px] text-red-600">{error}</p>}
+      {error && <p className="mt-0.5 text-[12px] text-red-600">{error}</p>}
     </>
   );
 }

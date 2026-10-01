@@ -87,7 +87,7 @@ export default async function CourseSemesterPage({
               {institution.short_name ?? institution.name} {course.name}
             </h1>
           </div>
-          <p className="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted-foreground">
+          <p className="mt-4 max-w-3xl text-[16px] leading-relaxed text-muted-foreground">
             {SEMESTER_PICKER_COPY.heroSubtitle}
           </p>
         </div>
@@ -98,7 +98,7 @@ export default async function CourseSemesterPage({
         <p className="mt-2 max-w-3xl text-muted-foreground">{SEMESTER_PICKER_COPY.subtitle}</p>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {SEMESTERS.map((sem) => {
           const total = counts.get(sem.number) ?? 0;
           const band = YEAR_BANDS[Math.ceil(sem.number / 2) - 1] ?? YEAR_BANDS[0];
@@ -122,22 +122,22 @@ export default async function CourseSemesterPage({
                     {sem.number}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-[15px] font-bold leading-snug group-hover:text-primary">
+                    <h3 className="text-[16px] font-bold leading-snug group-hover:text-primary">
                       {sem.name}
                     </h3>
-                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-success">
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[12px] font-bold uppercase tracking-wide text-success">
                       <Check className="h-3 w-3" />
                       {SEMESTER_PICKER_COPY.badge}
                     </span>
                   </div>
                 </div>
 
-                <p className="mt-3 flex-1 text-[13px] leading-relaxed text-muted-foreground">
+                <p className="mt-3 flex-1 text-[14px] leading-relaxed text-muted-foreground">
                   {sem.description}
                 </p>
 
                 <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-                  <span className="inline-flex items-center gap-1.5 text-[13px] font-bold tabular-nums text-foreground">
+                  <span className="inline-flex items-center gap-1.5 text-[14px] font-bold tabular-nums text-foreground">
                     <FileText className={`h-4 w-4 ${band.icon}`} />
                     {questionCountLabel(total)}
                   </span>

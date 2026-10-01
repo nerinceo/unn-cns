@@ -125,7 +125,7 @@ export default async function LibraryCategoryPage({
         />
 
         <div className="relative px-6 py-8 sm:px-8 sm:py-10">
-          <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white ring-1 ring-inset ring-white/25 backdrop-blur-sm">
+          <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold uppercase tracking-wide text-white ring-1 ring-inset ring-white/25 backdrop-blur-sm">
             {total.toLocaleString("en-GB")} {total === 1 ? "article" : "articles"}
             {showArchive && children.length
               ? ` · ${children.length} ${children.length === 1 ? "subtopic" : "subtopics"}`
@@ -137,7 +137,7 @@ export default async function LibraryCategoryPage({
           </h1>
 
           {term.description ? (
-            <p className="mt-2 max-w-2xl text-[15px] text-white/85">{term.description}</p>
+            <p className="mt-2 max-w-2xl text-[16px] text-white/85">{term.description}</p>
           ) : null}
 
           {!showArchive && totalPages > 1 ? (
@@ -151,7 +151,7 @@ export default async function LibraryCategoryPage({
       {showArchive ? (
         <section>
           <h2 className="mb-5 text-xl font-semibold">Subtopics</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {children.map((child) => (
               <CategoryCard
                 key={child.id}

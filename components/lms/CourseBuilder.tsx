@@ -218,7 +218,7 @@ export function CourseBuilder({ course }: { course: CourseForEdit }) {
             )}
 
             {!ready && !isLive && course.status !== "pending" && (
-              <p className="mt-2 text-[11px] text-muted-foreground">
+              <p className="mt-2 text-[12px] text-muted-foreground">
                 Complete every item to submit.
               </p>
             )}

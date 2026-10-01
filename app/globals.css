@@ -2,27 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Light mode previously declared only background and foreground here while
-   .dark declared seven, so anything reading --border or --muted-foreground
-   from CSS got nothing in light mode. Both halves now define the same set. */
 :root {
-  --background: #e9eef5;
-  --foreground: #111827;
-  --border: #e2e8f0;
-  --muted: #f1f5f9;
-  --muted-foreground: #475569;
-  --card: #ffffff;
-  --card-foreground: #111827;
+  --background: #ffffff;
+  /* Matches `foreground` in tailwind.config.ts — body text inherits from
+     here, everything with a `text-foreground` class takes it from there, and
+     the two drifting apart shows up as two different blacks on one screen. */
+  --foreground: #14161a;
 }
 
 .dark {
   --background: #0f1419;
-  --foreground: #e7e9ea;
+  --foreground: #eef0f2;
   --border: #2f3336;
   --muted: #1a1f25;
-  --muted-foreground: #8b98a5;
+  --muted-foreground: #a6b3c2;
   --card: #16181c;
-  --card-foreground: #e7e9ea;
+  --card-foreground: #eef0f2;
 }
 
 .dark body {
@@ -43,11 +38,41 @@
 }
 
 .dark .text-foreground {
-  color: #e7e9ea !important;
+  color: #eef0f2 !important;
 }
 
+/* The dark counterpart to the #475467 secondary in tailwind.config.ts:
+   #8b98a5 is 6.2:1 on the #16181c card, #a6b3c2 is 9.1:1. Same role, same
+   relative quietness, readable at a glance. */
 .dark .text-muted-foreground {
-  color: #8b98a5 !important;
+  color: #a6b3c2 !important;
+}
+
+/* The accent, remapped for dark. #0a2463 is a 14:1 contrast win on the light
+   canvas and an unreadable 1.4:1 smudge on #16181c, and `text-primary` is how
+   this app writes every accent: the active sidebar row, "View more", "View
+   all", the leaderboard scores, the mobile nav's current tab. All of them were
+   dark navy on near-black. #93b2ff is the same hue lifted to ~8:1 on the dark
+   card, and is already what the focus ring and the nav accent bar use in dark,
+   so the accent stays one colour.
+
+   Fill and border are left alone deliberately: `bg-primary` is a filled button
+   carrying white text and reads correctly as-is.
+
+   The second selector is why this is not just `.dark .text-primary`. An
+   opacity variant compiles to a DIFFERENT class — `text-primary/80` becomes
+   `.text-primary\/80` — which a bare-class rule does not touch, so it kept the
+   light-mode navy and went invisible on every dark surface. Four places in the
+   app were already written that way (the right rail's partner line, the
+   suggestions filter, a share picker) and all four were unreadable in dark.
+   The attribute selector catches the whole family.
+
+   The cost is that in dark mode every `text-primary/<n>` resolves to the same
+   colour, so an intended hover-fade does nothing there. Readable beats nuanced
+   and invisible. */
+.dark .text-primary,
+.dark [class*="text-primary/"] {
+  color: #93b2ff !important;
 }
 
 .dark .bg-background {
@@ -73,9 +98,14 @@ body {
   color: var(--foreground);
   background: var(--background);
   font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Inter's character alternates: cv02/03/04 open up the g/a/l so they stay
+     distinct at 15px, ss03 fixes the curly-quote spacing. Unknown features are
+     ignored by the shaper, so this is inert on a fallback face. */
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss03';
   overflow-x: clip; /* see html rule above — clip, not hidden */
   min-height: 100dvh;
 }
@@ -87,21 +117,94 @@ body {
   }
 }
 
-/* Scrollbar — desktop only */
+/* ── Scrollbars — desktop only ─────────────────────────────────────────────
+ * THE TWO MECHANISMS ARE MUTUALLY EXCLUSIVE, and getting that wrong silently
+ * throws away everything below.
+ *
+ * Chrome 121+ implements the standard `scrollbar-width` / `scrollbar-color`.
+ * When either is set on an element, Chrome switches that element to the
+ * standard rendering path and IGNORES its ::-webkit-scrollbar rules outright.
+ * So a global `* { scrollbar-width: thin }` added "for Firefox" does not
+ * degrade gracefully — it disables the entire webkit block in Chrome too, and
+ * the rails' 5px hover-reveal bar quietly went back to a 10px always-on one.
+ *
+ * Hence the @supports split: webkit pseudo-elements drive Chrome/Edge/Safari,
+ * and the standard properties are fenced off where those don't exist.
+ * Horizontal bars get a height too — the marketplace filter strips and the
+ * Shots rail scroll sideways, and a width-only rule left those on the default
+ * chunky OS bar.
+ * ------------------------------------------------------------------------*/
 @media (min-width: 1024px) {
   ::-webkit-scrollbar {
-    width: 6px;
+    width: 10px;
+    height: 10px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #e0e0e0;
-    border-radius: 3px;
+    background-color: rgba(10, 36, 99, 0.16);
+    border-radius: 999px;
+    /* Transparent border + background-clip is the only way to inset a webkit
+       thumb; without it a 10px bar reads as a heavy slab against the canvas. */
+    border: 3px solid transparent;
+    background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #c0c0c0;
+    background-color: rgba(10, 36, 99, 0.32);
   }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background-color: rgba(231, 233, 234, 0.18);
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(231, 233, 234, 0.32);
+  }
+
+  /* The rails are fixed-width and scroll their own overflow, so every pixel
+     the bar takes comes out of the card beside it — the 10px default left the
+     256px rail rendering its cards at 246px. 6px, and the thumb stays faint
+     until the pointer is in the rail. */
+  .unn-app aside::-webkit-scrollbar {
+    width: 6px;
+  }
+  .unn-app aside::-webkit-scrollbar-thumb {
+    border: 1px solid transparent;
+    background-color: rgba(10, 36, 99, 0.09);
+  }
+  .unn-app aside:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(10, 36, 99, 0.24);
+  }
+  .dark .unn-app aside::-webkit-scrollbar-thumb {
+    background-color: rgba(231, 233, 234, 0.1);
+  }
+  .dark .unn-app aside:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(231, 233, 234, 0.26);
+  }
+
+  /* Firefox: no pseudo-elements, and these two properties are the whole API.
+     Fenced behind @supports so they never reach a webkit engine — see the
+     block comment above. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(10, 36, 99, 0.22) transparent;
+    }
+    .dark * {
+      scrollbar-color: rgba(231, 233, 234, 0.24) transparent;
+    }
+  }
+}
+
+/* Selection — the brand tint rather than the browser's default blue. */
+::selection {
+  background-color: rgba(10, 36, 99, 0.14);
+  color: inherit;
+}
+.dark ::selection {
+  background-color: rgba(147, 178, 255, 0.28);
 }
 
 /* Hide scrollbar for horizontal scroll containers */
@@ -116,43 +219,6 @@ body {
 /* Prevent tap highlight on mobile */
 button, a, input, textarea, select {
   -webkit-tap-highlight-color: transparent;
-}
-
-/* One visible focus ring for keyboard users across the app. Interactive
-   elements were relying on the browser default, which is invisible against
-   the navy primary. :focus-visible keeps it off for mouse clicks. */
-:where(a, button, input, textarea, select, [tabindex]):focus-visible {
-  outline: 2px solid #0a2463;
-  outline-offset: 2px;
-  border-radius: 6px;
-}
-
-.dark :where(a, button, input, textarea, select, [tabindex]):focus-visible {
-  outline-color: #7aa2ff;
-}
-
-/* Headings carry the tighter tracking the display sizes were setting
-   individually on each page. */
-h1, h2, h3 {
-  letter-spacing: -0.01em;
-}
-
-/* Card elevation, app-wide.
-
-   Every page builds surfaces the same way — `bg-card` plus `border-border` —
-   but nothing lifted them off the page, so 28 pages of white panels on a pale
-   ground read as one flat sheet. Scoped to main so the sticky header and nav
-   keep their own flat treatment, and kept to one soft shadow so it reads as
-   depth rather than decoration.
-
-   :where() carries no specificity, so this is a floor rather than an
-   override: any element that sets its own shadow-* utility still wins. */
-main :where(.bg-card) {
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.04);
-}
-
-.dark main :where(.bg-card) {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 /* Smooth touch scrolling */
@@ -179,6 +245,441 @@ main :where(.bg-card) {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* ============================================================================
+ * UNN — surface theme
+ *
+ * A FLAT theme. White ground, white panels, and the border is the only thing
+ * separating them — no elevation on anything that sits still. That is one
+ * decision applied everywhere, and it is what the rest of this file is in
+ * service of:
+ *
+ *   · the canvas and the panels are both #ffffff
+ *   · so the border token has to carry the structure on its own (#d9dee6,
+ *     noticeably stronger than the #e0e0e0 it replaced, which was tuned for
+ *     cards that ALSO had a shadow)
+ *   · so corners are tight (8px panels) — a soft 12–16px corner needs a
+ *     shadow to look intentional and reads consumer-ish without one
+ *   · and a shadow now means exactly one thing: THIS FLOATS AND CAN BE
+ *     DISMISSED. Dropdowns, popovers, dialogs, toasts. Nothing else.
+ *
+ * Add a shadow to a card and you have not just restyled that card — you have
+ * broken the only cue the app uses to say "this is temporary".
+ *
+ * The brand colours are untouched: primary/secondary and the text tokens are
+ * exactly as they were. What changed is the ground, the line and the corner.
+ *
+ * Scoped to `.unn-app`, set on the shell div in app/(platform)/layout.tsx, so
+ * the whole layer can be switched off by deleting one class.
+ *
+ * Three things differ from the UHN original, because HUB is not UHN:
+ *
+ *  1. UHN retrofits `.bg-card`. HUB uses `bg-white` 679 times and `bg-card`
+ *     four times, so the selector here keys off `.bg-white.border-border` —
+ *     the actual card idiom in this codebase.
+ *
+ *  2. Form controls are excluded. In UHN the card token is card-only; here
+ *     `rounded-lg border border-border bg-white` is ALSO how every input,
+ *     select and textarea is written, and a card shadow on a text field looks
+ *     like a rendering bug.
+ *
+ *  3. No border-radius is set. UHN pins cards to 0.75rem, which is safe across
+ *     its ~15 cards. HUB has 494 `rounded-xl`, 438 `rounded-lg` and 48
+ *     `rounded-2xl` — deliberate variation. This selector outranks a utility
+ *     class, so setting a radius here would silently flatten all of it.
+ * ==========================================================================*/
+.unn-app {
+  --line: #d9dee6;
+  --line-strong: #c2cad6;
+
+  /* Kept, but no longer used by any SURFACE — see "flat surfaces" below.
+     Elevation now means one thing only: this thing floats above the page and
+     can be dismissed. Dropdowns, popovers, dialogs, toasts. A card that never
+     moves does not get a shadow. */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 2px 4px rgba(16, 24, 40, 0.04), 0 6px 16px -4px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 4px 8px rgba(16, 24, 40, 0.04), 0 14px 32px -8px rgba(16, 24, 40, 0.12);
+}
+
+/* Dark mode needs its own values, not the light ones dimmed. A #e8eaef
+   hairline reads as a bright white line on a #16181c card, and a shadow built
+   from rgba(16,24,40,…) is invisible against a near-black canvas. The existing
+   `.dark .border-border` rule already carries !important, so it wins over the
+   hairline below without any help — these are for everything else. */
+.dark .unn-app {
+  --line: #2f3336;
+  --line-strong: #3d4144;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 6px 16px -4px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.4), 0 14px 32px -8px rgba(0, 0, 0, 0.55);
+}
+
+/* The hairline, for every element carrying the border token — form controls
+   INCLUDED. A field and the card beside it must agree on their border, and
+   #e0e0e0 next to #e8eaef reads as one of them being wrong. Only the shadow
+   below is exclusive to cards.
+
+   `main` was too narrow a scope. The rails and the header are full of
+   `border-border` too, so the hairline stopped dead at the edge of the centre
+   column: a #e8eaef card in the feed sat directly beside a #e0e0e0 card in the
+   right rail. Two greys, 8 units apart, touching. */
+.unn-app :is(main, aside, header) .border-border {
+  border-color: var(--line);
+}
+
+/* ── The rail edge ────────────────────────────────────────────────────────
+ * The seam between the app's chrome and its content: the left rail's right
+ * border, plus the header's logo-slot divider sitting directly on top of it.
+ * They are one continuous vertical line down the window, so they are one
+ * class — written out here rather than as utilities because the two elements
+ * would otherwise need `border-r border-border` and `lg:border-r
+ * lg:border-border`, which compile to DIFFERENT selectors and so cannot be
+ * recoloured together. They were already drifting apart by a shade.
+ *
+ * `--line-strong` rather than `--line`: this is structure, not a card edge,
+ * and one step up is what makes the boundary read at a glance.
+ * ------------------------------------------------------------------------*/
+.unn-rail-edge {
+  border-right: 1px solid var(--line-strong);
+}
+.dark .unn-rail-edge {
+  border-right-color: #2f3336;
+}
+/* The rail itself is lg:-only; below that the header slot is just the logo
+   and has nothing to divide it from. */
+@media (max-width: 1023px) {
+  .unn-app header .unn-rail-edge {
+    border-right: 0;
+  }
+}
+
+/* Elevation for the card idiom: `bg-white border border-border rounded-*`.
+   Background is deliberately NOT set — that belongs to the .dark override
+   above, and touching it here would fight dark mode.
+
+   Form controls are excluded from THIS rule only. In this codebase
+   `rounded-lg border border-border bg-white` is also how every input, select
+   and textarea is written, and a card shadow on a text field reads as a
+   rendering bug rather than depth.
+
+   Scoped to main AND aside, for the same reason as the hairline above: the
+   right rail's five cards are written with the identical idiom, and leaving
+   them out would have made the rail look like an unstyled column rather than
+   a deliberate one. The header is excluded — it is chrome, and has its own
+   treatment further down.
+
+   ── Flat surfaces ────────────────────────────────────────────────────────
+   NO SHADOW, deliberately, and this is the load-bearing decision in the whole
+   theme. The canvas is white and cards are white, so the only thing telling
+   them apart is the border — which means the border has to be strong enough
+   to do that job alone (hence --line at #dfe2e8 rather than a hairline), and
+   adding a shadow back would immediately make the border look redundant and
+   the surface look like it is peeling off the page.
+
+   Elevation is not gone, it is reserved: a shadow in this app now means "this
+   floats above the page and can be dismissed" — dropdowns, popovers, dialogs,
+   toasts. Nothing that sits still gets one. That one rule is most of why a
+   dense tool reads as engineered rather than as a pile of floating boxes.
+   ------------------------------------------------------------------------*/
+.unn-app :is(main, aside) .bg-white.border-border:not(input):not(select):not(textarea) {
+  box-shadow: none;
+}
+
+/* ── Surface primitives (opt-in) ───────────────────────────────────────────
+ * For new or reworked components. One definition of the elevation scale, so
+ * every surface using them moves together when it is tuned.
+ * ------------------------------------------------------------------------*/
+.unn-card {
+  background-color: #ffffff;
+  border: 1px solid var(--line, #d9dee6);
+  border-radius: 0.5rem;
+  /* Flat, like every other surface — see the retrofit rule above. */
+  box-shadow: none;
+}
+.dark .unn-card {
+  background-color: #16181c;
+}
+
+/* A card that is itself a link or button. On a flat theme the hover cue is the
+   border darkening and the surface tinting — NOT a lift. A card that rises off
+   the page on hover is the one gesture that would break the "shadow means
+   dismissible" rule everywhere at once. */
+.unn-card-interactive {
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+@media (hover: hover) {
+  .unn-card-interactive:hover {
+    border-color: var(--line-strong, #c2cad6);
+    background-color: #fcfcfd;
+  }
+}
+.dark .unn-card-interactive:hover {
+  background-color: #1a1d22;
+}
+
+/* Faint navy wash for hero panels and stat strips. Both stops under 5% alpha,
+   so it reads as a tint rather than a coloured box. */
+.unn-wash {
+  background-image: linear-gradient(180deg, rgba(10, 36, 99, 0.045) 0%, rgba(10, 36, 99, 0) 62%);
+}
+
+/* ── Focus ────────────────────────────────────────────────────────────────
+ * :focus-visible, not :focus — keyboard only. A ring that also fires on mouse
+ * clicks is what makes a focus outline read as a bug.
+ * ------------------------------------------------------------------------*/
+.unn-app :focus-visible {
+  outline: 2px solid rgba(10, 36, 99, 0.55);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+.dark .unn-app :focus-visible {
+  outline-color: rgba(147, 178, 255, 0.7);
+}
+
+/* ============================================================================
+ * UNN — chrome, type scale and motion
+ *
+ * Layer two of the surface theme. Everything here is presentation: it adds
+ * tokens and new opt-in class names, and the only existing selectors it
+ * touches are the app header and the card elevation above. No component's
+ * markup, props or behaviour depends on any of it.
+ * ==========================================================================*/
+
+/* ── The app header ───────────────────────────────────────────────────────
+ * Translucent, blurred, so content scrolling underneath stays faintly visible
+ * instead of hitting a hard white lid. The blur lives on a ::before rather
+ * than on the <header> itself, and that is load-bearing:
+ *
+ *   backdrop-filter makes an element a CONTAINING BLOCK for fixed-position
+ *   descendants.
+ *
+ * Header.tsx renders the mobile search overlay (`fixed inset-0`) INSIDE the
+ * header. Put the filter on the header and that overlay stops being relative
+ * to the viewport and collapses into the 56px-tall bar. On a pseudo-element
+ * with no descendants there is nothing for the containing block to catch.
+ * ------------------------------------------------------------------------*/
+.unn-app > header {
+  /* Beats `.dark .bg-white`, which carries !important. */
+  background-color: transparent !important;
+  border-bottom-color: transparent !important;
+}
+
+.unn-app > header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+}
+
+.dark .unn-app > header::before {
+  background-color: rgba(22, 24, 28, 0.72);
+  border-bottom-color: #2f3336;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* No blur support (older Firefox, blur disabled for reduced transparency):
+   go opaque. A 72%-alpha bar with nothing behind it is just a smear. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .unn-app > header::before {
+    background-color: #ffffff;
+  }
+  .dark .unn-app > header::before {
+    background-color: #16181c;
+  }
+}
+
+/* The mobile bottom bar gets the same treatment, for the same reason — it
+   floats over content. It has no fixed descendants, so the filter can sit on
+   the element itself. */
+.unn-app nav[aria-label="Mobile navigation"] {
+  background-color: rgba(255, 255, 255, 0.86) !important;
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+}
+.dark .unn-app nav[aria-label="Mobile navigation"] {
+  background-color: rgba(22, 24, 28, 0.86) !important;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .unn-app nav[aria-label="Mobile navigation"] {
+    background-color: #ffffff !important;
+  }
+  .dark .unn-app nav[aria-label="Mobile navigation"] {
+    background-color: #16181c !important;
+  }
+}
+
+/* ── Type scale ───────────────────────────────────────────────────────────
+ * Headings in this app are written as Tailwind utilities (`text-xl font-bold`
+ * and friends), so the sizes are already set per-site and are left alone. What
+ * was missing is optical tracking: Inter at 20px+ with default letter-spacing
+ * reads loose and slightly amateur. Negative tracking scaled to size is most
+ * of the difference between "a web page" and "a product".
+ *
+ * Scoped to `.unn-app main` so marketing pages and the auth screens, which are
+ * outside the shell, keep their own typography.
+ * ------------------------------------------------------------------------*/
+.unn-app main :is(h1, h2, h3, h4) {
+  letter-spacing: -0.011em;
+  text-wrap: balance;
+}
+.unn-app main :is(h1, .text-3xl, .text-4xl) {
+  letter-spacing: -0.022em;
+}
+.unn-app main :is(h2, .text-2xl) {
+  letter-spacing: -0.018em;
+}
+.unn-app main :is(h3, .text-xl) {
+  letter-spacing: -0.014em;
+}
+
+/* Figures line up in columns only if the digits are the same width. Applies to
+   the sidebar stat row, counts, prices and any table cell. */
+.unn-app :is(.tabular, .unn-figure) {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum', 'cv02', 'cv03', 'cv04';
+}
+
+/* ── Sidebar navigation ───────────────────────────────────────────────────
+ * The active row was a flat `bg-primary/10` block, identical in weight to a
+ * hover. These give it an accent edge and a directional tint so the current
+ * location is readable at a glance without adding a single element.
+ * ------------------------------------------------------------------------*/
+.unn-nav-item {
+  position: relative;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+.unn-nav-item-active {
+  background-image: linear-gradient(
+    90deg,
+    rgba(10, 36, 99, 0.1) 0%,
+    rgba(10, 36, 99, 0.04) 100%
+  );
+}
+.unn-nav-item-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  translate: 0 -50%;
+  width: 3px;
+  height: 1.125rem;
+  border-radius: 0 999px 999px 0;
+  background-color: #0a2463;
+}
+.dark .unn-nav-item-active {
+  background-image: linear-gradient(
+    90deg,
+    rgba(147, 178, 255, 0.16) 0%,
+    rgba(147, 178, 255, 0.05) 100%
+  );
+}
+.dark .unn-nav-item-active::before {
+  background-color: #93b2ff;
+}
+
+/* ── Surfaces ─────────────────────────────────────────────────────────────*/
+
+/* A panel whose top edge carries the brand, for profile cards and hero
+   headers. The wash is under 6% alpha so it reads as a tint on white. */
+.unn-panel-wash {
+  background-image: linear-gradient(
+    180deg,
+    rgba(10, 36, 99, 0.055) 0%,
+    rgba(10, 36, 99, 0.012) 38%,
+    rgba(10, 36, 99, 0) 72%
+  );
+}
+.dark .unn-panel-wash {
+  background-image: linear-gradient(
+    180deg,
+    rgba(147, 178, 255, 0.08) 0%,
+    rgba(147, 178, 255, 0) 72%
+  );
+}
+
+/* A hairline that fades out at both ends — for section dividers, where a
+   full-strength rule edge-to-edge is the heaviest thing on the screen. */
+.unn-rule {
+  height: 1px;
+  border: 0;
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    var(--line-strong, #dbdfe7) 12%,
+    var(--line-strong, #dbdfe7) 88%,
+    transparent
+  );
+}
+
+/* Loading placeholder. Pairs with the `animate-shimmer` keyframes in
+   tailwind.config.ts. */
+.unn-skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--muted, #f0f2f5) 0%,
+    rgba(255, 255, 255, 0.85) 50%,
+    var(--muted, #f0f2f5) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+.dark .unn-skeleton {
+  background-image: linear-gradient(
+    90deg,
+    #1a1f25 0%,
+    #242a32 50%,
+    #1a1f25 100%
+  );
+}
+@media (prefers-reduced-motion: reduce) {
+  .unn-skeleton {
+    animation: none;
+  }
+}
+
+/* ── Controls ─────────────────────────────────────────────────────────────
+ * Buttons are a shared primitive (components/ui/button.tsx) and the variants
+ * there only ever set a flat fill. These add the press feedback — a 1px
+ * travel plus a shadow that collapses — which is what makes a control feel
+ * physical rather than painted on.
+ * ------------------------------------------------------------------------*/
+.unn-pressable {
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+.unn-pressable:active:not(:disabled) {
+  transform: translateY(1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .unn-pressable {
+    transition: background-color 140ms ease, border-color 140ms ease;
+  }
+  .unn-pressable:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* Inputs share `rounded-lg border border-border bg-white` with cards, so they
+   are excluded from the card shadow above and get their own treatment: an
+   inset hairline at rest, and the brand ring on focus. `:where()` keeps the
+   specificity at zero so any utility on the element still wins. */
+.unn-app main :where(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]) {
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.unn-app main :where(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):hover:not(:disabled):not(:focus) {
+  border-color: var(--line-strong, #dbdfe7);
 }
 
 /* Rich text content (Tiptap output) */
@@ -375,4 +876,35 @@ main :where(.bg-card) {
   .library-card:hover .library-card-sweep {
     animation: none !important;
   }
+}
+
+/* ===========================================================================
+   CNS — flat surfaces for the `bg-card` idiom.
+
+   Everything above this block is HUB's globals.css verbatim (check:drift
+   compares it as a prefix). HUB's flat-surface rule keys off
+   `.bg-white.border-border`, because that is how HUB writes a card. CNS writes
+   the same card as `bg-card border-border`, often with `shadow-card` and a
+   `hover:shadow-card-hover hover:-translate-y-0.5` lift. Inside the shell those
+   would be the only floating, lifting surfaces in an otherwise flat product,
+   which is exactly what crossing from HUB must not look like.
+
+   So, the same decision applied to CNS's markup: no resting shadow and no lift
+   on hover. The hover cue that remains is the border (`hover:border-primary/40`
+   on the cards that have one) plus a faint surface tint, as in HUB's
+   `.unn-card-interactive`. Overlays (`shadow-pop`, dropdowns) are untouched:
+   they float, so they keep their elevation.
+
+   Specificity, not !important: these selectors outrank the single-class
+   `hover:` utilities they cancel.
+   =========================================================================== */
+.unn-app :is(main, aside) .bg-card.border-border:not(input):not(select):not(textarea) {
+  box-shadow: none;
+}
+.unn-app main :is(a, button).bg-card.border-border:hover {
+  --tw-translate-y: 0;
+  background-color: #fcfcfd;
+}
+.dark .unn-app main :is(a, button).bg-card.border-border:hover {
+  background-color: #1a1d22;
 }

@@ -35,8 +35,9 @@ export function bankFooter(context: string): string {
 export const DIRECTORY_COPY = {
   heading: "Global University Question Banks",
   subtitle:
-    "Browse nursing university question banks from India, Philippines, Africa, USA, Australia, Canada, and the UK. Access is available through approved partner colleges.",
+    "Browse nursing university question banks from India, Philippines, Africa, USA, Australia, Canada, and the UK. Banks marked Coming Soon will open through our partner colleges.",
   cardCta: "View Question Bank →",
+  comingSoonCta: "Partner colleges",
 } as const;
 
 export type BankEntry = {
@@ -212,16 +213,19 @@ export const BANK_DIRECTORY: { country: string; banks: BankEntry[] }[] = [
 ];
 
 /**
- * The access gate.
+ * The not-yet-open state for every directory bank with no content (all but
+ * RGUHS today — 19 of 20).
  *
- * The message is still right — access really is via partner colleges. The old
- * mechanism was not: codes sat in client JS and the pages behind them checked
- * nothing. Here this wording is the not-yet-available state for the 21 banks
- * with no content, with any real check left to the server.
+ * These banks will be partner-college access only, but no partner gate exists
+ * yet — the old one was decorative (codes in client JS, nothing checked behind
+ * them). "Access Restricted" therefore promised a door that does not exist, so
+ * the state is worded as what it actually is: coming soon. When a real gate is
+ * built it belongs on the server, and this copy changes with it.
  */
 export const ACCESS_COPY = {
-  heading: "Access Restricted to Partner Colleges",
-  body: "This university question bank is available only through approved partner colleges. Please contact your college administration to request access.",
+  badge: "Coming Soon",
+  heading: "Coming Soon",
+  body: "This university question bank is being prepared with our partner colleges and will open here for their students. Check back soon, or ask your college administration about partnering with Nerusalem.",
   codeLabel: "Already have access code?",
   codePlaceholder: "Enter access code",
   unlockAction: "Unlock",

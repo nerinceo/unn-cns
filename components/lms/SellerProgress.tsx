@@ -95,7 +95,7 @@ export function SellerProgress({
                     {s.label}
                   </p>
                   {blocking && (
-                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[12px] font-medium text-amber-700">
                       Blocks selling
                     </span>
                   )}

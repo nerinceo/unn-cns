@@ -75,7 +75,7 @@ export function FilterSelect({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className={`flex h-11 w-full items-center gap-2 rounded-xl border px-3.5 text-left text-[13px] font-semibold transition-colors sm:w-auto sm:min-w-[15rem] ${
+        className={`flex h-11 w-full items-center gap-2 rounded-xl border px-3.5 text-left text-[14px] font-semibold transition-colors sm:w-auto sm:min-w-[15rem] ${
           isFiltered
             ? "border-primary bg-primary/5 text-primary"
             : "border-border bg-card text-slate-700 hover:border-primary/60 dark:text-slate-300"
@@ -120,7 +120,7 @@ function Row({
       href={href}
       role="option"
       aria-selected={active}
-      className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] transition-colors ${
+      className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-[14px] transition-colors ${
         active
           ? "bg-primary/10 font-semibold text-primary"
           : "text-slate-700 hover:bg-muted dark:text-slate-300"
@@ -129,7 +129,7 @@ function Row({
       <Check className={`h-3.5 w-3.5 shrink-0 ${active ? "opacity-100" : "opacity-0"}`} />
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {count != null && (
-        <span className="shrink-0 tabular-nums text-[12px] text-slate-500 dark:text-slate-400">
+        <span className="shrink-0 tabular-nums text-[13px] text-slate-500 dark:text-slate-400">
           {count}
         </span>
       )}

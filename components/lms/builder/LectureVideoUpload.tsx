@@ -186,7 +186,7 @@ export function LectureVideoUpload({
               key={p.id}
               className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5"
             >
-              <span className="shrink-0 text-[11px] font-medium tabular-nums text-muted-foreground">
+              <span className="shrink-0 text-[12px] font-medium tabular-nums text-muted-foreground">
                 {i + 1}
               </span>
 
@@ -208,7 +208,7 @@ export function LectureVideoUpload({
                 className="-mx-1 min-w-0 flex-1 rounded bg-transparent px-1 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
 
-              <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+              <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">
                 {p.duration_s > 0 ? formatDuration(p.duration_s) : "—"}
               </span>
 
@@ -287,14 +287,14 @@ export function LectureVideoUpload({
       )}
 
       {parts.length === 0 && progress === null && (
-        <p className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+        <p className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
           <Video className="h-3 w-3" />
           MP4, MOV or WebM. Add several and they play through in order.
         </p>
       )}
 
       {(error || parts.find((p) => p.video_error)?.video_error) && (
-        <p className="text-[11px] text-red-600">
+        <p className="text-[12px] text-red-600">
           {error ?? parts.find((p) => p.video_error)?.video_error}
         </p>
       )}

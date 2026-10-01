@@ -25,32 +25,32 @@ const TOOLS: { href: string; icon: LucideIcon; title: string; body: string; live
 export default function LearnHub() {
   return (
     <div className="space-y-10">
-      <header className="rounded-2xl border border-border bg-card p-6 sm:p-8">
+      <header className="unn-panel-wash rounded-2xl border border-border bg-card p-6 sm:p-8 xl:p-10">
         <div className="flex items-center gap-3">
-          <GraduationCap className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-semibold sm:text-3xl">Learn</h1>
+          <GraduationCap className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold sm:text-4xl">Learn</h1>
         </div>
-        <p className="mt-2 max-w-2xl text-muted-foreground">
+        <p className="mt-3 max-w-2xl text-base text-muted-foreground sm:text-lg">
           Courses, university question banks, exam preparation, clinical learning and advanced
           learning systems.
         </p>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2">
+      <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
         {TOOLS.map(({ href, icon: Icon, title, body, live }) => (
           <Link
             key={href}
             href={href}
-            className="group flex items-start gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
+            className="group flex items-start gap-5 rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/40"
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-brand-50 ring-1 ring-inset ring-primary/10">
               <Icon className="h-6 w-6 text-primary" />
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="font-medium group-hover:text-primary">{title}</h2>
+                <h2 className="text-lg font-semibold group-hover:text-primary">{title}</h2>
                 {!live && (
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase text-muted-foreground">
                     Soon
                   </span>
                 )}

@@ -7,7 +7,6 @@ import {
   Check,
   Clock,
   GraduationCap,
-  Lock,
   MapPin,
   Stethoscope,
 } from "lucide-react";
@@ -42,10 +41,10 @@ export async function generateMetadata({ params }: { params: Promise<{ instituti
  * One university: the course level.
  *
  * Two states share this route. A university with content (only RGUHS today)
- * gets the course picker. One of the other 21 directory entries gets the
- * partner-access panel — the same message the old site showed, minus its
- * client-side code check, which was decorative: the codes shipped in the page
- * source and the pages behind them verified nothing.
+ * gets the course picker. Any other directory entry gets the
+ * "Coming Soon" panel: those banks will be partner-college access, and no
+ * partner gate exists yet. (The old site's client-side code check was
+ * decorative — the codes shipped in the page source and verified nothing.)
  *
  * Copy is verbatim from lib/cns/question-bank-content.ts.
  */
@@ -81,14 +80,22 @@ export default async function InstitutionCoursePage({
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                 {institution?.short_name ?? institution?.name ?? bank.name}
               </h1>
-              <p className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5 shrink-0" />
-                {bank.location}
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[14px] font-semibold text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  {bank.location}
+                </span>
+                {!institution && (
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-warning-soft px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide text-warning">
+                    <Clock className="h-3.5 w-3.5" />
+                    {ACCESS_COPY.badge}
+                  </span>
+                )}
               </p>
             </div>
           </div>
           {institution && (
-            <p className="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted-foreground">
+            <p className="mt-4 max-w-3xl text-[16px] leading-relaxed text-muted-foreground">
               {COURSE_PICKER_COPY.heroSubtitle}
             </p>
           )}
@@ -96,12 +103,18 @@ export default async function InstitutionCoursePage({
       </header>
 
       {!institution ? (
-        <section className="rounded-xl border border-border bg-card p-8 text-center">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-            <Lock className="h-5 w-5 text-muted-foreground" />
+        <section className="unn-panel-wash rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center sm:px-10 sm:py-16">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-warning-soft ring-1 ring-inset ring-warning/20">
+            <Clock className="h-6 w-6 text-warning" />
           </span>
-          <h2 className="mt-4 text-lg font-semibold">{ACCESS_COPY.heading}</h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{ACCESS_COPY.body}</p>
+          <h2 className="mt-5 text-2xl font-bold">{ACCESS_COPY.heading}</h2>
+          <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground">{ACCESS_COPY.body}</p>
+          <Link
+            href="/question-bank"
+            className="unn-pressable mt-6 inline-flex h-10 items-center rounded-md border border-border bg-white px-4 text-sm font-medium text-foreground hover:bg-muted"
+          >
+            {ACCESS_COPY.backToDirectory}
+          </Link>
         </section>
       ) : (
         <>
@@ -110,7 +123,7 @@ export default async function InstitutionCoursePage({
             <p className="mt-2 max-w-3xl text-muted-foreground">{COURSE_PICKER_COPY.subtitle}</p>
           </section>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {COURSES.map((course, i) => {
               const CourseIcon = COURSE_ICONS[i] ?? GraduationCap;
               const live = course.available;
@@ -137,19 +150,19 @@ export default async function InstitutionCoursePage({
                     </span>
 
                     <h3
-                      className={`mt-3 text-[15px] font-bold leading-snug ${
+                      className={`mt-3 text-[16px] font-bold leading-snug ${
                         live ? "group-hover:text-primary" : "text-muted-foreground"
                       }`}
                     >
                       {course.name}
                     </h3>
-                    <p className="mt-2 flex-1 text-[13px] leading-relaxed text-muted-foreground">
+                    <p className="mt-2 flex-1 text-[14px] leading-relaxed text-muted-foreground">
                       {course.description}
                     </p>
 
                     <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
                       <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-bold uppercase tracking-wide ${
                           live
                             ? "bg-success-soft text-success"
                             : "bg-muted text-muted-foreground"

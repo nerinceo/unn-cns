@@ -43,7 +43,7 @@ export default async function AdminContentPage() {
         </p>
       </header>
 
-      <dl className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <dl className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
         {rows.map((r) => (
           <div key={r.label} className="rounded-lg border border-border bg-card p-4">
             <dt className="text-xs text-muted-foreground">{r.label}</dt>
