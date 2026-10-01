@@ -140,7 +140,7 @@ export default async function EmployerProfilePage({
               {employer.name}
               {employer.verification_status === "verified" && (
                 <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                  <ShieldCheck className="h-3 w-3" /> Verified by UNN
+                  <ShieldCheck className="h-3 w-3" /> Verified by Nerusalem
                 </span>
               )}
             </h1>

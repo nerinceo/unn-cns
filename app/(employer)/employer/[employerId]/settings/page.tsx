@@ -110,7 +110,7 @@ export default async function EmployerSettings({
           ))}
         </ul>
         <p className="mt-2 text-xs text-muted-foreground">
-          Inviting colleagues is not built yet — contact UNN to add a recruiter.
+          Inviting colleagues is not built yet — contact Nerusalem to add a recruiter.
         </p>
       </section>
     </div>

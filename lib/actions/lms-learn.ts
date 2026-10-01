@@ -47,7 +47,7 @@ export async function getPartPlayback(
   // let a crafted id reach paid content inside an otherwise-free module.
   const lecture = part.lecture as { is_preview?: boolean } | null;
   if (!access.enrolled && !access.isOwner && !lecture?.is_preview)
-    return { error: "Buy this course on the UNN marketplace to watch this lecture." };
+    return { error: "Buy this course on the Nerusalem marketplace to watch this lecture." };
 
   if (part.video_status !== "ready") return { error: "This video is still processing." };
 

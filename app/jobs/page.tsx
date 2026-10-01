@@ -16,9 +16,9 @@ import type { SeekerProfile } from "@/lib/cns/seeker";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Nursing Jobs — UNN",
+  title: "Nursing Jobs — Nerusalem",
   description:
-    "Nursing roles from verified hospitals, clinics and recruitment agencies. Apply with your UNN profile.",
+    "Nursing roles from verified hospitals, clinics and recruitment agencies. Apply with your Nerusalem profile.",
 };
 
 /** Repeated query params arrive as a string or an array; normalise to an array. */
@@ -153,7 +153,7 @@ export default async function JobsPage({
           <h1 className="text-2xl font-semibold">Nursing Jobs</h1>
         </div>
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          Roles from hospitals, clinics and agencies verified by UNN. Apply in one tap with the
+          Roles from hospitals, clinics and agencies verified by Nerusalem. Apply in one tap with the
           profile you already have.
         </p>
       </header>

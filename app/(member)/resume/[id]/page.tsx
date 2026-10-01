@@ -32,7 +32,7 @@ export default async function ResumePage({ params }: { params: Promise<{ id: str
 
       {coverage.isEssentiallyEmpty && (
         <div className="rounded-lg border border-border bg-muted p-4 text-sm print:hidden">
-          <p className="font-medium">Your UNN profile didn&apos;t have much to import yet</p>
+          <p className="font-medium">Your Nerusalem profile didn&apos;t have much to import yet</p>
           <p className="mt-1 text-muted-foreground">
             That&apos;s normal — most profiles only have a name and title. Fill the sections in
             here and your CV is done; you can copy the details back to your{" "}
@@ -40,7 +40,7 @@ export default async function ResumePage({ params }: { params: Promise<{ id: str
               href={`${process.env.NEXT_PUBLIC_HUB_URL ?? "https://unn.nerusalem.com"}/profile/edit`}
               className="text-primary underline"
             >
-              UNN profile
+              Nerusalem profile
             </a>{" "}
             afterwards so job applications pre-fill too.
           </p>

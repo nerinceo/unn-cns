@@ -88,7 +88,7 @@ export default async function EditJobPage({
 
       {job.changes_requested_note ? (
         <div className="rounded-lg border border-secondary/30 bg-secondary/5 p-4 text-sm">
-          <p className="font-medium text-secondary">UNN asked for changes</p>
+          <p className="font-medium text-secondary">Nerusalem asked for changes</p>
           <p className="mt-1 text-muted-foreground">{job.changes_requested_note as string}</p>
         </div>
       ) : null}

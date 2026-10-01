@@ -148,7 +148,7 @@ export async function getInstructorSales(instructorId: string): Promise<SalesSum
   const nameById = new Map(
     ((buyers ?? []) as { id: string; full_name: string | null }[]).map((b) => [
       b.id,
-      b.full_name ?? "UNN member",
+      b.full_name ?? "Nerusalem member",
     ]),
   );
 
@@ -187,7 +187,7 @@ export async function getInstructorSales(instructorId: string): Promise<SalesSum
       orderId: o.id,
       courseId: course?.id ?? null,
       courseTitle: course?.title ?? "Course",
-      buyerName: nameById.get(o.buyer_id) ?? "UNN member",
+      buyerName: nameById.get(o.buyer_id) ?? "Nerusalem member",
       grossCents: o.amount_total ?? 0,
       feeCents: o.platform_fee ?? 0,
       refundedCents: o.amount_refunded ?? 0,

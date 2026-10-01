@@ -13,7 +13,7 @@ export default function ServicesPage() {
         "Career guidance and mentorship",
         "Application and interview support",
         "Credential and licensure guidance",
-        "Direct support from the UNN team",
+        "Direct support from the Nerusalem team",
       ]}
     />
   );

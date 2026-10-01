@@ -66,7 +66,7 @@ export default async function EmployerPage() {
                         <span className="text-primary">Approved · you can publish roles</span>
                       ) : (
                         <span className="flex items-center gap-1 text-muted-foreground">
-                          <Clock className="h-3 w-3" /> Awaiting UNN approval
+                          <Clock className="h-3 w-3" /> Awaiting Nerusalem approval
                         </span>
                       )}
                     </p>
@@ -85,7 +85,7 @@ export default async function EmployerPage() {
         </h2>
         <div className="rounded-lg border border-border bg-card p-5">
           <p className="mb-4 text-sm text-muted-foreground">
-            UNN reviews every organisation before its roles go live, so nurses only ever see
+            Nerusalem reviews every organisation before its roles go live, so nurses only ever see
             genuine employers. Approval usually takes a working day.
           </p>
           <EmployerRegisterForm />

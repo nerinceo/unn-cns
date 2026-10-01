@@ -74,7 +74,7 @@ export function ResumeDocument({
           <p className="verified">
             <ShieldCheck className="icon" aria-hidden />
             {/* Spelled out because an icon alone conveys nothing to a parser. */}
-            Identity and credentials verified by UNN
+            Identity and credentials verified by Nerusalem
           </p>
         )}
       </header>

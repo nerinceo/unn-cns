@@ -45,7 +45,7 @@ export function emailEnabled(): boolean {
   return Boolean(process.env.RESEND_API_KEY);
 }
 
-const FROM = process.env.CNS_EMAIL_FROM ?? "UNN <notifications@nerusalem.com>";
+const FROM = process.env.CNS_EMAIL_FROM ?? "Nerusalem <notifications@nerusalem.com>";
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cns.nerusalem.com";
 
 export type EmailContent = {
@@ -220,7 +220,7 @@ function renderEmail(name: string | null, c: EmailContent, href: string | null):
         : ""
     }
     <p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;line-height:1.5;color:#9ca3af;">
-      You are receiving this because of activity on your UNN account.
+      You are receiving this because of activity on your Nerusalem account.
       Manage what reaches you in your <a href="${SITE}/profile" style="color:#6b7280;">profile settings</a>.
     </p>
   </div>

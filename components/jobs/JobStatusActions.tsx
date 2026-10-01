@@ -50,7 +50,7 @@ export function JobStatusActions({
       )}
 
       {status === "submitted" && (
-        <span className="text-xs text-muted-foreground">Awaiting UNN review</span>
+        <span className="text-xs text-muted-foreground">Awaiting Nerusalem review</span>
       )}
 
       {status === "active" && (

@@ -87,11 +87,11 @@ export default async function EmployerDashboard({
         <div className="rounded-lg border border-border bg-muted p-4 text-sm">
           <p className="flex items-center gap-1.5 font-medium">
             <Clock className="h-4 w-4" />
-            {employer.status === "rejected" ? "Not approved" : "Awaiting UNN approval"}
+            {employer.status === "rejected" ? "Not approved" : "Awaiting Nerusalem approval"}
           </p>
           <p className="mt-1 text-muted-foreground">
             {employer.status === "rejected"
-              ? ((employer.review_note as string) ?? "Contact UNN if you believe this is a mistake.")
+              ? ((employer.review_note as string) ?? "Contact Nerusalem if you believe this is a mistake.")
               : "You can draft roles now — publishing unlocks once your organisation is approved."}
           </p>
         </div>

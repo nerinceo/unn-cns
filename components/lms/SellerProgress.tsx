@@ -40,7 +40,7 @@ export function SellerProgress({
         <div>
           <p className="text-sm font-semibold text-emerald-900">Your account is ready to sell</p>
           <p className="mt-0.5 text-xs text-emerald-800">
-            Approved courses go on sale in the UNN marketplace automatically.
+            Approved courses go on sale in the Nerusalem marketplace automatically.
           </p>
         </div>
       </div>

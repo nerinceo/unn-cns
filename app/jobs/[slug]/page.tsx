@@ -29,7 +29,7 @@ export async function generateMetadata({
   const { job, employer } = found;
   const where = [job.city, job.country].filter(Boolean).join(", ");
   return {
-    title: `${job.title} — ${employer?.name ?? "UNN"}`,
+    title: `${job.title} — ${employer?.name ?? "Nerusalem"}`,
     description: job.description.slice(0, 155),
     alternates: { canonical: `${SITE}/jobs/${job.slug}` },
     openGraph: {
@@ -97,7 +97,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
       })),
       ...(built ?? []).map((b) => ({
         id: b.id as string,
-        label: `${b.title as string} (built in UNN)`,
+        label: `${b.title as string} (built in Nerusalem)`,
         kind: "built" as const,
       })),
     ];

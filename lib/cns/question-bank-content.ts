@@ -23,7 +23,7 @@
 export const BANK_IDENTITY = {
   name: "Nursing Bank",
   tagline: "The Central Bank of Nursing Questions and Resources",
-  attribution: "Nursing Bank by UNN Hub",
+  attribution: "Nursing Bank by Nerusalem",
 } as const;
 
 /** `Nursing Bank by UNN Hub · RGUHS B.Sc Nursing` */

@@ -48,7 +48,7 @@ export default async function PublicResumePage({
           <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
           <p>
             <strong>{resume.authorName}</strong> is a verified member of the United Nurses Network.
-            Identity and professional credentials were checked by UNN.
+            Identity and professional credentials were checked by Nerusalem.
           </p>
         </div>
       )}
@@ -58,7 +58,7 @@ export default async function PublicResumePage({
       </div>
 
       <p className="mx-auto mt-4 max-w-[7.5in] text-center text-xs text-muted-foreground print:hidden">
-        Shared via UNN · Last updated {new Date(resume.updatedAt).toLocaleDateString()}
+        Shared via Nerusalem · Last updated {new Date(resume.updatedAt).toLocaleDateString()}
       </p>
     </div>
   );

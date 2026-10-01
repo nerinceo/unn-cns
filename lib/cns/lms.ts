@@ -331,7 +331,7 @@ export async function getPlayerData(slugOrId: string): Promise<PlayerData | null
 
   return {
     course,
-    instructorName: course.instructor?.display_name ?? "UNN instructor",
+    instructorName: course.instructor?.display_name ?? "Nerusalem instructor",
     sections,
     enrolled: access.enrolled,
     isOwner: access.isOwner,

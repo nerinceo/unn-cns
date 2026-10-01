@@ -31,8 +31,8 @@ export function JobsHome({
         <h1 className="text-2xl font-semibold sm:text-3xl">Nursing jobs, from verified employers</h1>
         <p className="mt-2 max-w-2xl text-muted-foreground">
           {totalJobs > 0
-            ? `${totalJobs} open ${totalJobs === 1 ? "role" : "roles"} across hospitals, clinics and agencies checked by UNN. Apply in one tap with the profile you already have.`
-            : "Roles from hospitals, clinics and agencies checked by UNN. Apply in one tap with the profile you already have."}
+            ? `${totalJobs} open ${totalJobs === 1 ? "role" : "roles"} across hospitals, clinics and agencies checked by Nerusalem. Apply in one tap with the profile you already have.`
+            : "Roles from hospitals, clinics and agencies checked by Nerusalem. Apply in one tap with the profile you already have."}
         </p>
 
         <form action="/jobs" className="mt-5 flex flex-wrap gap-2">

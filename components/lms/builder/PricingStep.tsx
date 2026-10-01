@@ -67,7 +67,7 @@ export function PricingStep({ course }: { course: CourseForEdit }) {
       <div className="flex items-start gap-2.5 rounded-2xl border border-border bg-card p-4">
         <ShoppingBag className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <p className="text-xs text-muted-foreground">
-          Your course is sold on the <strong>UNN marketplace</strong>. Set the price here and
+          Your course is sold on the <strong>Nerusalem marketplace</strong>. Set the price here and
           we&apos;ll create the listing for you the moment the course is approved — you
           don&apos;t need to list it yourself.
           {isLive && " Changing the price updates the live listing straight away."}
@@ -78,7 +78,7 @@ export function PricingStep({ course }: { course: CourseForEdit }) {
         <h2 className="mb-1 text-sm font-semibold">Price</h2>
         <p className="mb-4 text-xs text-muted-foreground">
           Your course, your price. Enter <strong>0</strong> to make it free, or anything from $
-          {MIN_COURSE_PRICE} to ${MAX_COURSE_PRICE}. UNN will never discount your course without
+          {MIN_COURSE_PRICE} to ${MAX_COURSE_PRICE}. Nerusalem will never discount your course without
           your say-so.
         </p>
 

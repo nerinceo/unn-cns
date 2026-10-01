@@ -63,7 +63,7 @@ export default async function CnsHomePage() {
         </h1>
         <p className="mt-3 max-w-2xl text-muted-foreground sm:text-lg">
           Access nursing courses, jobs, Registry, Nubo, resources, services and advanced learning
-          systems — all in one place, with your UNN account.
+          systems — all in one place, with your Nerusalem account.
         </p>
         {verified && (
           <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">

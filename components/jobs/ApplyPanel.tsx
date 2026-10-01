@@ -84,7 +84,7 @@ export function ApplyPanel({
       <div className="rounded-lg border border-border bg-card p-5">
         <p className="flex items-center gap-2 font-medium">
           <ShieldCheck className="h-4 w-4 text-primary" />
-          Apply in one tap with your UNN profile
+          Apply in one tap with your Nerusalem profile
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           Employers see your verified nursing credentials — no CV upload, no re-typing your history.
@@ -102,7 +102,7 @@ export function ApplyPanel({
   if (!open) {
     return (
       <Button size="lg" onClick={() => setOpen(true)}>
-        Apply with my UNN profile
+        Apply with my Nerusalem profile
       </Button>
     );
   }
@@ -129,7 +129,7 @@ export function ApplyPanel({
       {resumes.length === 0 && (
         <p className="flex items-start gap-2 rounded-md border border-border bg-muted p-3 text-xs text-muted-foreground">
           <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          You have no CV yet. You can still apply — your UNN profile is sent — but adding one from
+          You have no CV yet. You can still apply — your Nerusalem profile is sent — but adding one from
           the <a href="/resume" className="text-primary underline">Resume</a> page helps.
         </p>
       )}

@@ -79,7 +79,7 @@ export async function CrawlableShell({ children }: { children: React.ReactNode }
         <div className="mx-auto flex h-full max-w-5xl items-center gap-4 px-4">
           <Link href="/jobs" className="flex items-center gap-2">
             <span className="rounded-md bg-primary px-2 py-1 text-sm font-bold text-primary-foreground">
-              UNN
+              Nerusalem
             </span>
             <span className="text-lg font-semibold text-primary">Nursing Jobs</span>
           </Link>

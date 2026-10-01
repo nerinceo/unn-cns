@@ -25,7 +25,7 @@ export function PortalSwitcher({
   isInstructor?: boolean;
 }) {
   const portals: Portal[] = [
-    { key: "hub", label: "UNN Hub", desc: "Network, units, marketplace", href: hubLink("/home"), external: true },
+    { key: "hub", label: "Nerusalem", desc: "Network, units, marketplace", href: hubLink("/home"), external: true },
     { key: "member", label: "Central Nursing Systems", desc: "Learning, jobs, resume", href: "/" },
     ...(employers ?? []).map((e) => ({
       key: `employer:${e.id}`,

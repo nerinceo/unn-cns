@@ -40,7 +40,7 @@ export function ReportJobButton({ jobId, canReport }: { jobId: string; canReport
       <p className="flex items-start gap-2 text-sm">
         <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
         <span>
-          <strong className="font-medium">UNN never asks you to pay for a job.</strong> No genuine
+          <strong className="font-medium">Nerusalem never asks you to pay for a job.</strong> No genuine
           employer on this board will ask you for a fee, a deposit, or your bank details to secure a
           role or a visa. If one does, report it.
         </span>

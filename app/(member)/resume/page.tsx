@@ -31,7 +31,7 @@ export default async function ResumeListPage() {
           </div>
           <p className="mt-2 max-w-2xl text-muted-foreground">
             Build a nursing CV that applicant tracking systems can actually read — and that shows
-            your UNN verification.
+            your Nerusalem verification.
           </p>
         </div>
         {/* Only in the header when there is already a list. On the empty state
@@ -46,7 +46,7 @@ export default async function ResumeListPage() {
           Or build one
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Generates an ATS-safe CV from your UNN profile, with your verification shown on it.
+          Generates an ATS-safe CV from your Nerusalem profile, with your verification shown on it.
         </p>
       </div>
 
@@ -54,7 +54,7 @@ export default async function ResumeListPage() {
         <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
           <p className="font-medium">No resume yet</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            We&apos;ll start you off with whatever is already on your UNN profile — your name,
+            We&apos;ll start you off with whatever is already on your Nerusalem profile — your name,
             title and summary — then you fill in the rest.
           </p>
           <div className="mt-4">

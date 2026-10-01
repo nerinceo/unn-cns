@@ -90,7 +90,7 @@ function friendlyJobError(error: { message: string; code?: string }): string {
   if (/work_setting_check/.test(m)) return "Please choose a work setting from the list.";
   if (/experience_level_check/.test(m)) return "Please choose an experience level from the list.";
   if (/status_check/.test(m) || error.code === "42501") {
-    return "UNN reviews every posting — a job cannot be published directly.";
+    return "Nerusalem reviews every posting — a job cannot be published directly.";
   }
   if (/violates check constraint|invalid input value/.test(m)) {
     return "Some of those details were not accepted. Please review the highlighted fields.";
@@ -445,7 +445,7 @@ async function applyToJobImpl(
           subject: `New application — ${job.title}`,
           heading: `You have a new applicant for ${job.title}`,
           body:
-            "Someone has applied through UNN. Open your inbox to read their profile, see how " +
+            "Someone has applied through Nerusalem. Open your inbox to read their profile, see how " +
             "well they fit the role, and shortlist them if they look right.",
           ctaLabel: "Review the application",
           ctaHref: `/employer/${job.employer_id}/applications`,
@@ -688,7 +688,7 @@ export async function getApplicationResumeUrl(
       return { ok: true, href: target.href, title: target.title };
     case "unshared":
       return {
-        error: `"${target.title}" is a resume built in UNN and the candidate has not enabled its share link. Ask them to turn on sharing from their Resume page.`,
+        error: `"${target.title}" is a resume built in Nerusalem and the candidate has not enabled its share link. Ask them to turn on sharing from their Resume page.`,
       };
     default:
       return { error: "No CV is attached to this application." };

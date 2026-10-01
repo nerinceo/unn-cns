@@ -129,7 +129,7 @@ export async function reviewJob(jobId: string, decision: JobDecision, reason?: s
         : decision === "rejected"
           ? `"${job.title}" was not approved. ${reason}`
           : decision === "paused"
-            ? `"${job.title}" has been paused by UNN. ${reason}`
+            ? `"${job.title}" has been paused by Nerusalem. ${reason}`
             : `"${job.title}" has been removed. ${reason}`;
 
   if (members?.length) {

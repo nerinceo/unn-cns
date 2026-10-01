@@ -39,12 +39,12 @@ const STATUS_BANNER: Record<string, { title: string; tone: string; body: string 
   pending: {
     title: "In review",
     tone: "border-amber-200 bg-amber-50 text-amber-800",
-    body: "The UNN team is reviewing this course. You can keep editing — changes save straight away.",
+    body: "The Nerusalem team is reviewing this course. You can keep editing — changes save straight away.",
   },
   approved: {
     title: "Live",
     tone: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    body: "Approved and on sale in the UNN marketplace. Sales appear in your Sales tab.",
+    body: "Approved and on sale in the Nerusalem marketplace. Sales appear in your Sales tab.",
   },
   needs_info: {
     title: "Changes requested",

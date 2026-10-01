@@ -64,7 +64,7 @@ export default async function LmsPage() {
           <BookOpen className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
           <p className="mb-1 text-sm font-medium">No courses yet</p>
           <p className="mx-auto mb-5 max-w-md text-sm text-muted-foreground">
-            Courses you buy on the UNN marketplace appear here automatically, with your
+            Courses you buy on the Nerusalem marketplace appear here automatically, with your
             progress tracked lecture by lecture.
           </p>
           <a
@@ -121,7 +121,7 @@ function CourseSection({
               <p className="mb-0.5 text-[11px] font-medium text-primary">{course.category}</p>
               <h3 className="text-sm font-semibold">{course.title}</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {course.instructor?.display_name ?? "UNN instructor"} · {course.lecture_count}{" "}
+                {course.instructor?.display_name ?? "Nerusalem instructor"} · {course.lecture_count}{" "}
                 lectures ·{" "}
                 <span className="inline-flex items-center gap-1">
                   <Clock className="h-3 w-3" />

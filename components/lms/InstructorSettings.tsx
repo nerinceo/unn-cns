@@ -75,7 +75,7 @@ export function InstructorSettings({
 
       {instructor.admin_note && instructor.status !== "approved" && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
-          <p className="text-sm font-semibold text-blue-900">Note from the UNN team</p>
+          <p className="text-sm font-semibold text-blue-900">Note from the Nerusalem team</p>
           <p className="mt-0.5 whitespace-pre-wrap text-xs text-blue-800">
             {instructor.admin_note}
           </p>
@@ -336,7 +336,7 @@ function Credentials({ instructor }: { instructor: MyInstructor }) {
       <div className="rounded-2xl border border-border bg-card p-5">
         <h2 className="mb-1 text-sm font-semibold">Credentials</h2>
         <p className="mb-4 text-xs text-muted-foreground">
-          A UNN reviewer checks these against your licence number. They are stored privately and
+          A Nerusalem reviewer checks these against your licence number. They are stored privately and
           are never shown to learners.
         </p>
 
@@ -462,7 +462,7 @@ function Agreement({ instructor, hubUrl }: { instructor: MyInstructor; hubUrl: s
     <div className="rounded-2xl border border-border bg-card p-5">
       <h2 className="mb-1 text-sm font-semibold">Instructor Agreement</h2>
       <p className="mb-4 text-xs text-muted-foreground">
-        The contract that lets UNN sell your course on your behalf and pay you your share. Your
+        The contract that lets Nerusalem sell your course on your behalf and pay you your share. Your
         course cannot go on sale until this is accepted.
       </p>
 
@@ -484,11 +484,11 @@ function Agreement({ instructor, hubUrl }: { instructor: MyInstructor; hubUrl: s
         <div className="space-y-4">
           <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-4 text-xs text-muted-foreground">
             <p>
-              <strong className="text-foreground">You keep 95%</strong> of every sale. UNN takes 5%
+              <strong className="text-foreground">You keep 95%</strong> of every sale. Nerusalem takes 5%
               to run the platform, and never discounts your course without your say-so.
             </p>
             <p>
-              <strong className="text-foreground">You own your content.</strong> You grant UNN a
+              <strong className="text-foreground">You own your content.</strong> You grant Nerusalem a
               licence to host and sell it; you can unpublish at any time, and learners who already
               bought it keep their access.
             </p>
@@ -519,7 +519,7 @@ function Agreement({ instructor, hubUrl }: { instructor: MyInstructor; hubUrl: s
               className="mt-0.5 rounded border-border text-primary focus:ring-primary/30"
             />
             <span className="text-sm">
-              I have read and accept the UNN Instructor Agreement.
+              I have read and accept the Nerusalem Instructor Agreement.
             </span>
           </label>
 
@@ -569,8 +569,8 @@ function Payouts({ connected, hubUrl }: { connected: boolean; hubUrl: string }) 
     <div className="rounded-2xl border border-border bg-card p-5">
       <h2 className="mb-1 text-sm font-semibold">Payouts</h2>
       <p className="mb-4 text-xs text-muted-foreground">
-        Paid courses are sold on the UNN marketplace and settled through Stripe. A paid course
-        can&apos;t go on sale until UNN can pay you. Free courses need nothing here.
+        Paid courses are sold on the Nerusalem marketplace and settled through Stripe. A paid course
+        can&apos;t go on sale until Nerusalem can pay you. Free courses need nothing here.
       </p>
 
       {connected ? (
@@ -606,7 +606,7 @@ function Payouts({ connected, hubUrl }: { connected: boolean; hubUrl: string }) 
         {connected ? "Update your Stripe details" : "Set up payments with Stripe"}
       </a>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Opens Stripe, who handle identity and bank details. UNN never sees your bank
+        Opens Stripe, who handle identity and bank details. Nerusalem never sees your bank
         credentials.
       </p>
     </div>

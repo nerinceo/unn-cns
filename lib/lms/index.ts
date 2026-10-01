@@ -312,7 +312,7 @@ export function sellerReadiness(input: {
     {
       key: "agreement",
       label: "Accept the Instructor Agreement",
-      detail: "The contract that lets UNN sell your course on your behalf.",
+      detail: "The contract that lets Nerusalem sell your course on your behalf.",
       done: !!input.agreementAcceptedAt,
       // This is the contract. Without it there is no legal basis for a sale.
       blocksSelling: true,
@@ -321,7 +321,7 @@ export function sellerReadiness(input: {
     {
       key: "approved",
       label: "Get approved to teach",
-      detail: "A UNN reviewer checks your credentials against your licence.",
+      detail: "A Nerusalem reviewer checks your credentials against your licence.",
       done: input.status === "approved",
       blocksSelling: true,
       where: "review",
@@ -329,7 +329,7 @@ export function sellerReadiness(input: {
     {
       key: "payouts",
       label: "Connect payouts",
-      detail: "Stripe, on UNN. Required before a paid course can go on sale.",
+      detail: "Stripe, on Nerusalem. Required before a paid course can go on sale.",
       done: input.payoutsConnected,
       // Only blocking once they actually price something: a free course is
       // sellable with no payout account, because nothing is ever transferred.

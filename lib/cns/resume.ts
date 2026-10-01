@@ -143,7 +143,7 @@ export async function buildSeedContent(): Promise<ResumeContent> {
       phone: (user?.phone as string) ?? "",
       location: (user?.country as string) ?? "",
       links: user?.profile_url
-        ? [{ label: "UNN Profile", url: user.profile_url as string }]
+        ? [{ label: "Nerusalem Profile", url: user.profile_url as string }]
         : [],
     },
     // bio is prose about the person, which is exactly what a CV summary is.

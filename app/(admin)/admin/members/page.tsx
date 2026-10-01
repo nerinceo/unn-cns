@@ -26,7 +26,7 @@ export default async function AdminMembersPage() {
   ]).then((rs) => rs.map((r) => r.count ?? 0));
 
   const stats = [
-    { label: "UNN members", value: members },
+    { label: "Nerusalem members", value: members },
     { label: "Verified nurses", value: verified },
     { label: "Attempts submitted", value: attempts },
     { label: "Resumes created", value: resumes },
@@ -56,7 +56,7 @@ export default async function AdminMembersPage() {
 
       <div className="rounded-lg border border-border bg-muted p-5">
         <p className="flex items-center gap-2 font-medium">
-          <ShieldCheck className="h-4 w-4 text-primary" /> Accounts are managed in UNN Hub
+          <ShieldCheck className="h-4 w-4 text-primary" /> Accounts are managed in Nerusalem
         </p>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           Roles, suspensions and nurse verification all live in Hub. CNS reads that identity and

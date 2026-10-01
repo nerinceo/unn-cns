@@ -256,7 +256,7 @@ export function JobComposer({
         </Button>
         {!canPublish && (
           <span className="text-xs text-muted-foreground">
-            Submitting unlocks once UNN approves your organisation.
+            Submitting unlocks once Nerusalem approves your organisation.
           </span>
         )}
       </div>
