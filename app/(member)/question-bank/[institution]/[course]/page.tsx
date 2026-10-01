@@ -98,7 +98,7 @@ export default async function CourseSemesterPage({
         <p className="mt-2 max-w-3xl text-muted-foreground">{SEMESTER_PICKER_COPY.subtitle}</p>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {SEMESTERS.map((sem) => {
           const total = counts.get(sem.number) ?? 0;
           const band = YEAR_BANDS[Math.ceil(sem.number / 2) - 1] ?? YEAR_BANDS[0];

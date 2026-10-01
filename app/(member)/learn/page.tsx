@@ -36,7 +36,7 @@ export default function LearnHub() {
         </p>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2">
         {TOOLS.map(({ href, icon: Icon, title, body, live }) => (
           <Link
             key={href}

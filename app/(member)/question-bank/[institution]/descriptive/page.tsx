@@ -59,7 +59,7 @@ export default async function DescriptivePage({
             <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
               {year ? `Year ${year}` : "General"}
             </h2>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {byYear.get(year)!.map((s) => (
                 <Link
                   key={s.id}

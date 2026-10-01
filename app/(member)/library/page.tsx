@@ -105,7 +105,7 @@ export default async function LibraryPage({
         </p>
 
         {sections.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {sections.map((cat) => (
               // subtree_count, not article_count. Every section holds zero
               // articles directly — a direct count would read 0 on all ten.

@@ -43,7 +43,7 @@ export default async function AdminOverview() {
         </Link>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat icon={Clock} label="Pending employers" value={pendingEmployers} href="/admin/employers" />
         <Stat icon={Building2} label="Organisations" value={employers} href="/admin/employers" />
         <Stat icon={Briefcase} label="Live roles" value={liveJobs} href="/jobs" />

@@ -123,7 +123,7 @@ export default async function InstitutionCoursePage({
             <p className="mt-2 max-w-3xl text-muted-foreground">{COURSE_PICKER_COPY.subtitle}</p>
           </section>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {COURSES.map((course, i) => {
               const CourseIcon = COURSE_ICONS[i] ?? GraduationCap;
               const live = course.available;

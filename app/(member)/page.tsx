@@ -77,7 +77,7 @@ export default async function CnsHomePage() {
         <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-muted-foreground">
           Systems
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {SYSTEMS.map(({ href, external, icon: Icon, title, body }) => {
             // A card that leaves this origin is a plain anchor. next/link
             // cannot client-route across origins and would prefetch another

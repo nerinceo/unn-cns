@@ -125,7 +125,7 @@ function Facets({
       <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
         {title}
       </h2>
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {items.map(({ cat, count }) => (
           <Link
             key={cat.value}

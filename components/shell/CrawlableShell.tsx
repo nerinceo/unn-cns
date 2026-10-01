@@ -80,7 +80,7 @@ export async function CrawlableShell({ children }: { children: React.ReactNode }
           <Link href="/jobs" className="flex items-center gap-3" aria-label="Nerusalem Nursing Jobs">
             <span
               aria-hidden
-              className="block h-8 w-[110px] bg-[url('/nerusalem-wordmark.png')] bg-contain bg-left bg-no-repeat"
+              className="block h-6 w-[173px] bg-[url('/nerusalem-logo.png')] bg-contain bg-left bg-no-repeat sm:h-7 sm:w-[202px]"
             />
             <span className="hidden border-l border-border pl-3 text-base font-semibold text-foreground sm:inline">
               Nursing Jobs

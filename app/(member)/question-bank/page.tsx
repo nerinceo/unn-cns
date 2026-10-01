@@ -85,7 +85,7 @@ export default async function QuestionBankPage() {
               group sizes are 4/3/3/3/3/2/2 — at four columns every group but
               India left one or two dead cells and squeezed the cards narrow.
               At three, four of the seven groups fill their row exactly. */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {group.banks.map((bank) => {
               const tone = REGION[group.country] ?? REGION_FALLBACK;
               const open = isOpen(bank.key);
