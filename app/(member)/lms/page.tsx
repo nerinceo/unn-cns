@@ -13,7 +13,7 @@ import { getMyCourses } from "@/lib/cns/lms";
 import { formatCourseLength } from "@/lib/lms";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Courses — Central Nursing Systems" };
+export const metadata = { title: "Courses — Central Nerusalem Space" };
 
 /** Where courses are bought. CNS delivers them; HUB's marketplace sells them. */
 const MARKETPLACE_URL =

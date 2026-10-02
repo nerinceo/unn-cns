@@ -34,7 +34,7 @@ function findBank(slug: string) {
 
 export async function generateMetadata({ params }: { params: Promise<{ institution: string }> }) {
   const bank = findBank((await params).institution);
-  return { title: `${bank?.name ?? "Question Bank"} — Central Nursing Systems` };
+  return { title: `${bank?.name ?? "Question Bank"} — Central Nerusalem Space` };
 }
 
 /**

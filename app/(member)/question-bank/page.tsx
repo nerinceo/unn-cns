@@ -9,7 +9,7 @@ import {
 } from "@/lib/cns/question-bank-content";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Question Bank — Central Nursing Systems" };
+export const metadata = { title: "Question Bank — Central Nerusalem Space" };
 
 /**
  * One colour per country group, so twenty-two cards read as seven regions

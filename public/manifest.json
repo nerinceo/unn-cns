@@ -1,0 +1,16 @@
+{
+  "id": "/",
+  "name": "Nerusalem",
+  "short_name": "Nerusalem",
+  "description": "Courses, question banks, exams and nursing jobs for Nerusalem members.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#ffffff",
+  "theme_color": "#0a2463",
+  "icons": [
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/apple-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

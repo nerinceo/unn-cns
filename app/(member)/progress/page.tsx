@@ -3,7 +3,7 @@ import { TrendingUp, Target, ListChecks, Layers, ClipboardList, ArrowRight, Aler
 import { getProgress } from "@/lib/cns/progress";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Progress — Central Nursing Systems" };
+export const metadata = { title: "Progress — Central Nerusalem Space" };
 
 /**
  * Progress dashboard.

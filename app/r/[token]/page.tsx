@@ -47,7 +47,7 @@ export default async function PublicResumePage({
         <div className="mx-auto mb-4 flex max-w-[7.5in] items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm print:hidden">
           <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
           <p>
-            <strong>{resume.authorName}</strong> is a verified member of the United Nurses Network.
+            <strong>{resume.authorName}</strong> is a verified member of the Unified Nerusalem Network.
             Identity and professional credentials were checked by Nerusalem.
           </p>
         </div>

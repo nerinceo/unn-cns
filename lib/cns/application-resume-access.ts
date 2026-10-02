@@ -85,7 +85,7 @@ export async function getApplicationResumeTarget(applicationId: string): Promise
   const admin = createAdminClient();
   const { data: app } = await admin
     .from("cns_job_applications")
-    .select("resume_file_id, resume_id")
+    .select("resume_file_id, resume_id, applicant_id")
     .eq("id", applicationId)
     .maybeSingle();
 
@@ -96,6 +96,8 @@ export async function getApplicationResumeTarget(applicationId: string): Promise
       .from("cns_resume_files")
       .select("storage_key, file_name")
       .eq("id", app.resume_file_id as string)
+      // Only the applicant's own file: an application row can reference any id.
+      .eq("user_id", app.applicant_id as string)
       .maybeSingle();
 
     if (file?.storage_key) {
@@ -113,6 +115,7 @@ export async function getApplicationResumeTarget(applicationId: string): Promise
       .from("cns_resumes")
       .select("title, public_token")
       .eq("id", app.resume_id as string)
+      .eq("user_id", app.applicant_id as string)
       .maybeSingle();
 
     if (built) {

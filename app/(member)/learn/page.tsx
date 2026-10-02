@@ -3,7 +3,7 @@ import { GraduationCap, ClipboardList, TrendingUp, School } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Learn — Central Nursing Systems" };
+export const metadata = { title: "Learn — Central Nerusalem Space" };
 
 /**
  * Learn hub — the academic side of CNS.

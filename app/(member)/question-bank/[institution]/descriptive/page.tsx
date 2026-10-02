@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ institution: string }> }) {
   const inst = await getInstitutionBySlug((await params).institution);
-  return { title: `Descriptive — ${inst?.short_name ?? "Question Bank"} — Central Nursing Systems` };
+  return { title: `Descriptive — ${inst?.short_name ?? "Question Bank"} — Central Nerusalem Space` };
 }
 
 /**

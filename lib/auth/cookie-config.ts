@@ -71,6 +71,17 @@ export const COOKIE_MIGRATION_MODE =
   process.env.COOKIE_MIGRATION_MODE === "relogin" ? "relogin" : "silent";
 
 /**
+ * Mark auth cookies Secure (HTTPS-only) in production builds.
+ *
+ * Keyed off NODE_ENV, which Next inlines on both the server and the browser
+ * bundle, so all six writers agree. `next dev` is "development", so plain-http
+ * localhost and *.localtest.me keep working exactly as before. Secure is not
+ * part of a cookie's identity (name+domain+path), so the first rotation after
+ * this ships simply overwrites the existing cookie in place — no split-brain.
+ */
+const SECURE_AUTH_COOKIES = process.env.NODE_ENV === "production";
+
+/**
  * Merge the cross-subdomain domain (and the Remember Me max-age) into whatever
  * cookie options supabase-ssr hands us.
  *
@@ -82,10 +93,16 @@ export const COOKIE_MIGRATION_MODE =
 export function withAuthCookieOptions<T extends object>(
   options: T,
   remember: boolean
-): T & { domain?: string; maxAge?: number } {
+): T & { domain?: string; maxAge?: number; secure?: boolean } {
   return {
     ...options,
     ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),
-    ...(remember ? { maxAge: REMEMBER_ME_MAX_AGE_S } : {}),
+    // Never on a deletion: supabase-ssr removes a cookie (stale chunk, sign-out)
+    // by writing it with maxAge 0, and replacing that 0 with 30 days turned
+    // every removal into an empty cookie that lingered for a month.
+    ...(remember && (options as { maxAge?: number }).maxAge !== 0
+      ? { maxAge: REMEMBER_ME_MAX_AGE_S }
+      : {}),
+    ...(SECURE_AUTH_COOKIES ? { secure: true } : {}),
   };
 }

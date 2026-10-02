@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { hubLink } from "@/lib/hub";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Members — Central Nursing Systems Admin" };
+export const metadata = { title: "Members — Central Nerusalem Space Admin" };
 
 /**
  * Member activity in CNS.

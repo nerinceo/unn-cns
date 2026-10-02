@@ -35,7 +35,7 @@ export async function generateMetadata({
   const inst = await getInstitutionBySlug(institution);
   const c = COURSES.find((x) => x.key === course);
   return {
-    title: `${inst?.short_name ?? "Question Bank"} ${c?.name ?? ""} — Central Nursing Systems`.trim(),
+    title: `${inst?.short_name ?? "Question Bank"} ${c?.name ?? ""} — Central Nerusalem Space`.trim(),
   };
 }
 

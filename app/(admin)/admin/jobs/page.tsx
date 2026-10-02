@@ -6,7 +6,7 @@ import { jobDescriptionHtml, type CnsJob } from "@/lib/cns/jobs";
 import { JobReviewActions } from "@/components/jobs/JobReviewActions";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Job approvals — Central Nursing Systems Admin" };
+export const metadata = { title: "Job approvals — Central Nerusalem Space Admin" };
 
 /**
  * Job review queue (blueprint §9.2).

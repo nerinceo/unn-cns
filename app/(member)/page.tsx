@@ -11,7 +11,7 @@ import { getJobLabels } from "@/lib/cns/taxonomy";
 export const dynamic = "force-dynamic";
 
 /**
- * Central Nursing Systems home.
+ * Central Nerusalem Space home.
  *
  * The front door to every CNS system — learning, jobs, registry, resources and
  * the advanced systems (Nubo, LMS). Introduction, the system cards, then a
@@ -57,7 +57,7 @@ export default async function CnsHomePage() {
     <div className="space-y-12">
       {/* Introduction */}
       <section className="unn-panel-wash rounded-2xl border border-border bg-card p-6 sm:p-10 xl:p-12">
-        <p className="text-sm font-semibold text-primary">Central Nursing Systems</p>
+        <p className="text-sm font-semibold text-primary">Central Nerusalem Space</p>
         <h1 className="mt-2 max-w-3xl text-3xl font-bold sm:text-4xl xl:text-5xl">
           Welcome back, {firstName}
         </h1>

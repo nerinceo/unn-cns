@@ -5,7 +5,7 @@ import { CategoryCard } from "@/components/library/CategoryCard";
 import { getBrowseRoots, searchArticles } from "@/lib/cns/library";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Library — Central Nursing Systems" };
+export const metadata = { title: "Library — Central Nerusalem Space" };
 
 /**
  * Library root — browse by category.

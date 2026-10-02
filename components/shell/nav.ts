@@ -18,7 +18,7 @@ import type { LucideIcon } from "lucide-react";
 export type NavItem = { href: string; label: string; icon: LucideIcon };
 
 /**
- * Member information architecture (CNS "Central Nursing Systems" brief).
+ * Member information architecture (CNS "Central Nerusalem Space" brief).
  *
  * Primary nav is deliberately short — Home, Learn, Jobs, Nubo — with everything
  * else behind More. The old flat list of eleven items is reorganised into

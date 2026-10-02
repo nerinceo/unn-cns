@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const article = await getArticle(slug);
-  if (!article) return { title: "Library — Central Nursing Systems" };
+  if (!article) return { title: "Library — Central Nerusalem Space" };
   return {
     title: `${article.seo_title ?? article.title} — Library`,
     description: article.seo_description ?? article.excerpt ?? undefined,

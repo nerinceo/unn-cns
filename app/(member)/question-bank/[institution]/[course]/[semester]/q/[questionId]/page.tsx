@@ -27,7 +27,7 @@ import {
 } from "@/lib/cns/question-bank-content";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Question — Central Nursing Systems" };
+export const metadata = { title: "Question — Central Nerusalem Space" };
 
 /**
  * The full-page view of one question — the legacy question.html.

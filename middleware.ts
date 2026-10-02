@@ -10,6 +10,7 @@ import {
   scopeFromClaims,
   businessKindFromClaims,
 } from "@/lib/access";
+import { isSuspendedFromClaims } from "@/lib/auth/suspension";
 
 /**
  * CNS auth gate.
@@ -146,6 +147,17 @@ export async function middleware(request: NextRequest) {
   // verifiable here without a network hop or a second user table.
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims ?? null;
+
+  // A suspended account is shown the door rather than left browsing — the same
+  // JWT-claim check HUB's middleware makes, so it costs nothing per request.
+  // CNS has no auth UI, so the session is ended by HUB's /auth/end-session,
+  // which re-verifies the account, expires the shared cookies and shows the
+  // suspension notice. Accounts suspended without the claim (and the residual
+  // window before a token refresh) are caught by the member layout, which
+  // already loads the users row.
+  if (user && isSuspendedFromClaims(user)) {
+    return NextResponse.redirect(new URL("/auth/end-session", HUB_URL));
+  }
 
   const path = request.nextUrl.pathname;
 

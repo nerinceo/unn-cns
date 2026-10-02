@@ -12,9 +12,19 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Central Nursing Systems — Learning, Question Banks & Careers",
+  title: "Central Nerusalem Space — Learning, Question Banks & Careers",
   description:
     "Clinical Nursing Suite — courses, question banks, exams and nursing jobs for Nerusalem members.",
+  // Installed-app name ("Add to Home screen") — same brand as HUB and UHN.
+  // public/manifest.json name/short_name must match. Icons are file-based:
+  // app/icon.png + app/apple-icon.png (the crest on white, maskable-safe).
+  applicationName: "Nerusalem",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: false,
+    statusBarStyle: "default",
+    title: "Nerusalem",
+  },
 };
 
 export const viewport: Viewport = {

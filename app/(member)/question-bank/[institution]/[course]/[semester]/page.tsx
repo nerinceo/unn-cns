@@ -38,7 +38,7 @@ export async function generateMetadata({
   params: Promise<{ institution: string; course: string; semester: string }>;
 }) {
   const { semester } = await params;
-  return { title: `Questions — Semester ${semester} — Central Nursing Systems` };
+  return { title: `Questions — Semester ${semester} — Central Nerusalem Space` };
 }
 
 /**

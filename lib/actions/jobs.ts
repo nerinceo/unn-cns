@@ -383,6 +383,29 @@ async function applyToJobImpl(
     return { error: `Please answer: ${unanswered.map((q) => q.question).join(", ")}` };
   }
 
+  // The attached CV must be the applicant's own. The employer's CV access
+  // (lib/cns/application-resume-access.ts) trusts whatever an application
+  // references, so an unchecked id here let an applicant attach — and an
+  // employer then download — another member's CV.
+  if (input.resumeFileId) {
+    const { data: own } = await supabase
+      .from("cns_resume_files")
+      .select("id")
+      .eq("id", input.resumeFileId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!own) return { error: "Please attach one of your own CVs." };
+  }
+  if (input.resumeId) {
+    const { data: own } = await supabase
+      .from("cns_resumes")
+      .select("id")
+      .eq("id", input.resumeId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!own) return { error: "Please attach one of your own CVs." };
+  }
+
   const snapshot = await buildSnapshot(user.id);
 
   const { data: created, error } = await supabase

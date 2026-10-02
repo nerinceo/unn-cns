@@ -1,7 +1,7 @@
 import { Calculator } from "lucide-react";
 import { ModuleStub } from "@/components/shell/ModuleStub";
 
-export const metadata = { title: "Resources — Central Nursing Systems" };
+export const metadata = { title: "Resources — Central Nerusalem Space" };
 
 export default function ResourcesPage() {
   return (

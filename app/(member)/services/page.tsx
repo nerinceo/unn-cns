@@ -1,7 +1,7 @@
 import { HeartHandshake } from "lucide-react";
 import { ModuleStub } from "@/components/shell/ModuleStub";
 
-export const metadata = { title: "Services — Central Nursing Systems" };
+export const metadata = { title: "Services — Central Nerusalem Space" };
 
 export default function ServicesPage() {
   return (

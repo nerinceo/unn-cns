@@ -3,7 +3,7 @@ import { Building2, Clock, Briefcase, Users } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Admin — Central Nursing Systems" };
+export const metadata = { title: "Admin — Central Nerusalem Space" };
 
 export default async function AdminOverview() {
   // Service role: these are platform-wide counts across every organisation,

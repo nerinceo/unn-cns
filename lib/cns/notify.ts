@@ -47,6 +47,8 @@ export function emailEnabled(): boolean {
 
 const FROM = process.env.CNS_EMAIL_FROM ?? "Nerusalem <notifications@nerusalem.com>";
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cns.nerusalem.com";
+// Hosted PNG (email clients do not render SVG): the Nerusalem crest icon. Same object as hpanel-upload/_brand/logo/nerusalem-mark-256.png (256x256), shown at 56x56 so it stays sharp on 2x/3x screens.
+const EMAIL_LOGO_URL = "https://media.nerusalem.com/brand/logo/nerusalem-mark-256.png";
 
 export type EmailContent = {
   subject: string;
@@ -208,7 +210,7 @@ function renderEmail(name: string | null, c: EmailContent, href: string | null):
 
   return `<div style="background:#f6f7f9;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:28px;">
-    <p style="margin:0 0 16px;font-size:13px;color:#6b7280;letter-spacing:0.02em;">CENTRAL NURSING SYSTEMS</p>
+    <img src="${EMAIL_LOGO_URL}" width="56" height="56" alt="Nerusalem" style="display:block;margin:0 0 16px;border:0;width:56px;height:56px;color:#0a2463;font-size:20px;font-weight:700;line-height:56px;" />
     <h1 style="margin:0 0 12px;font-size:19px;line-height:1.35;color:#111827;">${esc(c.heading)}</h1>
     <p style="margin:0 0 8px;font-size:14px;color:#374151;">${greeting}</p>
     <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#374151;">${esc(c.body)}</p>

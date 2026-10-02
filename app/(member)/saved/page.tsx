@@ -6,7 +6,7 @@ import { getJobLabels } from "@/lib/cns/taxonomy";
 import { SaveJobButton } from "@/components/jobs/SaveJobButton";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Saved Jobs — Central Nursing Systems" };
+export const metadata = { title: "Saved Jobs — Central Nerusalem Space" };
 
 /** Blueprint §6.4: saved jobs must show active, closed and expired states. */
 const CLOSED = new Set(["closed", "expired", "paused", "removed", "rejected"]);

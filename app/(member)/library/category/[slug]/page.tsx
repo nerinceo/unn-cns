@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const ctx = await getCategoryContext(slug);
   return {
-    title: ctx ? `${ctx.term.name} — Library — Central Nursing Systems` : "Library",
+    title: ctx ? `${ctx.term.name} — Library — Central Nerusalem Space` : "Library",
     description: ctx?.term.description ?? undefined,
   };
 }

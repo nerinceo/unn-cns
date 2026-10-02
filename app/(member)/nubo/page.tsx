@@ -1,7 +1,7 @@
 import { Bot } from "lucide-react";
 import { ModuleStub } from "@/components/shell/ModuleStub";
 
-export const metadata = { title: "Nubo — Central Nursing Systems" };
+export const metadata = { title: "Nubo — Central Nerusalem Space" };
 
 export default function NuboPage() {
   return (

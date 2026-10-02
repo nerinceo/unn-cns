@@ -6,7 +6,7 @@ import { AppShell } from "@/components/shell/AppShell";
 import { EmployerRegisterForm } from "@/components/jobs/EmployerRegisterForm";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "For Employers — Central Nursing Systems" };
+export const metadata = { title: "For Employers — Central Nerusalem Space" };
 
 /**
  * Registration landing.

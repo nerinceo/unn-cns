@@ -63,7 +63,7 @@ export async function CrawlableShell({ children }: { children: React.ReactNode }
     return (
       <AppShell
         portal="member"
-        wordmark="Central Nursing Systems"
+        wordmark="Central Nerusalem Space"
         employers={employers}
         isStaff={staff}
         professional={professional}

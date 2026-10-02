@@ -25,7 +25,7 @@ export default function NotFound() {
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           The page you are looking for does not exist or has been moved. If
           someone shared a link with you, it may have been from an older version
-          of Central Nursing Systems.
+          of Central Nerusalem Space.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link
