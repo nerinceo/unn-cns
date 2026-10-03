@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { checkLimit } from "@/lib/ratelimit";
 import { canReadEmployerDoc, readEmployerDocKey } from "@/lib/cns/employer-doc-access";
+import { getEmployerPrivate } from "@/lib/cns/employer-private";
 import {
   putDoc, presignDocRead, employerDocKey,
   validateUpload, DOC_MIME, isDocsStorageConfigured,
@@ -130,12 +131,19 @@ export async function submitForVerification(employerId: string): Promise<ActionR
 
   const supabase = await createClient();
 
-  const { data: employer } = await supabase
+  const { data: publicRow } = await supabase
     .from("cns_employers")
-    .select("id,name,contact_person,business_email,website,verification_status")
+    .select("id,name,website,verification_status")
     .eq("id", employerId)
     .maybeSingle();
-  if (!employer) return { error: "Not permitted." };
+  if (!publicRow) return { error: "Not permitted." };
+  // Contact fields are private now (E-B-001) — read through the entitled path.
+  const priv = await getEmployerPrivate(employerId);
+  const employer = {
+    ...publicRow,
+    contact_person: priv?.contact_person ?? null,
+    business_email: priv?.business_email ?? null,
+  };
 
   // The key is service-role only now, so it is fetched through the one path
   // that checks entitlement rather than selected alongside the public columns.

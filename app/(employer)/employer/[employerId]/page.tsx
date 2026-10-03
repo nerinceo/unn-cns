@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getEmployerJobs } from "@/lib/cns/jobs";
+import { getEmployerPrivate } from "@/lib/cns/employer-private";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,15 @@ export default async function EmployerDashboard({
   const { employerId } = await params;
   const supabase = await createClient();
 
-  const { data: employer } = await supabase
+  const { data: publicRow } = await supabase
     .from("cns_employers")
-    .select("id,name,status,verification_status,review_note")
+    .select("id,name,status,verification_status")
     .eq("id", employerId)
     .maybeSingle();
-  if (!employer) notFound();
+  if (!publicRow) notFound();
+  // review_note is staff-written and private (E-B-001) — members and staff only.
+  const priv = await getEmployerPrivate(employerId);
+  const employer = { ...publicRow, review_note: priv?.review_note ?? null };
 
   const jobs = await getEmployerJobs(employerId);
   const jobIds = jobs.length ? jobs.map((j) => j.id) : ["00000000-0000-0000-0000-000000000000"];

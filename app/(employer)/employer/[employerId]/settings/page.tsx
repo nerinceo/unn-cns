@@ -3,6 +3,7 @@ import { ShieldCheck, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { VerificationPanel } from "@/components/employer/VerificationPanel";
 import { readEmployerDocKey } from "@/lib/cns/employer-doc-access";
+import { getEmployerPrivate } from "@/lib/cns/employer-private";
 
 export const dynamic = "force-dynamic";
 
@@ -14,14 +15,24 @@ export default async function EmployerSettings({
   const { employerId } = await params;
   const supabase = await createClient();
 
-  const { data: employer } = await supabase
+  const { data: publicRow } = await supabase
     .from("cns_employers")
-    .select(
-      "id,name,slug,employer_type,description,website,email,phone,country,city,status,verification_status,created_at,legal_name,contact_person,business_email"
-    )
+    .select("id,name,slug,employer_type,description,website,country,city,status,verification_status,created_at")
     .eq("id", employerId)
     .maybeSingle();
-  if (!employer) notFound();
+  if (!publicRow) notFound();
+  // Contact details and legal name are private (E-B-001): read for members and
+  // staff through getEmployerPrivate, never through the public column grant.
+  const priv = await getEmployerPrivate(employerId);
+  if (!priv) notFound();
+  const employer = {
+    ...publicRow,
+    email: priv.email,
+    phone: priv.phone,
+    legal_name: priv.legal_name,
+    contact_person: priv.contact_person,
+    business_email: priv.business_email,
+  };
 
   const [{ data: members }, { data: history }] = await Promise.all([
     supabase

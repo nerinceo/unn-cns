@@ -24,16 +24,22 @@ export default async function EmployerLayout({
   const { employerId } = await params;
   const supabase = await createClient();
 
-  // RLS already restricts this row to members, creators and staff, so a
-  // non-member simply reads null.
+  // MEMBERSHIP IS CHECKED HERE, not inferred from RLS. This used to treat
+  // "the row is readable" as "you belong to it" — but an APPROVED employer is
+  // publicly readable (that is how job adverts show who is hiring), so any
+  // signed-in member could open any approved organisation's portal: dashboard,
+  // jobs, settings (E-B-GRD). Only an approved membership of THIS
+  // organisation — or platform staff — gets in; a pending one does not.
+  const [employers, staff] = await Promise.all([getMyEmployers(), isStaff()]);
+  const mine = employers.find((m) => m.employer.id === employerId);
+  if (!mine && !staff) notFound();
+
   const { data: employer } = await supabase
     .from("cns_employers")
     .select("id,name")
     .eq("id", employerId)
     .maybeSingle();
   if (!employer) notFound();
-
-  const [employers, staff] = await Promise.all([getMyEmployers(), isStaff()]);
 
   return (
     <AppShell

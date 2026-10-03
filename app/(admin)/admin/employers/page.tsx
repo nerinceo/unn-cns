@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Building2, Globe, MapPin } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isStaff } from "@/lib/cns/admin";
 import { EmployerReviewActions } from "@/components/jobs/EmployerReviewActions";
 
@@ -12,7 +12,9 @@ export default async function AdminEmployersPage() {
   // page exists.
   if (!(await isStaff())) notFound();
 
-  const supabase = await createClient();
+  // Service role: review_note is no longer in the authenticated column grant
+  // (0064 section 9, E-B-001), and this list is staff-only (checked above).
+  const supabase = createAdminClient();
   const { data: employers } = await supabase
     .from("cns_employers")
     .select(
