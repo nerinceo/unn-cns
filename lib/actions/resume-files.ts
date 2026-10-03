@@ -5,6 +5,7 @@ import type { ActionResult } from "@/lib/actions/result";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { checkLimit } from "@/lib/ratelimit";
+import { actionError, logError } from "@/lib/errors";
 import {
   putDoc, deleteDoc, presignDocRead, resumeKey,
   validateUpload, RESUME_MIME, isDocsStorageConfigured,
@@ -44,18 +45,20 @@ export async function uploadResume(formData: FormData): Promise<ActionResult> {
 
   try {
     await putDoc(key, bytes, check.contentType);
-  } catch {
+  } catch (err) {
+    logError("resume-files:uploadResume:put", err);
     // Never surface the bucket name or key in an error a user can see.
     return { error: "Upload failed. Please try again." };
   }
 
   // One active upload per member (a partial unique index enforces it), so the
   // previous one is stood down first rather than colliding.
-  await supabase
+  const { error: standDownError } = await supabase
     .from("cns_resume_files")
     .update({ is_active: false })
     .eq("user_id", user.id)
     .eq("is_active", true);
+  if (standDownError) logError("resume-files:uploadResume:standDown", standDownError);
 
   const { error } = await supabase.from("cns_resume_files").insert({
     user_id: user.id,
@@ -68,8 +71,8 @@ export async function uploadResume(formData: FormData): Promise<ActionResult> {
 
   if (error) {
     // Do not leave an orphan object paying for storage nobody can reach.
-    await deleteDoc(key).catch(() => {});
-    return { error: error.message };
+    await deleteDoc(key).catch((err) => logError("resume-files:uploadResume:cleanup", err));
+    return actionError("resume-files:uploadResume", error);
   }
 
   revalidatePath("/resume");
@@ -80,20 +83,23 @@ export async function deleteResumeFile(id: string): Promise<ActionResult> {
   const supabase = await createClient();
 
   // RLS scopes this to the owner, so a foreign id simply reads null.
-  const { data: row } = await supabase
+  const { data: row, error: rowError } = await supabase
     .from("cns_resume_files")
     .select("id,storage_key")
     .eq("id", id)
     .maybeSingle();
+  if (rowError) logError("resume-files:deleteResumeFile:read", rowError, { id });
   if (!row) return { error: "Not found" };
 
   const { error } = await supabase.from("cns_resume_files").delete().eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return actionError("resume-files:deleteResumeFile", error);
 
   // Blueprint §12.2: deleting a resume must not break historical applications.
   // cns_job_applications.resume_file_id is ON DELETE SET NULL, so the
   // application survives with its profile snapshot intact — only the file goes.
-  await deleteDoc(row.storage_key as string).catch(() => {});
+  await deleteDoc(row.storage_key as string).catch((err) =>
+    logError("resume-files:deleteResumeFile:deleteDoc", err, { id })
+  );
 
   revalidatePath("/resume");
   return { ok: true };
@@ -113,18 +119,19 @@ export async function getResumeDownloadUrl(resumeFileId: string): Promise<Action
   const { data: allowed, error: rpcError } = await supabase.rpc("cns_can_read_resume", {
     p_resume_id: resumeFileId,
   });
-  if (rpcError) return { error: rpcError.message };
+  if (rpcError) return actionError("resume-files:getResumeDownloadUrl", rpcError);
   if (!allowed) return { error: "You do not have access to this file." };
 
   // Read the key with the service-role-free client would fail RLS for an
   // employer, so fetch it through the same definer-checked path: the row is
   // only reachable here because the RPC above already said yes.
   const admin = (await import("@/lib/supabase/admin")).createAdminClient();
-  const { data: row } = await admin
+  const { data: row, error: rowError } = await admin
     .from("cns_resume_files")
     .select("storage_key,file_name")
     .eq("id", resumeFileId)
     .maybeSingle();
+  if (rowError) logError("resume-files:getResumeDownloadUrl:read", rowError, { resumeFileId });
   if (!row) return { error: "Not found" };
 
   const url = await presignDocRead(row.storage_key as string, row.file_name as string);

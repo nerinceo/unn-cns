@@ -98,6 +98,9 @@ const MIRRORED = [
   // other strips — an XSS gap in whichever side is more permissive.
   { path: "lib/sanitize.ts", mode: "exact" },
   { path: "lib/utils/cn.ts", mode: "exact", uhn: true },
+  // Failure -> user message + log line. Drift changes what users are told when
+  // something fails, and whether it is logged at all.
+  { path: "lib/errors.ts", mode: "exact", uhn: true },
   // Marketplace vocabulary — sections, listing types, categories, delivery
   // kinds, price helpers. Mirrored into UHN when the vendor portal moved there
   // (HUB keeps it for the BUY side, which is not moving), and it is dependency

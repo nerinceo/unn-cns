@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { resolveReport } from "@/lib/actions/admin-jobs";
+import { settle } from "@/lib/utils/settle";
 
 export function ReportActions({ reportId }: { reportId: string }) {
   const router = useRouter();
@@ -14,7 +15,7 @@ export function ReportActions({ reportId }: { reportId: string }) {
   function go(status: "resolved" | "dismissed") {
     start(async () => {
       setError(null);
-      const res = await resolveReport(reportId, status, note || undefined);
+      const res = await settle(resolveReport(reportId, status, note || undefined));
       if (res?.error) setError(res.error);
       else router.refresh();
     });

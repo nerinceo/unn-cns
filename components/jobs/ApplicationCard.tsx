@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { formatDate } from "@/lib/utils/date";
 import { setApplicationStatus, getApplicationResumeUrl } from "@/lib/actions/jobs";
+import { settle } from "@/lib/utils/settle";
 import { hubLink } from "@/lib/hub";
 
 // Keyed on the status vocabulary the database enforces
@@ -108,7 +109,7 @@ export function ApplicationCard({
   async function openCv() {
     setCvPending(true);
     setError(null);
-    const res = await getApplicationResumeUrl(id);
+    const res = await settle(getApplicationResumeUrl(id));
     setCvPending(false);
     if (res.error) return setError(res.error);
     const target = res.url ?? res.href;
@@ -121,7 +122,7 @@ export function ApplicationCard({
   function move(next: string) {
     start(async () => {
       setError(null);
-      const res = await setApplicationStatus(id, next);
+      const res = await settle(setApplicationStatus(id, next));
       if (res?.error) setError(res.error);
       // Refresh so contact details appear immediately on shortlist.
       else { setCurrent(next); router.refresh(); }

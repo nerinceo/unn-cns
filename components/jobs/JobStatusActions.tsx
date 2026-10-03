@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { submitJobForReview, setJobLifecycle } from "@/lib/actions/jobs";
+import { settle } from "@/lib/utils/settle";
 
 /**
  * Employer-side job lifecycle.
@@ -30,7 +31,7 @@ export function JobStatusActions({
   const run = (fn: () => Promise<{ error?: string } | undefined>) =>
     start(async () => {
       setError(null);
-      const res = await fn();
+      const res = await settle(fn());
       if (res?.error) setError(res.error);
       else router.refresh();
     });

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Check, ExternalLink, Loader2, ShieldCheck, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { applyToJob } from "@/lib/actions/jobs";
+import { settle } from "@/lib/utils/settle";
 import { hubLink } from "@/lib/hub";
 
 export type ScreeningQuestion = {
@@ -201,7 +202,7 @@ export function ApplyPanel({
           onClick={() =>
             start(async () => {
               setError(null);
-              const res = await applyToJob(jobId, {
+              const res = await settle(applyToJob(jobId, {
                 coverNote: note || undefined,
                 resumeFileId: chosen?.kind === "file" ? chosen.id : undefined,
                 resumeId: chosen?.kind === "built" ? chosen.id : undefined,
@@ -211,7 +212,7 @@ export function ApplyPanel({
                   answer: answers[q.id] ?? "",
                 })),
                 declarationAccepted: declared,
-              });
+              }));
               if (res?.error) setError(res.error);
               else setDone(true);
             })

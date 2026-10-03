@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { actionError, logError, userMessage } from "@/lib/errors";
 
 /**
  * Suspending an account, in one place.
@@ -39,7 +40,7 @@ export async function applySuspension(
     .from("users")
     .update({ account_status: suspended ? "suspended" : "active" })
     .eq("id", userId);
-  if (dbError) return { error: dbError.message };
+  if (dbError) return actionError("suspension:applySuspension", dbError, undefined, { userId });
 
   // Order matters on the way in: ban first, so there is no instant where the
   // row says suspended but the credentials still work.
@@ -51,8 +52,9 @@ export async function applySuspension(
   if (authError) {
     // The row now disagrees with auth. Say so rather than reporting success —
     // a half-applied suspension is the case an admin most needs to know about.
+    logError("suspension:applySuspension:auth", authError, { userId });
     return {
-      error: `Account row updated but the sign-in block failed: ${authError.message}`,
+      error: `Account row updated but the sign-in block failed: ${userMessage(authError)}`,
     };
   }
 

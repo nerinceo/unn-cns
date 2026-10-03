@@ -53,8 +53,11 @@ export function ResumeEditor({
 
   async function doReseed() {
     setReseeding(true);
-    await reseedFromProfile(resumeId);
-    setReseeding(false);
+    try {
+      await reseedFromProfile(resumeId);
+    } finally {
+      setReseeding(false);
+    }
     // Server action revalidates; reload to pick up the refreshed document.
     window.location.reload();
   }

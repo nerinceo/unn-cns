@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyUsers, type NotifyInput } from "@/lib/cns/notify";
+import { logError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -59,11 +60,13 @@ export async function GET(request: NextRequest) {
     // One read of everything published in the last day, matched in memory.
     // Far cheaper than a query per subscriber, and the volume is tiny.
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: fresh } = await admin
+    const { data: fresh, error: freshError } = await admin
       .from("cns_jobs")
       .select("id,title,slug,country,nursing_role,published_at")
       .eq("status", "active")
       .gte("published_at", since);
+    // Logged so a failed read is not mistaken for "no new jobs today" below.
+    if (freshError) logError("cron:job-alerts:fresh", freshError);
 
     if (!fresh?.length) return NextResponse.json({ ok: true, sent: 0, newJobs: 0 });
 
@@ -123,10 +126,12 @@ export async function GET(request: NextRequest) {
       // the update then failed and every alert re-sent the next day.
       const now = new Date().toISOString();
       for (let i = 0; i < sentFor.length; i += 150) {
-        await admin
+        const { error: stampError } = await admin
           .from("cns_job_alerts")
           .update({ last_sent_at: now })
           .in("id", sentFor.slice(i, i + 150));
+        // These alerts will be re-sent on the next run.
+        if (stampError) logError("cron:job-alerts:last_sent_at", stampError, { offset: i });
       }
     }
 
@@ -134,7 +139,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, sent: notifications.length, newJobs: fresh.length });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
-    console.error("[cron] job-alerts failed:", message);
+    logError("cron:job-alerts", e);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

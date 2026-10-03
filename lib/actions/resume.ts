@@ -6,6 +6,7 @@ import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { buildSeedContent, type ResumeContent } from "@/lib/cns/resume";
+import { actionError, logError } from "@/lib/errors";
 
 export async function createResume(title?: string): Promise<ActionResult & { id?: string }> {
   const user = await getCurrentUser();
@@ -31,7 +32,7 @@ export async function createResume(title?: string): Promise<ActionResult & { id?
     .select("id")
     .single();
 
-  if (error) return { error: error.message };
+  if (error) return actionError("resume:createResume", error);
   revalidatePath("/resume");
   return { id: data.id as string };
 }
@@ -42,7 +43,7 @@ export async function updateResumeContent(id: string, content: ResumeContent): P
     .from("cns_resumes")
     .update({ content, updated_at: new Date().toISOString() })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return actionError("resume:updateResumeContent", error);
   revalidatePath(`/resume/${id}`);
   return { ok: true };
 }
@@ -56,7 +57,7 @@ export async function updateResumeMeta(
     .from("cns_resumes")
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return actionError("resume:updateResumeMeta", error);
   revalidatePath(`/resume/${id}`);
   revalidatePath("/resume");
   return { ok: true };
@@ -69,9 +70,14 @@ export async function setDefaultResume(id: string): Promise<ActionResult> {
 
   // A partial unique index enforces one default per member, so the old one has
   // to be cleared first or the update below violates it.
-  await supabase.from("cns_resumes").update({ is_default: false }).eq("user_id", user.id).eq("is_default", true);
+  const { error: clearError } = await supabase
+    .from("cns_resumes")
+    .update({ is_default: false })
+    .eq("user_id", user.id)
+    .eq("is_default", true);
+  if (clearError) logError("resume:setDefaultResume:clear", clearError);
   const { error } = await supabase.from("cns_resumes").update({ is_default: true }).eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return actionError("resume:setDefaultResume", error);
   revalidatePath("/resume");
   return { ok: true };
 }
@@ -79,7 +85,7 @@ export async function setDefaultResume(id: string): Promise<ActionResult> {
 export async function deleteResume(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("cns_resumes").delete().eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return actionError("resume:deleteResume", error);
   revalidatePath("/resume");
   return { ok: true };
 }
@@ -101,7 +107,7 @@ export async function toggleShare(
     .from("cns_resumes")
     .update({ public_token: token, updated_at: new Date().toISOString() })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return actionError("resume:toggleShare", error);
   revalidatePath(`/resume/${id}`);
   return { token };
 }
@@ -114,7 +120,7 @@ export async function reseedFromProfile(id: string): Promise<ActionResult> {
     .from("cns_resumes")
     .update({ content, updated_at: new Date().toISOString() })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return actionError("resume:reseedFromProfile", error);
   revalidatePath(`/resume/${id}`);
   return { ok: true };
 }

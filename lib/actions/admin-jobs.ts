@@ -5,6 +5,7 @@ import type { ActionResult } from "@/lib/actions/result";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { actionError, logError } from "@/lib/errors";
 
 /**
  * Staff review of employer organisations.
@@ -34,7 +35,7 @@ export async function reviewEmployer(
     .eq("id", employerId)
     .select("id,name,created_by");
 
-  if (error) return { error: error.message };
+  if (error) return actionError("admin-jobs:reviewEmployer", error);
   if (!data?.length) return { error: "Not permitted, or employer not found." };
 
   // Tell the person who registered. notification_type is free-form text with no
@@ -42,7 +43,7 @@ export async function reviewEmployer(
   // change to HUB. In-app only — CNS holds no email or push credentials.
   const employer = data[0];
   if (employer.created_by) {
-    await createAdminClient().from("notifications").insert({
+    const { error: notifyError } = await createAdminClient().from("notifications").insert({
       user_id: employer.created_by,
       notification_type: `cns_employer_${decision}`,
       message:
@@ -51,6 +52,7 @@ export async function reviewEmployer(
           : `${employer.name} was not approved.${note ? ` ${note}` : ""}`,
       reference_id: employer.id,
     });
+    if (notifyError) logError("admin-jobs:reviewEmployer:notify", notifyError, { employerId });
   }
 
   revalidatePath("/admin/employers");
@@ -81,11 +83,12 @@ export async function reviewJob(jobId: string, decision: JobDecision, reason?: s
     return { error: "A reason is required so the employer knows what to change." };
   }
 
-  const { data: job } = await supabase
+  const { data: job, error: jobError } = await supabase
     .from("cns_jobs")
     .select("id,title,employer_id,slug")
     .eq("id", jobId)
     .maybeSingle();
+  if (jobError) logError("admin-jobs:reviewJob:job", jobError, { jobId });
   if (!job) return { error: "Job not found" };
 
   const { data, error } = await supabase
@@ -101,25 +104,27 @@ export async function reviewJob(jobId: string, decision: JobDecision, reason?: s
     .eq("id", jobId)
     .select("id");
 
-  if (error) return { error: error.message };
+  if (error) return actionError("admin-jobs:reviewJob", error, undefined, { jobId });
   if (!data?.length) return { error: "Not permitted." };
 
   // Append-only, written through a definer function so it cannot be edited or
   // erased through the API — including by staff.
-  await supabase.rpc("cns_write_audit", {
+  const { error: auditError } = await supabase.rpc("cns_write_audit", {
     p_action: `job.${decision}`,
     p_target_type: "job",
     p_target_id: jobId,
     p_reason: reason ?? null,
     p_metadata: { title: job.title },
   });
+  if (auditError) logError("admin-jobs:reviewJob:audit", auditError, { jobId, decision });
 
   // Tell the employer's approved members what happened and why.
-  const { data: members } = await supabase
+  const { data: members, error: membersError } = await supabase
     .from("cns_employer_members")
     .select("user_id")
     .eq("employer_id", job.employer_id as string)
     .eq("status", "approved");
+  if (membersError) logError("admin-jobs:reviewJob:notifyMembers", membersError, { jobId });
 
   const message =
     decision === "active"
@@ -133,7 +138,7 @@ export async function reviewJob(jobId: string, decision: JobDecision, reason?: s
             : `"${job.title}" has been removed. ${reason}`;
 
   if (members?.length) {
-    await createAdminClient().from("notifications").insert(
+    const { error: notifyError } = await createAdminClient().from("notifications").insert(
       members.map((m) => ({
         user_id: m.user_id,
         notification_type: `cns_job_${decision}`,
@@ -141,6 +146,7 @@ export async function reviewJob(jobId: string, decision: JobDecision, reason?: s
         reference_id: jobId,
       }))
     );
+    if (notifyError) logError("admin-jobs:reviewJob:notify", notifyError, { jobId });
   }
 
   revalidatePath("/admin/jobs");
@@ -169,15 +175,16 @@ export async function resolveReport(
     .eq("id", reportId)
     .select("id");
 
-  if (error) return { error: error.message };
+  if (error) return actionError("admin-jobs:resolveReport", error, undefined, { reportId });
   if (!data?.length) return { error: "Not permitted." };
 
-  await supabase.rpc("cns_write_audit", {
+  const { error: auditError } = await supabase.rpc("cns_write_audit", {
     p_action: `report.${status}`,
     p_target_type: "report",
     p_target_id: reportId,
     p_reason: note ?? null,
   });
+  if (auditError) logError("admin-jobs:resolveReport:audit", auditError, { reportId, status });
 
   revalidatePath("/admin/reports");
   return { ok: true };

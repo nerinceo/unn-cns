@@ -20,6 +20,7 @@ Copied from `unn-platform` at commit **`e63d766`** (2026-09-20).
 | `lib/supabase/admin.ts` | `lib/supabase/admin.ts` | Service role. Server-only. |
 | `lib/users/columns.ts` | `lib/users/columns.ts` | The `public.users` column allowlist. Must match the grant in HUB migration 0024 *and* both sibling copies — a column named here but not granted errors the whole query with `42501`, which took CNS down when 0024 first ran. |
 | `lib/utils/cn.ts` | `lib/utils/cn.ts` | Never changes |
+| `lib/errors.ts` | `lib/errors.ts` | `GENERIC_ERROR`, `userMessage`, `logError`, `actionError`. Also mirrored in UHN. Drift changes what users are told when something fails, and whether it is logged. |
 | `components/ui/button.tsx` | same | |
 | `components/ui/input.tsx` | same | |
 | `components/ui/badge.tsx` | same | |

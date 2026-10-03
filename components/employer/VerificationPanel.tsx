@@ -12,6 +12,7 @@ import {
   getEmployerDocUrl,
   updateEmployerVerificationDetails,
 } from "@/lib/actions/employer-docs";
+import { settle } from "@/lib/utils/settle";
 
 export type VerificationState = {
   employerId: string;
@@ -49,7 +50,7 @@ export function VerificationPanel({ state }: { state: VerificationState }) {
     setError(null);
     setSaved(false);
     start(async () => {
-      const res = await fn();
+      const res = await settle(fn());
       if (res && "error" in res && res.error) setError(res.error);
       else {
         setSaved(true);
@@ -59,7 +60,7 @@ export function VerificationPanel({ state }: { state: VerificationState }) {
   }
 
   async function openDoc() {
-    const res = await getEmployerDocUrl(state.employerId);
+    const res = await settle(getEmployerDocUrl(state.employerId));
     if ("url" in res && res.url) window.open(res.url, "_blank", "noopener");
     else setError("error" in res ? res.error! : "Could not open that document.");
   }

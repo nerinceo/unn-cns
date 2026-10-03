@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/errors";
 
 /**
  * Notifying a member — in-app always, by email when CNS is allowed to send.
@@ -91,7 +92,7 @@ export async function notifyUsers(inputs: NotifyInput[]): Promise<void> {
   // 1. In-app. Never conditional on email working.
   for (const part of chunk(inputs, INSERT_CHUNK)) {
     try {
-      await admin.from("notifications").insert(
+      const { error: insertError } = await admin.from("notifications").insert(
         part.map((n) => ({
           user_id: n.userId,
           notification_type: n.type,
@@ -99,10 +100,12 @@ export async function notifyUsers(inputs: NotifyInput[]): Promise<void> {
           reference_id: n.referenceId ?? null,
         }))
       );
-    } catch {
+      if (insertError) logError("cns/notify:insert", insertError, { count: part.length });
+    } catch (err) {
       // A failed insert must not take down the action that triggered it — an
       // employer shortlisting someone should not see an error because the
       // notification table was briefly unavailable.
+      logError("cns/notify:insert", err, { count: part.length });
     }
   }
 
@@ -133,9 +136,10 @@ export async function notifyUsers(inputs: NotifyInput[]): Promise<void> {
     for (const batch of chunk(messages, RESEND_BATCH_MAX)) {
       await sendBatch(batch);
     }
-  } catch {
+  } catch (err) {
     // Same rule: delivery is best-effort, the in-app record is the source of
     // truth, and neither failure is worth surfacing to the person who acted.
+    logError("cns/notify:email", err);
   }
 }
 

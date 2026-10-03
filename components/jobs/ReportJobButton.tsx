@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Flag, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reportJob } from "@/lib/actions/jobs";
+import { settle } from "@/lib/utils/settle";
 
 /**
  * Safety notice and Report Job (blueprint §15).
@@ -75,7 +76,7 @@ export function ReportJobButton({ jobId, canReport }: { jobId: string; canReport
               onClick={() =>
                 start(async () => {
                   setError(null);
-                  const res = await reportJob(jobId, reason, detail.trim() || undefined);
+                  const res = await settle(reportJob(jobId, reason, detail.trim() || undefined));
                   if (res?.error) setError(res.error);
                   else setDone(true);
                 })

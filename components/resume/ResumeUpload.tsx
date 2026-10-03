@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Upload, FileText, Trash2, Download, Loader2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadResume, deleteResumeFile, getResumeDownloadUrl } from "@/lib/actions/resume-files";
+import { settle } from "@/lib/utils/settle";
 
 export type ResumeFile = {
   id: string;
@@ -31,7 +32,7 @@ export function ResumeUpload({ current }: { current: ResumeFile | null }) {
     const form = new FormData();
     form.append("file", file);
     start(async () => {
-      const res = await uploadResume(form);
+      const res = await settle(uploadResume(form));
       if (res?.error) setError(res.error);
       else router.refresh();
       if (input.current) input.current.value = "";
@@ -39,7 +40,7 @@ export function ResumeUpload({ current }: { current: ResumeFile | null }) {
   }
 
   async function download(id: string) {
-    const res = await getResumeDownloadUrl(id);
+    const res = await settle(getResumeDownloadUrl(id));
     if ("url" in res && res.url) window.open(res.url, "_blank", "noopener");
     else setError("error" in res ? res.error! : "Could not open that file.");
   }
@@ -70,7 +71,7 @@ export function ResumeUpload({ current }: { current: ResumeFile | null }) {
             disabled={pending}
             onClick={() =>
               start(async () => {
-                const res = await deleteResumeFile(current.id);
+                const res = await settle(deleteResumeFile(current.id));
                 if (res?.error) setError(res.error);
                 else router.refresh();
               })

@@ -25,6 +25,7 @@ import {
   saveLectureProgress,
   setLectureComplete,
 } from "@/lib/actions/lms-learn";
+import { settle } from "@/lib/utils/settle";
 import { formatDuration } from "@/lib/lms";
 import type { PlayerData, PlayerLecture } from "@/lib/cns/lms";
 
@@ -130,7 +131,7 @@ export function CoursePlayer({
     setVideoError(null);
     setLoadingVideo(true);
 
-    getPartPlayback(partId).then((result) => {
+    settle(getPartPlayback(partId)).then((result) => {
       if (cancelled) return;
       setLoadingVideo(false);
       if ("error" in result) setVideoError(result.error);
@@ -192,7 +193,7 @@ export function CoursePlayer({
       if (!lecture || !data.enrolled) return;
       setMarking(true);
       setCompleted(value);
-      const result = await setLectureComplete(lecture.id, value);
+      const result = await settle(setLectureComplete(lecture.id, value));
       setMarking(false);
       if (result.error) setCompleted(!value);
       else router.refresh();
@@ -576,7 +577,7 @@ function ResourceLink({ id, name }: { id: string; name: string }) {
         onClick={async () => {
           setBusy(true);
           setError(null);
-          const result = await getResourceDownloadUrl(id);
+          const result = await settle(getResourceDownloadUrl(id));
           setBusy(false);
           if ("error" in result) setError(result.error);
           else window.location.href = result.url;

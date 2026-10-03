@@ -8,6 +8,7 @@ import { checkLimit } from "@/lib/ratelimit";
 import { getJobLabels } from "@/lib/cns/taxonomy";
 import { notifyUser, notifyUsers } from "@/lib/cns/notify";
 import { getApplicationResumeTarget } from "@/lib/cns/application-resume-access";
+import { actionError, logError, userMessage } from "@/lib/errors";
 
 function slugify(s: string) {
   return s
@@ -39,17 +40,18 @@ export async function registerEmployer(input: {
     .insert({ ...input, slug, created_by: user.id, status: "pending" })
     .select("id")
     .single();
-  if (error) return { error: error.message };
+  if (error) return actionError("jobs:registerEmployer", error);
 
   // The registrant becomes an approved OWNER immediately. The gate that matters
   // is the employer's own status: 'pending' blocks publishing until staff
   // approve, so nothing reaches the public board regardless.
-  await supabase.from("cns_employer_members").insert({
+  const { error: ownerError } = await supabase.from("cns_employer_members").insert({
     employer_id: data.id,
     user_id: user.id,
     role: "owner",
     status: "approved",
   });
+  if (ownerError) logError("jobs:registerEmployer:owner", ownerError, { employerId: data.id });
 
   revalidatePath("/employer");
   return { id: data.id as string };
@@ -95,7 +97,7 @@ function friendlyJobError(error: { message: string; code?: string }): string {
   if (/violates check constraint|invalid input value/.test(m)) {
     return "Some of those details were not accepted. Please review the highlighted fields.";
   }
-  return m;
+  return userMessage(error);
 }
 
 export async function saveJob(
@@ -126,7 +128,10 @@ export async function saveJob(
 
   if (jobId) {
     const { error } = await supabase.from("cns_jobs").update(payload).eq("id", jobId);
-    if (error) return { error: friendlyJobError(error) };
+    if (error) {
+      logError("jobs:saveJob:update", error, { jobId });
+      return { error: friendlyJobError(error) };
+    }
     revalidatePath(`/employer/${employerId}`);
     return { id: jobId };
   }
@@ -141,7 +146,10 @@ export async function saveJob(
     })
     .select("id")
     .single();
-  if (error) return { error: friendlyJobError(error) };
+  if (error) {
+    logError("jobs:saveJob:insert", error, { employerId });
+    return { error: friendlyJobError(error) };
+  }
   revalidatePath(`/employer/${employerId}`);
   return { id: data.id as string };
 }
@@ -160,11 +168,12 @@ export async function saveJob(
 export async function submitJobForReview(jobId: string): Promise<ActionResult> {
   const supabase = await createClient();
 
-  const { data: job } = await supabase
+  const { data: job, error: jobError } = await supabase
     .from("cns_jobs")
     .select("title,description,country,nursing_role,work_setting,application_deadline,employer_id")
     .eq("id", jobId)
     .maybeSingle();
+  if (jobError) logError("jobs:submitJobForReview:job", jobError, { jobId });
   if (!job) return { error: "Job not found" };
 
   const missing: string[] = [];
@@ -179,11 +188,12 @@ export async function submitJobForReview(jobId: string): Promise<ActionResult> {
   if (!job.application_deadline) missing.push("an application deadline");
   if (missing.length) return { error: `Add ${missing.join(", ")} before submitting.` };
 
-  const { data: employer } = await supabase
+  const { data: employer, error: employerError } = await supabase
     .from("cns_employers")
     .select("status")
     .eq("id", job.employer_id as string)
     .maybeSingle();
+  if (employerError) logError("jobs:submitJobForReview:employer", employerError, { jobId });
   if (employer?.status !== "approved")
     return { error: "Your organisation is still awaiting approval." };
 
@@ -191,7 +201,7 @@ export async function submitJobForReview(jobId: string): Promise<ActionResult> {
     .from("cns_jobs")
     .update({ status: "submitted", updated_at: new Date().toISOString() })
     .eq("id", jobId);
-  if (error) return { error: error.message };
+  if (error) return actionError("jobs:submitJobForReview", error);
 
   revalidatePath(`/employer/${job.employer_id}/jobs`);
   revalidatePath("/admin/jobs");
@@ -209,7 +219,7 @@ export async function setJobLifecycle(jobId: string, next: "paused" | "active" |
     .update({ status: next, updated_at: new Date().toISOString() })
     .eq("id", jobId)
     .in("status", next === "active" ? ["paused"] : ["active", "paused"]);
-  if (error) return { error: error.message };
+  if (error) return actionError("jobs:setJobLifecycle", error);
 
   revalidatePath("/jobs");
   return { ok: true };
@@ -324,17 +334,16 @@ type ApplyInput = {
  *
  * So: catch everything, log it (this is what puts a readable message in the
  * runtime log instead of an opaque digest), and hand the applicant a sentence
- * plus a working page. Returning the message is deliberate — a stuck applicant
- * who can tell you what it said is worth far more than a hidden internal that
- * only shows up as a silent drop in the funnel.
+ * plus a working page. The sentence comes from userMessage(): a known failure
+ * (timeout, network, permission) is named, but raw database text is not shown
+ * — the full detail is in the log line, tagged "jobs:applyToJob".
  */
 export async function applyToJob(jobId: string, input: ApplyInput): Promise<ActionResult> {
   try {
     return await applyToJobImpl(jobId, input);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[applyToJob] unhandled failure", { jobId, message, err });
-    return { error: `Could not submit your application: ${message}` };
+    logError("jobs:applyToJob", err, { jobId });
+    return { error: `Could not submit your application: ${userMessage(err)}` };
   }
 }
 
@@ -358,11 +367,12 @@ async function applyToJobImpl(
 
   // Only a live job accepts applications (§12.2). RLS enforces this too; the
   // check here exists to return a sentence rather than a constraint error.
-  const { data: job } = await supabase
+  const { data: job, error: jobError } = await supabase
     .from("cns_jobs")
     .select("id,status,application_deadline,title,employer_id")
     .eq("id", jobId)
     .maybeSingle();
+  if (jobError) logError("jobs:applyToJob:job", jobError, { jobId });
   if (!job) return { error: "Job not found" };
   if (job.status !== "active") return { error: "This role is no longer accepting applications." };
   if (job.application_deadline && new Date(job.application_deadline as string) < new Date()) {
@@ -370,10 +380,11 @@ async function applyToJobImpl(
   }
 
   // Required screening questions must actually be answered.
-  const { data: questions } = await supabase
+  const { data: questions, error: questionsError } = await supabase
     .from("cns_job_screening_questions")
     .select("id,question,is_required")
     .eq("job_id", jobId);
+  if (questionsError) logError("jobs:applyToJob:questions", questionsError, { jobId });
 
   const answered = new Map((input.answers ?? []).map((a) => [a.questionId, a.answer?.trim() ?? ""]));
   const unanswered = (questions ?? []).filter(
@@ -388,21 +399,23 @@ async function applyToJobImpl(
   // references, so an unchecked id here let an applicant attach — and an
   // employer then download — another member's CV.
   if (input.resumeFileId) {
-    const { data: own } = await supabase
+    const { data: own, error: ownError } = await supabase
       .from("cns_resume_files")
       .select("id")
       .eq("id", input.resumeFileId)
       .eq("user_id", user.id)
       .maybeSingle();
+    if (ownError) logError("jobs:applyToJob:resumeFile", ownError, { jobId });
     if (!own) return { error: "Please attach one of your own CVs." };
   }
   if (input.resumeId) {
-    const { data: own } = await supabase
+    const { data: own, error: ownError } = await supabase
       .from("cns_resumes")
       .select("id")
       .eq("id", input.resumeId)
       .eq("user_id", user.id)
       .maybeSingle();
+    if (ownError) logError("jobs:applyToJob:resume", ownError, { jobId });
     if (!own) return { error: "Please attach one of your own CVs." };
   }
 
@@ -427,14 +440,14 @@ async function applyToJobImpl(
     // The unique (job_id, applicant_id) constraint is the real guard against
     // double-apply; surface it as a message rather than a database error.
     if (error.code === "23505") return { error: "You have already applied to this job." };
-    return { error: error.message };
+    return actionError("jobs:applyToJob:insert", error, undefined, { jobId });
   }
 
   // Answers carry the question TEXT, not just its id: an employer editing a
   // question later must not change what the candidate appears to have been
   // asked.
   if (input.answers?.length) {
-    await supabase.from("cns_application_answers").insert(
+    const { error: answersError } = await supabase.from("cns_application_answers").insert(
       input.answers.map((a) => ({
         application_id: created.id,
         question_id: a.questionId,
@@ -442,21 +455,28 @@ async function applyToJobImpl(
         answer: a.answer,
       }))
     );
+    if (answersError) {
+      logError("jobs:applyToJob:answers", answersError, { jobId, applicationId: created.id });
+    }
   }
 
-  await supabase.from("cns_application_status_history").insert({
+  const { error: historyError } = await supabase.from("cns_application_status_history").insert({
     application_id: created.id,
     status: "applied",
     actor_id: user.id,
   });
+  if (historyError) {
+    logError("jobs:applyToJob:history", historyError, { applicationId: created.id });
+  }
 
   // Tell the employer. In-app always; by email too once CNS holds a Resend
   // key, which is the switch that also turns on applicant status emails.
-  const { data: members } = await supabase
+  const { data: members, error: membersError } = await supabase
     .from("cns_employer_members")
     .select("user_id")
     .eq("employer_id", job.employer_id as string)
     .eq("status", "approved");
+  if (membersError) logError("jobs:applyToJob:notifyMembers", membersError, { jobId });
   if (members?.length) {
     await notifyUsers(
       members.map((m) => ({
@@ -503,7 +523,7 @@ export async function withdrawApplication(applicationId: string): Promise<Action
   const { error } = await supabase.rpc("cns_withdraw_application", {
     p_application_id: applicationId,
   });
-  if (error) return { error: error.message };
+  if (error) return actionError("jobs:withdrawApplication", error);
   revalidatePath("/jobs/applications");
   return { ok: true };
 }
@@ -545,15 +565,16 @@ export async function setApplicationStatus(applicationId: string, status: string
     p_status: status,
     p_note: note ?? null,
   });
-  if (error) return { error: error.message };
+  if (error) return actionError("jobs:setApplicationStatus", error);
 
   // Tell the applicant. Silence here is the worst part of applying for jobs,
   // and a status the candidate never sees is the same as no status at all.
-  const { data: app } = await supabase
+  const { data: app, error: appError } = await supabase
     .from("cns_job_applications")
     .select("applicant_id,job_id")
     .eq("id", applicationId)
     .maybeSingle();
+  if (appError) logError("jobs:setApplicationStatus:notify", appError, { applicationId });
 
   if (app?.applicant_id && APPLICANT_MESSAGE[status]) {
     const { data: job } = await supabase
@@ -596,9 +617,15 @@ export async function toggleSaveJob(jobId: string, save: boolean): Promise<Actio
   const supabase = await createClient();
 
   if (save) {
-    await supabase.from("cns_job_saves").insert({ user_id: user.id, job_id: jobId });
+    const { error: saveError } = await supabase.from("cns_job_saves").insert({ user_id: user.id, job_id: jobId });
+    if (saveError) logError("jobs:toggleSaveJob:save", saveError, { jobId });
   } else {
-    await supabase.from("cns_job_saves").delete().eq("user_id", user.id).eq("job_id", jobId);
+    const { error: unsaveError } = await supabase
+      .from("cns_job_saves")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("job_id", jobId);
+    if (unsaveError) logError("jobs:toggleSaveJob:unsave", unsaveError, { jobId });
   }
   revalidatePath("/jobs");
   return { ok: true };
@@ -656,26 +683,29 @@ export async function setScreeningQuestions(
   // Delete-then-insert is two statements, not a transaction. Keep what is
   // there now so a failed insert puts it back instead of leaving the job with
   // no questions at all.
-  const { data: previous } = await supabase
+  const { data: previous, error: prevError } = await supabase
     .from("cns_job_screening_questions")
     .select("job_id,question,question_type,is_required,knockout_expected,knockout_min,position")
     .eq("job_id", jobId);
+  if (prevError) logError("jobs:setScreeningQuestions:read", prevError, { jobId });
 
   const { error: delError } = await supabase
     .from("cns_job_screening_questions")
     .delete()
     .eq("job_id", jobId);
-  if (delError) return { error: delError.message };
+  if (delError) return actionError("jobs:setScreeningQuestions:delete", delError, undefined, { jobId });
 
   if (clean.length) {
     const { error } = await supabase.from("cns_job_screening_questions").insert(
       clean.map((q, i) => ({ ...q, job_id: jobId, position: i }))
     );
     if (error) {
+      logError("jobs:setScreeningQuestions:insert", error, { jobId });
       if (previous?.length) {
-        await supabase.from("cns_job_screening_questions").insert(previous);
+        const { error: restoreError } = await supabase.from("cns_job_screening_questions").insert(previous);
+        if (restoreError) logError("jobs:setScreeningQuestions:restore", restoreError, { jobId });
       }
-      return { error: `Your questions were not saved: ${error.message}` };
+      return { error: `Your questions were not saved: ${userMessage(error)}` };
     }
   }
 
@@ -704,7 +734,7 @@ export async function reportJob(
     reason,
     detail: detail ?? null,
   });
-  if (error) return { error: error.message };
+  if (error) return actionError("jobs:reportJob", error);
   return { ok: true };
 }
 

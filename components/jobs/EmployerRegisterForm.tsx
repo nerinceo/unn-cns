@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { registerEmployer } from "@/lib/actions/jobs";
+import { settle } from "@/lib/utils/settle";
 
 const TYPES = [
   { v: "hospital", l: "Hospital" },
@@ -38,7 +39,7 @@ export function EmployerRegisterForm() {
         e.preventDefault();
         setError(null);
         start(async () => {
-          const res = await registerEmployer(f);
+          const res = await settle(registerEmployer(f));
           if ("error" in res && res.error) setError(res.error);
           else if ("id" in res) router.push(`/employer/${res.id}`);
         });

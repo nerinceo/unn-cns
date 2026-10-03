@@ -30,6 +30,7 @@ import {
   deleteLectureResource,
   type CourseForEdit,
 } from "@/lib/actions/lms-courses";
+import { settle } from "@/lib/utils/settle";
 import { formatDuration } from "@/lib/lms";
 
 const RichTextEditor = dynamic(
@@ -121,7 +122,7 @@ function Resources({ lecture, onError }: { lecture: Lecture; onError: (m: string
     // small, and the server path needs no bucket CORS.
     const body = new FormData();
     body.set("file", file);
-    const result = await addLectureResource(lecture.id, body);
+    const result = await settle(addLectureResource(lecture.id, body));
     setBusy(false);
     if (result.error) onError(result.error);
     else router.refresh();
@@ -224,7 +225,7 @@ function LectureRow({
             onBlur={() => {
               if (title.trim() && title !== lecture.title) {
                 start(async () => {
-                  const result = await updateLecture(lecture.id, { title });
+                  const result = await settle(updateLecture(lecture.id, { title }));
                   if (result.error) onError(result.error);
                   router.refresh();
                 });
@@ -290,7 +291,7 @@ function LectureRow({
               type="button"
               aria-label="Delete lecture"
               onClick={async () => {
-                const result = await deleteLecture(lecture.id);
+                const result = await settle(deleteLecture(lecture.id));
                 if (result.error) onError(result.error);
                 router.refresh();
               }}
@@ -324,7 +325,7 @@ export function CurriculumStep({ course }: { course: CourseForEdit }) {
   function run(action: () => Promise<{ error?: string }>) {
     setError(null);
     start(async () => {
-      const result = await action();
+      const result = await settle(action());
       if (result?.error) {
         setError(result.error);
         return;

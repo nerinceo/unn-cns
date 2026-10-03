@@ -25,6 +25,7 @@ import {
   deleteCourse,
   type CourseForEdit,
 } from "@/lib/actions/lms-courses";
+import { settle } from "@/lib/utils/settle";
 import { courseReadiness } from "@/lib/lms";
 
 const STEPS = [
@@ -94,7 +95,7 @@ export function CourseBuilder({ course }: { course: CourseForEdit }) {
   function run(action: () => Promise<{ error?: string }>, after?: () => void) {
     setError(null);
     start(async () => {
-      const result = await action();
+      const result = await settle(action());
       if (result?.error) {
         setError(result.error);
         return;

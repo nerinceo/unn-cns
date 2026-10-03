@@ -38,6 +38,7 @@ import {
   MIN_LEARNING_OUTCOMES,
 } from "@/lib/lms";
 import type { LmsCourse, LmsLecture, LmsLectureKind, LmsSection } from "@/lib/cns/lms";
+import { actionError, logError } from "@/lib/errors";
 
 /**
  * UNN Learn — course authoring (instructor side, CNS).
@@ -87,21 +88,23 @@ async function ownedCourse(courseId: string): Promise<OwnedCourse | { error: str
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in" };
 
-  const { data: instructor } = await supabase
+  const { data: instructor, error: instructorError } = await supabase
     .from("lms_instructors")
     .select("id, status")
     .eq("user_id", user.id)
     .maybeSingle();
+  if (instructorError) logError("lms-courses:ownedCourse:instructor", instructorError);
   if (!instructor) return { error: "You are not registered as an instructor." };
   if (instructor.status !== "approved")
     return { error: "Your instructor account is not approved yet." };
 
-  const { data: course } = await supabase
+  const { data: course, error: courseError } = await supabase
     .from("lms_courses")
     .select("*")
     .eq("id", courseId)
     .eq("instructor_id", instructor.id)
     .maybeSingle();
+  if (courseError) logError("lms-courses:ownedCourse:course", courseError, { courseId });
   if (!course) return { error: "Course not found." };
 
   return {
@@ -116,11 +119,12 @@ async function ownedLecture(
   lectureId: string,
 ): Promise<(OwnedCourse & { lecture: LmsLecture }) | { error: string }> {
   const supabase = await createClient();
-  const { data: lecture } = await supabase
+  const { data: lecture, error: lectureError } = await supabase
     .from("lms_lectures")
     .select("*")
     .eq("id", lectureId)
     .maybeSingle();
+  if (lectureError) logError("lms-courses:ownedLecture", lectureError, { lectureId });
   if (!lecture) return { error: "Lecture not found." };
 
   const owned = await ownedCourse(lecture.course_id as string);
@@ -158,13 +162,14 @@ export async function getCourseForEdit(courseId: string): Promise<CourseForEdit 
   const owned = await ownedCourse(courseId);
   if ("error" in owned) return null;
 
-  const { data: sectionRows } = await owned.supabase
+  const { data: sectionRows, error: sectionsError } = await owned.supabase
     .from("lms_sections")
     .select(
       "id, course_id, title, position, lectures:lms_lectures(*, parts:lms_lecture_parts(id, title, position, duration_s, video_status, video_error, video_key), resources:lms_lecture_resources(id, file_name, file_size))",
     )
     .eq("course_id", courseId)
     .order("position");
+  if (sectionsError) logError("lms-courses:getCourseForEdit", sectionsError, { courseId });
 
   const sections = ((sectionRows ?? []) as unknown as EditSection[]).map((s) => ({
     ...s,
@@ -192,11 +197,12 @@ export async function createCourse(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in" };
 
-  const { data: instructor } = await supabase
+  const { data: instructor, error: instructorError } = await supabase
     .from("lms_instructors")
     .select("id, status")
     .eq("user_id", user.id)
     .maybeSingle();
+  if (instructorError) logError("lms-courses:createCourse:instructor", instructorError);
   if (instructor?.status !== "approved")
     return { error: "Your instructor account is not approved yet." };
 
@@ -218,7 +224,8 @@ export async function createCourse(
     })
     .select("id")
     .single();
-  if (error || !data) return { error: error?.message ?? "Could not create the course." };
+  if (error) return actionError("lms-courses:createCourse", error);
+  if (!data) return { error: "Could not create the course." };
 
   revalidatePath("/instructor");
   return { ok: true, id: data.id as string };
@@ -265,7 +272,7 @@ export async function updateCourseLanding(
       updated_at: now(),
     })
     .eq("id", courseId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:updateCourseLanding", error);
 
   revalidateCourse(courseId);
   return { ok: true };
@@ -320,15 +327,21 @@ export async function updateCoursePricing(
       updated_at: now(),
     })
     .eq("id", courseId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:updateCoursePricing", error);
 
   // Keep a live listing in step. Only price fields — the listing's own status
   // and approval state belong to HUB and must not be reset from here.
   if (owned.course.listing_id) {
-    await createAdminClient()
+    const { error: listingError } = await createAdminClient()
       .from("marketplace_listings")
       .update({ price, sale_price: salePrice })
       .eq("id", owned.course.listing_id);
+    if (listingError) {
+      logError("lms-courses:updateCoursePricing:listing", listingError, {
+        courseId,
+        listingId: owned.course.listing_id,
+      });
+    }
   }
 
   revalidateCourse(courseId);
@@ -345,20 +358,21 @@ export async function addSection(courseId: string, title: string): Promise<Actio
   if (!clean) return { error: "Give the module a title." };
   if (clean.length > 100) return { error: "Keep the module title under 100 characters." };
 
-  const { data: last } = await owned.supabase
+  const { data: last, error: lastError } = await owned.supabase
     .from("lms_sections")
     .select("position")
     .eq("course_id", courseId)
     .order("position", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (lastError) logError("lms-courses:addSection:position", lastError, { courseId });
 
   const { error } = await owned.supabase.from("lms_sections").insert({
     course_id: courseId,
     title: clean,
     position: (last?.position ?? -1) + 1,
   });
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:addSection", error);
 
   revalidateCourse(courseId);
   return { ok: true };
@@ -366,11 +380,12 @@ export async function addSection(courseId: string, title: string): Promise<Actio
 
 export async function renameSection(sectionId: string, title: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const { data: section } = await supabase
+  const { data: section, error: sectionError } = await supabase
     .from("lms_sections")
     .select("id, course_id")
     .eq("id", sectionId)
     .maybeSingle();
+  if (sectionError) logError("lms-courses:renameSection:read", sectionError, { sectionId });
   if (!section) return { error: "Module not found." };
 
   const owned = await ownedCourse(section.course_id as string);
@@ -383,7 +398,7 @@ export async function renameSection(sectionId: string, title: string): Promise<A
     .from("lms_sections")
     .update({ title: clean })
     .eq("id", sectionId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:renameSection", error);
 
   revalidateCourse(section.course_id as string);
   return { ok: true };
@@ -396,11 +411,12 @@ export async function renameSection(sectionId: string, title: string): Promise<A
  */
 export async function deleteSection(sectionId: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const { data: section } = await supabase
+  const { data: section, error: sectionError } = await supabase
     .from("lms_sections")
     .select("id, course_id")
     .eq("id", sectionId)
     .maybeSingle();
+  if (sectionError) logError("lms-courses:deleteSection:read", sectionError, { sectionId });
   if (!section) return { error: "Module not found." };
 
   const owned = await ownedCourse(section.course_id as string);
@@ -408,18 +424,19 @@ export async function deleteSection(sectionId: string): Promise<ActionResult> {
   if (owned.course.enrollment_count > 0)
     return { error: "Learners are enrolled, so modules can't be deleted. Unpublish first." };
 
-  const { data: parts } = await owned.supabase
+  const { data: parts, error: partsError } = await owned.supabase
     .from("lms_lecture_parts")
     .select("video_key")
     .in("lecture_id", (
       await owned.supabase.from("lms_lectures").select("id").eq("section_id", sectionId)
     ).data?.map((l) => l.id) ?? []);
+  if (partsError) logError("lms-courses:deleteSection:videos", partsError, { sectionId });
   for (const p of parts ?? []) {
     if (p.video_key) await deleteVideoObject(p.video_key);
   }
 
   const { error } = await owned.supabase.from("lms_sections").delete().eq("id", sectionId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:deleteSection", error);
 
   revalidateCourse(section.course_id as string);
   return { ok: true };
@@ -438,7 +455,7 @@ export async function reorderSections(
       .update({ position: i })
       .eq("id", orderedIds[i])
       .eq("course_id", courseId);
-    if (error) return { error: error.message };
+    if (error) return actionError("lms-courses:reorderSections", error);
   }
 
   revalidateCourse(courseId);
@@ -460,11 +477,12 @@ export async function addLecture(
     return { error: "Quizzes are coming soon — add a video or article for now." };
 
   const supabase = await createClient();
-  const { data: section } = await supabase
+  const { data: section, error: sectionError } = await supabase
     .from("lms_sections")
     .select("id, course_id")
     .eq("id", sectionId)
     .maybeSingle();
+  if (sectionError) logError("lms-courses:addLecture:section", sectionError, { sectionId });
   if (!section) return { error: "Module not found." };
 
   const owned = await ownedCourse(section.course_id as string);
@@ -476,13 +494,14 @@ export async function addLecture(
 
   // Positions are course-wide so the player can walk the curriculum in one
   // ordered pass without re-sorting across modules.
-  const { data: last } = await owned.supabase
+  const { data: last, error: lastError } = await owned.supabase
     .from("lms_lectures")
     .select("position")
     .eq("course_id", section.course_id)
     .order("position", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (lastError) logError("lms-courses:addLecture:position", lastError, { sectionId });
 
   const { data, error } = await owned.supabase
     .from("lms_lectures")
@@ -495,7 +514,8 @@ export async function addLecture(
     })
     .select("id")
     .single();
-  if (error || !data) return { error: error?.message ?? "Could not add the lecture." };
+  if (error) return actionError("lms-courses:addLecture", error);
+  if (!data) return { error: "Could not add the lecture." };
 
   revalidateCourse(section.course_id as string);
   return { ok: true, id: data.id as string };
@@ -524,7 +544,7 @@ export async function updateLecture(
     .from("lms_lectures")
     .update(update)
     .eq("id", lectureId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:updateLecture", error);
 
   revalidateCourse(owned.course.id);
   return { ok: true };
@@ -536,16 +556,17 @@ export async function deleteLecture(lectureId: string): Promise<ActionResult> {
   if (owned.course.enrollment_count > 0)
     return { error: "Learners are enrolled, so lectures can't be deleted. Unpublish first." };
 
-  const { data: parts } = await owned.supabase
+  const { data: parts, error: partsError } = await owned.supabase
     .from("lms_lecture_parts")
     .select("video_key")
     .eq("lecture_id", lectureId);
+  if (partsError) logError("lms-courses:deleteLecture:videos", partsError, { lectureId });
   for (const p of parts ?? []) {
     if (p.video_key) await deleteVideoObject(p.video_key as string);
   }
 
   const { error } = await owned.supabase.from("lms_lectures").delete().eq("id", lectureId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:deleteLecture", error);
 
   revalidateCourse(owned.course.id);
   return { ok: true };
@@ -570,7 +591,7 @@ export async function reorderLectures(
       .update({ section_id: m.sectionId, position: m.position, updated_at: now() })
       .eq("id", m.id)
       .eq("course_id", courseId);
-    if (error) return { error: error.message };
+    if (error) return actionError("lms-courses:reorderLectures", error);
   }
 
   revalidateCourse(courseId);
@@ -594,11 +615,12 @@ async function ownedPart(
   | { error: string }
 > {
   const supabase = await createClient();
-  const { data: part } = await supabase
+  const { data: part, error: partError } = await supabase
     .from("lms_lecture_parts")
     .select("id, lecture_id, course_id, video_key")
     .eq("id", partId)
     .maybeSingle();
+  if (partError) logError("lms-courses:ownedPart", partError, { partId });
   if (!part) return { error: "Video not found." };
 
   const owned = await ownedCourse(part.course_id as string);
@@ -654,17 +676,19 @@ export async function createLectureVideoUpload(
       `That video is too large. The limit is ${Math.round(VIDEO_MAX_BYTES / 1024 ** 3)}GB.`,
     );
 
-  const { data: instructor } = await owned.supabase
+  const { data: instructor, error: quotaError } = await owned.supabase
     .from("lms_instructors")
     .select("upload_quota_minutes")
     .eq("id", owned.instructorId)
     .maybeSingle();
+  if (quotaError) logError("lms-courses:createLectureVideoUpload:quota", quotaError, { lectureId });
   const quotaMinutes = instructor?.upload_quota_minutes ?? 1200;
 
-  const { data: courses } = await owned.supabase
+  const { data: courses, error: usageError } = await owned.supabase
     .from("lms_courses")
     .select("total_duration_s")
     .eq("instructor_id", owned.instructorId);
+  if (usageError) logError("lms-courses:createLectureVideoUpload:usage", usageError, { lectureId });
   const usedMinutes = Math.round(
     (courses ?? []).reduce((n, c) => n + (c.total_duration_s ?? 0), 0) / 60,
   );
@@ -673,13 +697,14 @@ export async function createLectureVideoUpload(
       `You've used your ${Math.round(quotaMinutes / 60)}h upload allowance. Contact support to raise it.`,
     );
 
-  const { data: last } = await owned.supabase
+  const { data: last, error: lastError } = await owned.supabase
     .from("lms_lecture_parts")
     .select("position")
     .eq("lecture_id", lectureId)
     .order("position", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (lastError) logError("lms-courses:createLectureVideoUpload:position", lastError, { lectureId });
 
   const { data: part, error } = await owned.supabase
     .from("lms_lecture_parts")
@@ -691,7 +716,8 @@ export async function createLectureVideoUpload(
     })
     .select("id")
     .single();
-  if (error || !part) return fail(error?.message ?? "Could not start the upload.");
+  if (error) return fail(actionError("lms-courses:createLectureVideoUpload", error).error);
+  if (!part) return fail("Could not start the upload.");
 
   const key = makeVideoKey(owned.course.id, file.fileName);
   const uploadUrl = await presignVideoUpload(key, file.fileType);
@@ -731,7 +757,7 @@ export async function confirmLectureVideo(
       updated_at: now(),
     })
     .eq("id", partId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:confirmLectureVideo", error);
 
   // Replacing a video should not leave the old object paying rent.
   if (previous && previous !== info.key) await deleteVideoObject(previous);
@@ -745,7 +771,7 @@ export async function failLectureVideo(partId: string, message: string): Promise
   const owned = await ownedPart(partId);
   if ("error" in owned) return owned;
 
-  await owned.supabase
+  const { error: markError } = await owned.supabase
     .from("lms_lecture_parts")
     .update({
       video_status: owned.part.video_key ? "ready" : "error",
@@ -753,6 +779,7 @@ export async function failLectureVideo(partId: string, message: string): Promise
       updated_at: now(),
     })
     .eq("id", partId);
+  if (markError) logError("lms-courses:failLectureVideo", markError, { partId });
 
   revalidateCourse(owned.course.id);
   return { ok: true };
@@ -767,7 +794,7 @@ export async function renameLecturePart(partId: string, title: string): Promise<
     .from("lms_lecture_parts")
     .update({ title: title.trim().slice(0, 120) || null, updated_at: now() })
     .eq("id", partId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:renameLecturePart", error);
 
   revalidateCourse(owned.course.id);
   return { ok: true };
@@ -782,7 +809,7 @@ export async function deleteLecturePart(partId: string): Promise<ActionResult> {
   if (owned.part.video_key) await deleteVideoObject(owned.part.video_key);
 
   const { error } = await owned.supabase.from("lms_lecture_parts").delete().eq("id", partId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:deleteLecturePart", error);
 
   revalidateCourse(owned.course.id);
   return { ok: true };
@@ -802,7 +829,7 @@ export async function reorderLectureParts(
       .update({ position: i, updated_at: now() })
       .eq("id", orderedIds[i])
       .eq("lecture_id", lectureId);
-    if (error) return { error: error.message };
+    if (error) return actionError("lms-courses:reorderLectureParts", error);
   }
 
   revalidateCourse(owned.course.id);
@@ -852,7 +879,7 @@ export async function addLectureResource(
     file_name: file.name.slice(0, 200),
     file_size: file.size,
   });
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:addLectureResource", error);
 
   revalidateCourse(owned.course.id);
   return { ok: true };
@@ -860,11 +887,12 @@ export async function addLectureResource(
 
 export async function deleteLectureResource(resourceId: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const { data: resource } = await supabase
+  const { data: resource, error: resourceError } = await supabase
     .from("lms_lecture_resources")
     .select("id, course_id")
     .eq("id", resourceId)
     .maybeSingle();
+  if (resourceError) logError("lms-courses:deleteLectureResource:read", resourceError, { resourceId });
   if (!resource) return { error: "Resource not found." };
 
   const owned = await ownedCourse(resource.course_id as string);
@@ -874,7 +902,7 @@ export async function deleteLectureResource(resourceId: string): Promise<ActionR
     .from("lms_lecture_resources")
     .delete()
     .eq("id", resourceId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:deleteLectureResource", error);
 
   revalidateCourse(resource.course_id as string);
   return { ok: true };
@@ -894,10 +922,11 @@ export async function submitCourseForReview(courseId: string): Promise<ActionRes
   if (owned.course.status === "pending") return { error: "This course is already in review." };
   if (owned.course.status === "approved") return { error: "This course is already live." };
 
-  const { data: lectures } = await owned.supabase
+  const { data: lectures, error: lecturesError } = await owned.supabase
     .from("lms_lectures")
     .select("kind, is_preview, video_status")
     .eq("course_id", courseId);
+  if (lecturesError) logError("lms-courses:submitCourseForReview:lectures", lecturesError, { courseId });
 
   const { items, ready } = courseReadiness(owned.course, lectures ?? []);
   if (!ready) {
@@ -911,18 +940,19 @@ export async function submitCourseForReview(courseId: string): Promise<ActionRes
     .from("lms_courses")
     .update({ status: "pending", updated_at: now() })
     .eq("id", courseId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:submitCourseForReview", error);
 
   // Tell HUB staff there is something in the queue. Best-effort: a failed
   // notification must not lose the submission.
   try {
     const admin = createAdminClient();
-    const { data: staff } = await admin
+    const { data: staff, error: staffError } = await admin
       .from("users")
       .select("id")
       .in("role", ["platform_admin", "platform_moderator"]);
+    if (staffError) logError("lms-courses:submitCourseForReview:staff", staffError, { courseId });
     if (staff?.length) {
-      await admin.from("notifications").insert(
+      const { error: notifyError } = await admin.from("notifications").insert(
         staff.map((s) => ({
           user_id: s.id,
           notification_type: "course_submitted",
@@ -930,9 +960,10 @@ export async function submitCourseForReview(courseId: string): Promise<ActionRes
           reference_id: courseId,
         })),
       );
+      if (notifyError) logError("lms-courses:submitCourseForReview:notify", notifyError, { courseId });
     }
-  } catch {
-    // no-op
+  } catch (err) {
+    logError("lms-courses:submitCourseForReview:notify", err, { courseId });
   }
 
   revalidateCourse(courseId);
@@ -949,7 +980,7 @@ export async function unpublishCourse(courseId: string): Promise<ActionResult> {
     .from("lms_courses")
     .update({ status: "unpublished", updated_at: now() })
     .eq("id", courseId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:unpublishCourse", error);
 
   revalidateCourse(courseId);
   return { ok: true };
@@ -964,16 +995,17 @@ export async function deleteCourse(courseId: string): Promise<ActionResult> {
   if (owned.course.enrollment_count > 0)
     return { error: "Learners are enrolled, so this course can't be deleted." };
 
-  const { data: parts } = await owned.supabase
+  const { data: parts, error: partsError } = await owned.supabase
     .from("lms_lecture_parts")
     .select("video_key")
     .eq("course_id", courseId);
+  if (partsError) logError("lms-courses:deleteCourse:videos", partsError, { courseId });
   for (const p of parts ?? []) {
     if (p.video_key) await deleteVideoObject(p.video_key as string);
   }
 
   const { error } = await owned.supabase.from("lms_courses").delete().eq("id", courseId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:deleteCourse", error);
 
   revalidatePath("/instructor");
   return { ok: true };
@@ -1014,7 +1046,7 @@ export async function uploadCourseCover(
     .from("lms_courses")
     .update({ cover_url: url, updated_at: now() })
     .eq("id", courseId);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-courses:uploadCourseCover", error);
 
   revalidateCourse(courseId);
   return { ok: true, url };

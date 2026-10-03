@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { createCourse } from "@/lib/actions/lms-courses";
+import { settle } from "@/lib/utils/settle";
 import { LMS_CATEGORIES } from "@/lib/lms";
 
 const field =
@@ -19,7 +20,7 @@ export function NewCourseForm() {
     const formData = new FormData(e.currentTarget);
     setError(null);
     start(async () => {
-      const result = await createCourse(formData);
+      const result = await settle(createCourse(formData));
       if (result.error || !result.id) {
         setError(result.error ?? "Could not create the course.");
         return;

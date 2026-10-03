@@ -6,6 +6,7 @@ import {
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { logError } from "@/lib/errors";
 
 /**
  * Lecture video storage.
@@ -145,9 +146,10 @@ export async function presignVideoPlayback(key: string): Promise<string> {
 export async function deleteVideoObject(key: string): Promise<void> {
   try {
     await getClient().send(new DeleteObjectCommand({ Bucket: VIDEO_BUCKET!, Key: key }));
-  } catch {
+  } catch (err) {
     // An orphaned object costs storage but breaks nothing — never fail the
     // user's action over it.
+    logError("lms/video:deleteVideoObject", err, { key });
   }
 }
 

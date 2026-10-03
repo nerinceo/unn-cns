@@ -7,6 +7,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { checkLimit } from "@/lib/ratelimit";
 import { canReadEmployerDoc, readEmployerDocKey } from "@/lib/cns/employer-doc-access";
 import { getEmployerPrivate } from "@/lib/cns/employer-private";
+import { actionError, logError } from "@/lib/errors";
 import {
   putDoc, presignDocRead, employerDocKey,
   validateUpload, DOC_MIME, isDocsStorageConfigured,
@@ -52,7 +53,8 @@ export async function uploadEmployerDoc(employerId: string, formData: FormData):
   const key = employerDocKey(employerId, check.contentType);
   try {
     await putDoc(key, bytes, check.contentType);
-  } catch {
+  } catch (err) {
+    logError("employer-docs:uploadEmployerDoc:put", err, { employerId });
     return { error: "Upload failed. Please try again." };
   }
 
@@ -60,7 +62,7 @@ export async function uploadEmployerDoc(employerId: string, formData: FormData):
     .from("cns_employers")
     .update({ registration_doc_key: key, updated_at: new Date().toISOString() })
     .eq("id", employerId);
-  if (error) return { error: error.message };
+  if (error) return actionError("employer-docs:uploadEmployerDoc", error, undefined, { employerId });
 
   revalidatePath(`/employer/${employerId}/settings`);
   return { ok: true };
@@ -82,11 +84,14 @@ export async function updateEmployerVerificationDetails(
 
   const supabase = await createClient();
 
-  const { data: employer } = await supabase
+  const { data: employer, error: employerError } = await supabase
     .from("cns_employers")
     .select("id,verification_status")
     .eq("id", employerId)
     .maybeSingle();
+  if (employerError) {
+    logError("employer-docs:updateEmployerVerificationDetails:read", employerError, { employerId });
+  }
   if (!employer) return { error: "Not permitted." };
 
   if (["submitted", "under_review"].includes(employer.verification_status as string)) {
@@ -113,7 +118,7 @@ export async function updateEmployerVerificationDetails(
       updated_at: new Date().toISOString(),
     })
     .eq("id", employerId);
-  if (error) return { error: error.message };
+  if (error) return actionError("employer-docs:updateEmployerVerificationDetails", error, undefined, { employerId });
 
   revalidatePath(`/employer/${employerId}/settings`);
   return { ok: true };
@@ -131,11 +136,12 @@ export async function submitForVerification(employerId: string): Promise<ActionR
 
   const supabase = await createClient();
 
-  const { data: publicRow } = await supabase
+  const { data: publicRow, error: publicError } = await supabase
     .from("cns_employers")
     .select("id,name,website,verification_status")
     .eq("id", employerId)
     .maybeSingle();
+  if (publicError) logError("employer-docs:submitForVerification:read", publicError, { employerId });
   if (!publicRow) return { error: "Not permitted." };
   // Contact fields are private now (E-B-001) — read through the entitled path.
   const priv = await getEmployerPrivate(employerId);
@@ -167,13 +173,14 @@ export async function submitForVerification(employerId: string): Promise<ActionR
     .from("cns_employers")
     .update({ verification_status: "submitted", updated_at: new Date().toISOString() })
     .eq("id", employerId);
-  if (error) return { error: error.message };
+  if (error) return actionError("employer-docs:submitForVerification", error, undefined, { employerId });
 
-  await supabase.from("cns_employer_verifications").insert({
+  const { error: historyError } = await supabase.from("cns_employer_verifications").insert({
     employer_id: employerId,
     status: "submitted",
     document_keys: [docKey],
   });
+  if (historyError) logError("employer-docs:submitForVerification:history", historyError, { employerId });
 
   revalidatePath(`/employer/${employerId}/settings`);
   revalidatePath("/admin/employers");

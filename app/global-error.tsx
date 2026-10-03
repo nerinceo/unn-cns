@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 /**
  * Last-resort error page, for a failure in the root layout itself — the one
  * place app/error.tsx cannot catch, because it renders inside that layout.
@@ -8,11 +10,16 @@
  * global-error, minus the raw error message.
  */
 export default function GlobalError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
   return (
     <html lang="en">
       <body style={{ margin: 0, background: "#ffffff" }}>

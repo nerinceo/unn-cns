@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/errors";
 
 /**
  * UNN Learn — data access for courses delivered in CNS.
@@ -126,7 +127,7 @@ export async function courseAccess(courseId: string): Promise<Access> {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in" };
 
-  const [{ data: enrollment }, { data: course }] = await Promise.all([
+  const [{ data: enrollment, error: enrollmentError }, { data: course, error: courseError }] = await Promise.all([
     supabase
       .from("lms_enrollments")
       .select("status")
@@ -139,6 +140,8 @@ export async function courseAccess(courseId: string): Promise<Access> {
       .eq("id", courseId)
       .maybeSingle(),
   ]);
+  if (enrollmentError) logError("lms:courseAccess:enrollment", enrollmentError, { courseId });
+  if (courseError) logError("lms:courseAccess:course", courseError, { courseId });
 
   const instructor = course?.instructor as { user_id?: string } | null;
   return {

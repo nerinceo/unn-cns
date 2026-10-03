@@ -10,6 +10,7 @@ import {
   uploadCourseCover,
   type CourseForEdit,
 } from "@/lib/actions/lms-courses";
+import { settle } from "@/lib/utils/settle";
 import { LMS_CATEGORIES, LMS_LEVELS, MIN_LEARNING_OUTCOMES } from "@/lib/lms";
 
 const RichTextEditor = dynamic(
@@ -52,7 +53,7 @@ export function LandingStep({ course }: { course: CourseForEdit }) {
     setError(null);
     const body = new FormData();
     body.set("file", file);
-    const result = await uploadCourseCover(course.id, body);
+    const result = await settle(uploadCourseCover(course.id, body));
     setUploading(false);
     if (result.error || !result.url) {
       setError(result.error ?? "Could not upload that image.");
@@ -72,7 +73,7 @@ export function LandingStep({ course }: { course: CourseForEdit }) {
     setError(null);
     setSaved(false);
     start(async () => {
-      const result = await updateCourseLanding(course.id, formData);
+      const result = await settle(updateCourseLanding(course.id, formData));
       if (result.error) {
         setError(result.error);
         return;

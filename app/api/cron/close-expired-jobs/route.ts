@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     const admin = createAdminClient();
     const { data, error } = await admin.rpc("cns_close_expired_jobs");
     if (error) {
-      console.error("[cron] close-expired-jobs failed:", error.message);
+      logError("cron:close-expired-jobs", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     const closed = (data as number) ?? 0;
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, closed });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
-    console.error("[cron] close-expired-jobs threw:", message);
+    logError("cron:close-expired-jobs:threw", e);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

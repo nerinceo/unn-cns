@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { courseAccess } from "@/lib/cns/lms";
 import { playbackUrlFor } from "@/lib/lms/video";
 import { presignDocRead } from "@/lib/r2/docs";
+import { actionError, logError } from "@/lib/errors";
 
 /**
  * UNN Learn — learner mutations and entitlement-gated reads.
@@ -30,13 +31,14 @@ export async function getPartPlayback(
   partId: string,
 ): Promise<{ url: string } | { error: string }> {
   const supabase = await createClient();
-  const { data: part } = await supabase
+  const { data: part, error: partError } = await supabase
     .from("lms_lecture_parts")
     .select(
       "id, course_id, video_provider, video_key, video_uid, video_status, lecture:lecture_id(is_preview)",
     )
     .eq("id", partId)
     .maybeSingle();
+  if (partError) logError("lms-learn:getPartPlayback", partError, { partId });
   if (!part) return { error: "Video not found." };
 
   const access = await courseAccess(part.course_id as string);
@@ -61,11 +63,12 @@ export async function getResourceDownloadUrl(
   resourceId: string,
 ): Promise<{ url: string } | { error: string }> {
   const supabase = await createClient();
-  const { data: resource } = await supabase
+  const { data: resource, error: resourceError } = await supabase
     .from("lms_lecture_resources")
     .select("id, course_id, file_key, file_name, lecture:lecture_id(is_preview)")
     .eq("id", resourceId)
     .maybeSingle();
+  if (resourceError) logError("lms-learn:getResourceDownloadUrl", resourceError, { resourceId });
   if (!resource) return { error: "File not found." };
 
   const access = await courseAccess(resource.course_id as string);
@@ -97,11 +100,12 @@ export async function saveLectureProgress(
   positionS: number,
 ): Promise<{ ok: boolean }> {
   const supabase = await createClient();
-  const { data: lecture } = await supabase
+  const { data: lecture, error: lectureError } = await supabase
     .from("lms_lectures")
     .select("id, course_id")
     .eq("id", lectureId)
     .maybeSingle();
+  if (lectureError) logError("lms-learn:saveLectureProgress:read", lectureError, { lectureId });
   if (!lecture) return { ok: false };
 
   const access = await courseAccess(lecture.course_id as string);
@@ -117,13 +121,15 @@ export async function saveLectureProgress(
     },
     { onConflict: "user_id,lecture_id" },
   );
+  if (error) logError("lms-learn:saveLectureProgress", error, { lectureId });
 
   // Remember where they were, so "Continue" resumes the right lecture.
-  await supabase
+  const { error: resumeError } = await supabase
     .from("lms_enrollments")
     .update({ last_lecture_id: lectureId })
     .eq("user_id", access.userId)
     .eq("course_id", lecture.course_id);
+  if (resumeError) logError("lms-learn:saveLectureProgress:lastLecture", resumeError, { lectureId });
 
   return { ok: !error };
 }
@@ -138,11 +144,12 @@ export async function setLectureComplete(
   completed: boolean,
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const { data: lecture } = await supabase
+  const { data: lecture, error: lectureError } = await supabase
     .from("lms_lectures")
     .select("id, course_id")
     .eq("id", lectureId)
     .maybeSingle();
+  if (lectureError) logError("lms-learn:setLectureComplete:read", lectureError, { lectureId });
   if (!lecture) return { error: "Lecture not found." };
 
   const access = await courseAccess(lecture.course_id as string);
@@ -160,7 +167,7 @@ export async function setLectureComplete(
     },
     { onConflict: "user_id,lecture_id" },
   );
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-learn:setLectureComplete", error);
 
   revalidatePath("/lms");
   return { ok: true };
@@ -200,7 +207,7 @@ export async function submitCourseReview(
     },
     { onConflict: "course_id,user_id" },
   );
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-learn:submitCourseReview", error);
 
   revalidatePath(`/lms/${courseId}`);
   return { ok: true };

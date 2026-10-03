@@ -6,6 +6,7 @@ import { Plus, Trash2, Loader2, Check, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setScreeningQuestions } from "@/lib/actions/jobs";
+import { settle } from "@/lib/utils/settle";
 
 export type Question = {
   question: string;
@@ -178,7 +179,7 @@ export function ScreeningEditor({
           onClick={() =>
             start(async () => {
               setError(null);
-              const res = await setScreeningQuestions(jobId, items);
+              const res = await settle(setScreeningQuestions(jobId, items));
               if (res?.error) setError(res.error);
               else {
                 setSaved(true);

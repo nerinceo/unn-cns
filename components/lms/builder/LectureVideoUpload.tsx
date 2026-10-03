@@ -22,6 +22,7 @@ import {
   reorderLectureParts,
   type EditPart,
 } from "@/lib/actions/lms-courses";
+import { settle } from "@/lib/utils/settle";
 import { formatDuration } from "@/lib/lms";
 
 /**
@@ -160,7 +161,7 @@ export function LectureVideoUpload({
   function run(action: () => Promise<{ error?: string }>) {
     setError(null);
     start(async () => {
-      const result = await action();
+      const result = await settle(action());
       if (result?.error) {
         setError(result.error);
         return;

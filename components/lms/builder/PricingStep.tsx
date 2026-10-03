@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, Loader2, ShoppingBag, TrendingUp } from "lucide-react";
 import { updateCoursePricing, type CourseForEdit } from "@/lib/actions/lms-courses";
+import { settle } from "@/lib/utils/settle";
 import {
   MIN_COURSE_PRICE,
   MAX_COURSE_PRICE,
@@ -49,7 +50,7 @@ export function PricingStep({ course }: { course: CourseForEdit }) {
     setError(null);
     setSaved(false);
     start(async () => {
-      const result = await updateCoursePricing(course.id, formData);
+      const result = await settle(updateCoursePricing(course.id, formData));
       if (result.error) {
         setError(result.error);
         return;

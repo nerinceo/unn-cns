@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reviewJob } from "@/lib/actions/admin-jobs";
+import { settle } from "@/lib/utils/settle";
 
 type Decision = "active" | "rejected" | "changes_requested" | "paused" | "removed";
 
@@ -33,7 +34,7 @@ export function JobReviewActions({
   function go(decision: Decision, why?: string) {
     start(async () => {
       setError(null);
-      const res = await reviewJob(jobId, decision, why);
+      const res = await settle(reviewJob(jobId, decision, why));
       if (res?.error) {
         setError(res.error);
         return;

@@ -6,6 +6,7 @@ import { Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveJob, submitJobForReview } from "@/lib/actions/jobs";
+import { settle } from "@/lib/utils/settle";
 
 /** One vocabulary, passed in from the server — see JobComposer's note. */
 export type Option = { value: string; label: string };
@@ -100,13 +101,13 @@ export function JobComposer({
         vacancies: Number(f.vacancies) || 1,
         application_deadline: f.application_deadline || null,
       };
-      const res = await saveJob(employerId, payload, existing?.id);
+      const res = await settle(saveJob(employerId, payload, existing?.id));
       if ("error" in res && res.error) {
         setError(res.error);
         return;
       }
       if (publish && "id" in res && res.id) {
-        const sub = await submitJobForReview(res.id);
+        const sub = await settle(submitJobForReview(res.id));
         if (sub?.error) {
           setError(sub.error);
           return;

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bookmark, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { toggleSaveJob } from "@/lib/actions/jobs";
+import { settle } from "@/lib/utils/settle";
 
 export function SaveJobButton({
   jobId,
@@ -28,7 +29,7 @@ export function SaveJobButton({
         const next = !saved;
         setSaved(next); // optimistic — a save should feel instant
         start(async () => {
-          const res = await toggleSaveJob(jobId, next);
+          const res = await settle(toggleSaveJob(jobId, next));
           if (res?.error) setSaved(!next);
           else router.refresh();
         });

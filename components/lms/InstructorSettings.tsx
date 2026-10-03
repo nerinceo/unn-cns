@@ -23,6 +23,7 @@ import {
   deleteInstructorDocument,
   getInstructorDocumentUrl,
 } from "@/lib/actions/lms-instructor";
+import { settle } from "@/lib/utils/settle";
 import {
   LMS_EXPERTISE,
   LMS_DOC_TYPES,
@@ -141,7 +142,7 @@ function ProfileForm({ instructor }: { instructor: MyInstructor }) {
     setError(null);
     setSaved(false);
     start(async () => {
-      const result = await updateInstructorProfile(formData);
+      const result = await settle(updateInstructorProfile(formData));
       if (result.error) {
         setError(result.error);
         return;
@@ -325,7 +326,7 @@ function Credentials({ instructor }: { instructor: MyInstructor }) {
     const body = new FormData();
     body.set("file", file);
     body.set("doc_type", docType);
-    const result = await uploadInstructorDocument(body);
+    const result = await settle(uploadInstructorDocument(body));
     setBusy(false);
     if (result.error) setError(result.error);
     else router.refresh();
@@ -433,7 +434,7 @@ function DocLink({ id }: { id: string }) {
       disabled={busy}
       onClick={async () => {
         setBusy(true);
-        const result = await getInstructorDocumentUrl(id);
+        const result = await settle(getInstructorDocumentUrl(id));
         setBusy(false);
         if ("url" in result) window.open(result.url, "_blank", "noopener,noreferrer");
       }}
@@ -536,7 +537,7 @@ function Agreement({ instructor, hubUrl }: { instructor: MyInstructor; hubUrl: s
             disabled={!checked || pending}
             onClick={() =>
               start(async () => {
-                const result = await acceptInstructorAgreement();
+                const result = await settle(acceptInstructorAgreement());
                 if (result.error) {
                   setError(result.error);
                   return;

@@ -10,6 +10,7 @@ import {
   isDocsStorageConfigured,
 } from "@/lib/r2/docs";
 import { isLmsDocType, LMS_EXPERTISE, MIN_INSTRUCTOR_BIO } from "@/lib/lms";
+import { actionError, logError } from "@/lib/errors";
 
 /**
  * Instructor account settings — profile, credentials, agreement.
@@ -43,11 +44,12 @@ async function requireInstructor() {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in" as const, supabase: null, user: null, instructor: null };
 
-  const { data: instructor } = await supabase
+  const { data: instructor, error: instructorError } = await supabase
     .from("lms_instructors")
     .select("id, user_id, status")
     .eq("user_id", user.id)
     .maybeSingle();
+  if (instructorError) logError("lms-instructor:requireInstructor", instructorError);
   if (!instructor)
     return {
       error: "You are not registered as an instructor." as const,
@@ -97,7 +99,7 @@ export async function updateInstructorProfile(formData: FormData): Promise<Actio
       updated_at: now(),
     })
     .eq("id", ctx.instructor!.id);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-instructor:updateInstructorProfile", error);
 
   revalidatePath("/instructor/settings");
   revalidatePath("/instructor");
@@ -115,18 +117,19 @@ export async function acceptInstructorAgreement(): Promise<ActionResult> {
   const ctx = await requireInstructor();
   if (ctx.error || !ctx.supabase) return { error: ctx.error ?? "Not signed in" };
 
-  const { data: existing } = await ctx.supabase
+  const { data: existing, error: existingError } = await ctx.supabase
     .from("lms_instructors")
     .select("agreement_accepted_at")
     .eq("id", ctx.instructor!.id)
     .maybeSingle();
+  if (existingError) logError("lms-instructor:acceptInstructorAgreement:read", existingError);
   if (existing?.agreement_accepted_at) return { ok: true };
 
   const { error } = await ctx.supabase
     .from("lms_instructors")
     .update({ agreement_accepted_at: now(), updated_at: now() })
     .eq("id", ctx.instructor!.id);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-instructor:acceptInstructorAgreement", error);
 
   revalidatePath("/instructor/settings");
   revalidatePath("/instructor");
@@ -177,7 +180,7 @@ export async function uploadInstructorDocument(formData: FormData): Promise<Acti
     expiry_date: expiry,
     status: "pending",
   });
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-instructor:uploadInstructorDocument", error);
 
   revalidatePath("/instructor/settings");
   revalidatePath("/instructor");
@@ -195,7 +198,7 @@ export async function deleteInstructorDocument(documentId: string): Promise<Acti
     .delete()
     .eq("id", documentId)
     .eq("instructor_id", ctx.instructor!.id);
-  if (error) return { error: error.message };
+  if (error) return actionError("lms-instructor:deleteInstructorDocument", error);
 
   revalidatePath("/instructor/settings");
   return { ok: true };
@@ -208,12 +211,13 @@ export async function getInstructorDocumentUrl(
   const ctx = await requireInstructor();
   if (ctx.error || !ctx.supabase) return { error: ctx.error ?? "Not signed in" };
 
-  const { data: doc } = await ctx.supabase
+  const { data: doc, error: docError } = await ctx.supabase
     .from("lms_instructor_documents")
     .select("file_key, file_name")
     .eq("id", documentId)
     .eq("instructor_id", ctx.instructor!.id)
     .maybeSingle();
+  if (docError) logError("lms-instructor:getInstructorDocumentUrl", docError, { documentId });
   if (!doc) return { error: "Document not found." };
 
   const url = await presignDocRead(

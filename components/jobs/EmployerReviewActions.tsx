@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reviewEmployer } from "@/lib/actions/admin-jobs";
+import { settle } from "@/lib/utils/settle";
 
 export function EmployerReviewActions({
   employerId,
@@ -24,7 +25,7 @@ export function EmployerReviewActions({
   function go(decision: "approved" | "rejected" | "suspended") {
     start(async () => {
       setError(null);
-      const res = await reviewEmployer(employerId, decision, note || undefined);
+      const res = await settle(reviewEmployer(employerId, decision, note || undefined));
       if (res?.error) setError(res.error);
       // revalidatePath alone does not re-render this client component's parent.
       else router.refresh();
