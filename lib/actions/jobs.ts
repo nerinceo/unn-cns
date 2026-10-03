@@ -646,6 +646,21 @@ export async function setScreeningQuestions(
     .filter((q) => q.question.length > 0)
     .slice(0, 5); // the database enforces this too, via a trigger
 
+  // Refuse what the column cannot hold BEFORE touching anything. knockout_min
+  // is numeric(6,1), so 1000000 failed the insert — after the delete below had
+  // already emptied the job's questions (E-B-SCR006).
+  if (clean.some((q) => q.knockout_min != null && Math.abs(q.knockout_min) >= 100000)) {
+    return { error: "“Meets criteria at” must be below 100,000." };
+  }
+
+  // Delete-then-insert is two statements, not a transaction. Keep what is
+  // there now so a failed insert puts it back instead of leaving the job with
+  // no questions at all.
+  const { data: previous } = await supabase
+    .from("cns_job_screening_questions")
+    .select("job_id,question,question_type,is_required,knockout_expected,knockout_min,position")
+    .eq("job_id", jobId);
+
   const { error: delError } = await supabase
     .from("cns_job_screening_questions")
     .delete()
@@ -656,7 +671,12 @@ export async function setScreeningQuestions(
     const { error } = await supabase.from("cns_job_screening_questions").insert(
       clean.map((q, i) => ({ ...q, job_id: jobId, position: i }))
     );
-    if (error) return { error: error.message };
+    if (error) {
+      if (previous?.length) {
+        await supabase.from("cns_job_screening_questions").insert(previous);
+      }
+      return { error: `Your questions were not saved: ${error.message}` };
+    }
   }
 
   revalidatePath(`/employer`);
