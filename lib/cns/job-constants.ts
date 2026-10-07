@@ -90,7 +90,11 @@ const COUNTRY_CODES: Record<string, string> = {
 export function toCountryCode(input: string | null | undefined): string {
   if (!input) return "IN";
   const t = input.trim();
+  // Names (and aliases) first: "uk" is two letters but NOT the ISO code — the
+  // two-letter shortcut below used to turn it into "UK" instead of "GB".
+  const named = COUNTRY_CODES[t.toLowerCase()];
+  if (named) return named;
   // Already a code.
   if (/^[A-Za-z]{2}$/.test(t)) return t.toUpperCase();
-  return COUNTRY_CODES[t.toLowerCase()] ?? t;
+  return t;
 }
