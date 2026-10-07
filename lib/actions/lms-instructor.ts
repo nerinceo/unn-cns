@@ -68,7 +68,7 @@ async function requireInstructor() {
 export async function updateInstructorProfile(formData: FormData): Promise<ActionResult> {
   if (!(formData instanceof FormData)) return { error: "A display name is required." };
 
-  const displayName = reqText(formData.get("display_name"), "Display name", 80);
+  const displayName = reqText(formData.get("display_name"), "Display name", 80, { noEmoji: true });
   if (!displayName.ok) {
     return {
       error: displayName.error.endsWith("is required.")
@@ -97,7 +97,7 @@ export async function updateInstructorProfile(formData: FormData): Promise<Actio
   if (expertise.length === 0) return { error: "Select at least one area of expertise." };
 
   const rest = all({
-    headline: optText(formData.get("headline"), "Headline", LIMITS.name),
+    headline: optText(formData.get("headline"), "Headline", LIMITS.name, { noEmoji: true }),
     website: optUrl(formData.get("website"), "Website"),
     contact_email: optEmail(formData.get("contact_email"), "Contact email"),
     license_number: optText(formData.get("license_number"), "Licence number", LIMITS.label),

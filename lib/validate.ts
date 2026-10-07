@@ -83,10 +83,19 @@ function clean(raw: unknown, multiline: boolean): string {
   return JOINERS_ONLY.test(s) ? "" : s;
 }
 
+// Emoji (and the flag / keycap / presentation-selector parts emoji are built
+// from). Professional fields — names, titles, headlines — refuse them
+// (Naveen, 2026-10-07: they read as cheap there). Free text (posts, comments,
+// messages) is not checked. Digits, #, * and ordinary punctuation pass; ©, ®
+// and ™ are pictographic in Unicode and are refused along with emoji.
+// Built with the constructor: the tsconfig target predates ES6, so TypeScript
+// refuses a /…/u literal, while every runtime we serve supports the u flag.
+const EMOJI = new RegExp("[\\p{Extended_Pictographic}\\p{Regional_Indicator}\\u20E3\\uFE0F]", "u");
+
 const plural = (n: number) => `${n} character${n === 1 ? "" : "s"}`;
 
 // ── text ────────────────────────────────────────────────────────────────────
-export type TextOpts = { min?: number; multiline?: boolean };
+export type TextOpts = { min?: number; multiline?: boolean; noEmoji?: boolean };
 
 /** Required text: refused when empty or whitespace-only. */
 export function reqText(raw: unknown, label: string, max: number, opts: TextOpts = {}): Valid<string> {
@@ -94,6 +103,7 @@ export function reqText(raw: unknown, label: string, max: number, opts: TextOpts
   if (!s) return bad(`${label} is required.`);
   if (s.length > max) return bad(`${label} must be ${plural(max)} or fewer.`);
   if (opts.min && s.length < opts.min) return bad(`${label} must be at least ${plural(opts.min)}.`);
+  if (opts.noEmoji && EMOJI.test(s)) return bad(`${label} can't contain emoji.`);
   return ok(s);
 }
 

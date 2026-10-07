@@ -36,7 +36,7 @@ export async function registerEmployer(input: {
 }): Promise<ActionResult & { employerId?: string; id?: string; slug?: string }> {
   if (!input || typeof input !== "object") return { error: "Organisation name is required." };
   const v = all({
-    name: reqText(input.name, "Organisation name", LIMITS.name),
+    name: reqText(input.name, "Organisation name", LIMITS.name, { noEmoji: true }),
     employer_type: reqOneOf(input.employer_type, "Organisation type", EMPLOYER_TYPES),
     description: optText(input.description, "Description", LIMITS.description, { multiline: true }),
     website: optUrl(input.website, "Website"),
@@ -158,7 +158,7 @@ const okValue = <T>(value: T): Valid<T> => ({ ok: true, value });
 function validateJobInput(input: Record<string, unknown>, isNew: boolean): Valid<Record<string, unknown>> {
   const ml = { multiline: true };
   const checks: Record<(typeof JOB_EDITABLE_FIELDS)[number], () => Valid<unknown>> = {
-    title: () => reqText(input.title, "Job title", LIMITS.title),
+    title: () => reqText(input.title, "Job title", LIMITS.title, { noEmoji: true }),
     // NOT NULL in the database, but a draft may be saved before it is written —
     // submitJobForReview() is the gate that demands 100+ characters. So a blank
     // draft description stays the column's one legal blank, as it always was.

@@ -58,7 +58,7 @@ const MAX_REORDER = 1000;
 
 /** Course title rules, with the messages the builder already shows. */
 function courseTitle(raw: unknown): Valid<string> {
-  const t = reqText(raw, "Title", 80, { min: 6 });
+  const t = reqText(raw, "Title", 80, { noEmoji: true, min: 6 });
   if (t.ok) return t;
   return {
     ok: false,
