@@ -12,7 +12,8 @@
  * closing tag inside it.
  */
 export function jsonLdHtml(data: unknown): string {
-  return JSON.stringify(data)
+  // JSON.stringify(undefined) is undefined, not a string — emit null instead.
+  return (JSON.stringify(data) ?? "null")
     .replace(/</g, "\\u003c")
     .replace(/>/g, "\\u003e")
     .replace(/&/g, "\\u0026")

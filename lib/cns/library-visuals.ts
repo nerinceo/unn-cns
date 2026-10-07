@@ -133,9 +133,11 @@ export function categoryMesh(seed: string): string {
   const p = categoryPalette(seed);
   const h = hash(seed);
   const x1 = 12 + (h % 24);
-  const y1 = 8 + ((h >> 3) % 18);
-  const x2 = 68 + ((h >> 6) % 26);
-  const angle = 145 + ((h >> 9) % 40);
+  // >>> not >>: the hash is unsigned, and a signed shift went negative for
+  // about half of all seeds, pushing covers outside their designed ranges.
+  const y1 = 8 + ((h >>> 3) % 18);
+  const x2 = 68 + ((h >>> 6) % 26);
+  const angle = 145 + ((h >>> 9) % 40);
 
   return [
     `radial-gradient(90% 70% at ${x2}% 4%, ${p.spark}55 0%, transparent 58%)`,

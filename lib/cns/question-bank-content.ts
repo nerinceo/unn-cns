@@ -11,7 +11,7 @@
  *   - `{n} questions` never singularises either.
  *   - The four answer fields carry colons on the list page (`Answer:`) and no
  *     colons on the detail page (`Answer`). Two forms, deliberately kept.
- *   - The Indian banks are named by acronym while the other eighteen are
+ *   - The Indian banks are named by acronym while the other sixteen are
  *     spelled out.
  *
  * These read like bugs and are not to be "fixed" here. The wording is settled;
@@ -48,9 +48,9 @@ export type BankEntry = {
 };
 
 /**
- * The 22 banks in the old site's display order, grouped by country.
+ * The 20 banks in the old site's display order, grouped by country.
  *
- * Only `rguhs` has content behind it. The other 21 were live cards that all
+ * Only `rguhs` has content behind it. The other 19 were live cards that all
  * unlocked to the RGUHS pages — a bug, not a feature. Here they are data, so
  * the page can link the one that exists and show the access panel for the rest.
  */
@@ -439,7 +439,7 @@ export function metaChain(parts: (string | number | null | undefined)[]): string
  *      34  column is empty, tail is the only copy    -> kept, or the rationale
  *                                                       would vanish entirely
  *
- * So this only ever removes a byte-for-byte repeat. Deliberately a render-time
+ * So this only ever removes a repeat that differs at most in letter case and whitespace. Deliberately a render-time
  * normaliser rather than a data migration: the source rows stay intact, and a
  * re-import cannot reintroduce the duplicate display.
  *

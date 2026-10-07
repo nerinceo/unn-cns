@@ -8,8 +8,10 @@ import { checkLimit } from "@/lib/ratelimit";
 import { actionError, logError } from "@/lib/errors";
 import {
   putDoc, deleteDoc, presignDocRead, resumeKey,
-  validateUpload, RESUME_MIME, isDocsStorageConfigured,
+  validateUpload, RESUME_MIME, isDocsStorageConfigured, MAX_UPLOAD_BYTES,
 } from "@/lib/r2/docs";
+import { reqId } from "@/lib/validate";
+import { cleanFileName, precheckUpload } from "@/lib/actions/upload-check";
 
 /**
  * Uploaded resumes.
@@ -20,15 +22,20 @@ import {
  */
 
 export async function uploadResume(formData: FormData): Promise<ActionResult> {
+  const file = formData instanceof FormData ? formData.get("file") : null;
+  if (!(file instanceof File)) return { error: "No file received." };
+  const declared = precheckUpload(file, RESUME_MIME, MAX_UPLOAD_BYTES, {
+    tooBig: "Files must be under 5 MB.",
+    badType: "Please upload a PDF or Word document.",
+  });
+  if (declared) return { error: declared };
+
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
   if (!isDocsStorageConfigured()) return { error: "File uploads are not configured yet." };
 
   const limited = await checkLimit("upload", user.id);
   if (limited) return limited;
-
-  const file = formData.get("file");
-  if (!(file instanceof File)) return { error: "No file received." };
 
   // Read the bytes before validating: the name and declared type are supplied
   // by the client, so only the content itself is evidence of what this is.
@@ -63,7 +70,7 @@ export async function uploadResume(formData: FormData): Promise<ActionResult> {
   const { error } = await supabase.from("cns_resume_files").insert({
     user_id: user.id,
     storage_key: key,
-    file_name: file.name,
+    file_name: cleanFileName(file),
     mime_type: check.contentType,   // the sniffed type, never the client's claim
     size_bytes: file.size,
     is_active: true,
@@ -80,6 +87,9 @@ export async function uploadResume(formData: FormData): Promise<ActionResult> {
 }
 
 export async function deleteResumeFile(id: string): Promise<ActionResult> {
+  const valid = reqId(id, "CV");
+  if (!valid.ok) return { error: valid.error };
+  id = valid.value;
   const supabase = await createClient();
 
   // RLS scopes this to the owner, so a foreign id simply reads null.
@@ -114,6 +124,9 @@ export async function deleteResumeFile(id: string): Promise<ActionResult> {
  * rule leaks every CV on the platform.
  */
 export async function getResumeDownloadUrl(resumeFileId: string): Promise<ActionResult & { url?: string }> {
+  const valid = reqId(resumeFileId, "CV");
+  if (!valid.ok) return { error: valid.error };
+  resumeFileId = valid.value;
   const supabase = await createClient();
 
   const { data: allowed, error: rpcError } = await supabase.rpc("cns_can_read_resume", {

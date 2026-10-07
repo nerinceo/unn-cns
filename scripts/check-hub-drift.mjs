@@ -88,6 +88,9 @@ const MIRRORED = [
   // wrong app, in no app at all, or lets a professional reach a page one of the
   // other two apps would have refused.
   { path: "lib/access.ts", mode: "exact", critical: true, uhn: true },
+  // Input validation for every server action (2026-10-07). Identical in all
+  // three apps so a rule tightened in one cannot quietly stay loose in another.
+  { path: "lib/validate.ts", mode: "exact", critical: true, uhn: true },
   // The public.users column allowlist. Must match BOTH the grant in migration
   // 0024 and the other repos' copies: a column granted in SQL but missing here
   // reads back as absent, and one named here but not granted errors the whole

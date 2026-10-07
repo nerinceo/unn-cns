@@ -53,7 +53,7 @@ const COVER_MIME: Record<string, string> = {
 };
 
 export function isAllowedCoverType(type: string): boolean {
-  return type in COVER_MIME;
+  return Object.prototype.hasOwnProperty.call(COVER_MIME, type); // not `in`: "constructor" would pass the allow-list
 }
 
 /**

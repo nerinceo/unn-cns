@@ -74,11 +74,17 @@ export function sniffContentType(bytes: Buffer): string | null {
   if (starts(0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1)) return "application/msword"; // OLE2
 
   // DOCX is a zip. So is a jar and so is an unpacked installer, so the zip
-  // header alone is not enough — require the OOXML word marker inside the
-  // first chunk, which a plain archive will not have.
+  // header alone is not enough — require the WORD document part. Every Office
+  // format (xlsx, pptx, xlsm…) carries [Content_Types].xml, so that marker
+  // alone let spreadsheets and macro files in as "résumés" (QA 2026-10-07).
+  // File names live in each entry's header AND in the central directory at the
+  // end of the zip, so the first and last 64 KB are enough to see them.
   if (starts(0x50, 0x4b, 0x03, 0x04)) {
-    const head = bytes.subarray(0, 4096).toString("latin1");
-    if (head.includes("word/") || head.includes("[Content_Types].xml")) {
+    const W = 64 * 1024;
+    const names =
+      bytes.subarray(0, W).toString("latin1") +
+      (bytes.length > W ? bytes.subarray(Math.max(W, bytes.length - W)).toString("latin1") : "");
+    if (names.includes("word/document.xml") && !names.includes("xl/workbook") && !names.includes("ppt/presentation")) {
       return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     }
     return null;
@@ -134,11 +140,11 @@ const EXT_FOR: Record<string, string> = {
 const rand = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 export function resumeKey(userId: string, contentType: string) {
-  return `resumes/${userId}/${rand()}.${EXT_FOR[contentType] ?? "bin"}`;
+  return `resumes/${userId}/${rand()}.${(Object.prototype.hasOwnProperty.call(EXT_FOR, contentType) ? EXT_FOR[contentType] : "bin")}`;
 }
 
 export function employerDocKey(employerId: string, contentType: string) {
-  return `employer-docs/${employerId}/${rand()}.${EXT_FOR[contentType] ?? "bin"}`;
+  return `employer-docs/${employerId}/${rand()}.${(Object.prototype.hasOwnProperty.call(EXT_FOR, contentType) ? EXT_FOR[contentType] : "bin")}`;
 }
 
 export async function putDoc(key: string, body: Buffer, contentType: string) {

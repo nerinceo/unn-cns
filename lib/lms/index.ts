@@ -181,9 +181,11 @@ export function formatDuration(totalSeconds: number | null | undefined): string 
 
 /** "3h 20m" — the coarse figure shown on cards. */
 export function formatCourseLength(totalSeconds: number | null | undefined): string {
-  const s = Math.max(0, Math.floor(totalSeconds ?? 0));
-  const h = Math.floor(s / 3600);
-  const m = Math.round((s % 3600) / 60);
+  // Round to whole minutes FIRST, then split — rounding the remainder after
+  // taking hours printed 3599s as "60m" and 7170s as "1h 60m".
+  const totalMin = Math.round(Math.max(0, Math.floor(totalSeconds ?? 0)) / 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
   if (h === 0) return `${m}m`;
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
@@ -292,7 +294,7 @@ export function sellerReadiness(input: {
     {
       key: "profile",
       label: "Complete your teaching profile",
-      detail: "Display name, headline and a bio of at least 100 characters.",
+      detail: "Display name, headline, at least one area of expertise and a bio of at least 100 characters.",
       done:
         !!input.displayName?.trim() &&
         !!input.headline?.trim() &&

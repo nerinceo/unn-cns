@@ -6,6 +6,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { actionError, logError } from "@/lib/errors";
+import { LIMITS, all, optText, reqId, reqOneOf } from "@/lib/validate";
+
+const EMPLOYER_DECISIONS = ["approved", "rejected", "suspended"] as const;
+const JOB_DECISIONS = ["active", "rejected", "changes_requested", "paused", "removed"] as const;
+const REPORT_STATUSES = ["reviewing", "resolved", "dismissed"] as const;
 
 /**
  * Staff review of employer organisations.
@@ -19,6 +24,16 @@ export async function reviewEmployer(
   decision: "approved" | "rejected" | "suspended",
   note?: string
 ): Promise<ActionResult> {
+  const v = all({
+    employerId: reqId(employerId, "Employer"),
+    decision: reqOneOf(decision, "Decision", EMPLOYER_DECISIONS),
+    note: optText(note, "Note", LIMITS.comment, { multiline: true }),
+  });
+  if (!v.ok) return { error: v.error };
+  employerId = v.value.employerId;
+  decision = v.value.decision;
+  note = v.value.note ?? undefined;
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -77,11 +92,21 @@ type JobDecision = "active" | "rejected" | "changes_requested" | "paused" | "rem
  * affects zero rows and the guard below reports it.
  */
 export async function reviewJob(jobId: string, decision: JobDecision, reason?: string): Promise<ActionResult> {
-  const supabase = await createClient();
+  const v = all({
+    jobId: reqId(jobId, "Job"),
+    decision: reqOneOf(decision, "Decision", JOB_DECISIONS),
+    reason: optText(reason, "Reason", LIMITS.comment, { multiline: true }),
+  });
+  if (!v.ok) return { error: v.error };
+  jobId = v.value.jobId;
+  decision = v.value.decision;
+  reason = v.value.reason ?? undefined;
 
-  if (decision !== "active" && !reason?.trim()) {
+  if (decision !== "active" && !reason) {
     return { error: "A reason is required so the employer knows what to change." };
   }
+
+  const supabase = await createClient();
 
   const { data: job, error: jobError } = await supabase
     .from("cns_jobs")
@@ -161,6 +186,16 @@ export async function resolveReport(
   status: "reviewing" | "resolved" | "dismissed",
   note?: string
 ): Promise<ActionResult> {
+  const v = all({
+    reportId: reqId(reportId, "Report"),
+    status: reqOneOf(status, "Status", REPORT_STATUSES),
+    note: optText(note, "Note", LIMITS.comment, { multiline: true }),
+  });
+  if (!v.ok) return { error: v.error };
+  reportId = v.value.reportId;
+  status = v.value.status;
+  note = v.value.note ?? undefined;
+
   const user = await getCurrentUser();
   const supabase = await createClient();
 

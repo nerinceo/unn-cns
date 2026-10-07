@@ -10,8 +10,15 @@ import { getEmployerPrivate } from "@/lib/cns/employer-private";
 import { actionError, logError } from "@/lib/errors";
 import {
   putDoc, presignDocRead, employerDocKey,
-  validateUpload, DOC_MIME, isDocsStorageConfigured,
+  validateUpload, DOC_MIME, isDocsStorageConfigured, MAX_UPLOAD_BYTES,
 } from "@/lib/r2/docs";
+import { LIMITS, all, optEmail, optText, reqId } from "@/lib/validate";
+import { precheckUpload } from "@/lib/actions/upload-check";
+
+const DOC_UPLOAD_MESSAGES = {
+  tooBig: "Files must be under 5 MB.",
+  badType: "Please upload a PDF, Word document, or a photo (JPG, PNG).",
+};
 
 /**
  * Employer verification documents (blueprint §7.1, §9.1).
@@ -23,15 +30,20 @@ import {
  */
 
 export async function uploadEmployerDoc(employerId: string, formData: FormData): Promise<ActionResult> {
+  const id = reqId(employerId, "Employer");
+  if (!id.ok) return { error: id.error };
+  employerId = id.value;
+  const file = formData instanceof FormData ? formData.get("file") : null;
+  if (!(file instanceof File)) return { error: "No file received." };
+  const declared = precheckUpload(file, DOC_MIME, MAX_UPLOAD_BYTES, DOC_UPLOAD_MESSAGES);
+  if (declared) return { error: declared };
+
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
   if (!isDocsStorageConfigured()) return { error: "File uploads are not configured yet." };
 
   const limited = await checkLimit("upload", user.id);
   if (limited) return limited;
-
-  const file = formData.get("file");
-  if (!(file instanceof File)) return { error: "No file received." };
 
   // Read the bytes before validating — see the note in resume-files.ts.
   const bytes = Buffer.from(await file.arrayBuffer());
@@ -79,6 +91,22 @@ export async function updateEmployerVerificationDetails(
   employerId: string,
   formData: FormData
 ): Promise<ActionResult> {
+  const id = reqId(employerId, "Employer");
+  if (!id.ok) return { error: id.error };
+  employerId = id.value;
+  if (!(formData instanceof FormData)) return { error: "Nothing to save." };
+  // All optional here — submitForVerification() is the step that demands a
+  // contact person and business email. Blank becomes null, never "".
+  const v = all({
+    legal_name: optText(formData.get("legal_name"), "Registered legal name", LIMITS.name),
+    contact_person: optText(formData.get("contact_person"), "Contact person", LIMITS.name),
+    business_email: optEmail(formData.get("business_email"), "Business email"),
+    phone: optText(formData.get("phone"), "Phone", LIMITS.phone),
+  });
+  if (!v.ok) {
+    return { error: /email/i.test(v.error) ? "That business email does not look right." : v.error };
+  }
+
   // Explicit membership check — see the note in uploadEmployerDoc.
   if (!(await canReadEmployerDoc(employerId))) return { error: "Not permitted." };
 
@@ -98,23 +126,10 @@ export async function updateEmployerVerificationDetails(
     return { error: "Details are locked while your submission is being reviewed." };
   }
 
-  const text = (k: string) => {
-    const v = formData.get(k);
-    return typeof v === "string" && v.trim() ? v.trim() : null;
-  };
-
-  const business_email = text("business_email");
-  if (business_email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(business_email)) {
-    return { error: "That business email does not look right." };
-  }
-
   const { error } = await supabase
     .from("cns_employers")
     .update({
-      legal_name: text("legal_name"),
-      contact_person: text("contact_person"),
-      business_email,
-      phone: text("phone"),
+      ...v.value,
       updated_at: new Date().toISOString(),
     })
     .eq("id", employerId);
@@ -131,6 +146,9 @@ export async function updateEmployerVerificationDetails(
  * holds — a status column alone loses every previous decision.
  */
 export async function submitForVerification(employerId: string): Promise<ActionResult> {
+  const id = reqId(employerId, "Employer");
+  if (!id.ok) return { error: id.error };
+  employerId = id.value;
   // Explicit membership check — see the note in uploadEmployerDoc.
   if (!(await canReadEmployerDoc(employerId))) return { error: "Not permitted." };
 
@@ -198,6 +216,9 @@ export async function submitForVerification(employerId: string): Promise<ActionR
  * production with a second employer account before it was fixed.
  */
 export async function getEmployerDocUrl(employerId: string): Promise<ActionResult & { url?: string }> {
+  const id = reqId(employerId, "Employer");
+  if (!id.ok) return { error: id.error };
+  employerId = id.value;
   if (!(await canReadEmployerDoc(employerId))) {
     return { error: "You do not have access to this document." };
   }

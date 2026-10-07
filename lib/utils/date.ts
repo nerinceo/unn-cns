@@ -13,19 +13,16 @@
  * deliberately spans all three. A named month cannot be misread.
  */
 
-const FMT = new Intl.DateTimeFormat("en-GB", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-  // Pinned: without it the server formats in its own zone and the browser in
-  // the viewer's, which reintroduces the mismatch for dates near midnight.
-  timeZone: "UTC",
-});
+// Month names are spelled out here rather than taken from Intl: the en-GB
+// "short" month for September is "Sept" in Node 22's ICU data and "Sep" in
+// other runtimes — the very server/browser mismatch this module exists to
+// prevent (QA 2026-10-07). Read in UTC for the same reason.
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** "07 Aug 2026". Empty string for a missing or unparseable value. */
 export function formatDate(value: string | number | Date | null | undefined): string {
   if (value === null || value === undefined || value === "") return "";
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return "";
-  return FMT.format(d);
+  return `${String(d.getUTCDate()).padStart(2, "0")} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }

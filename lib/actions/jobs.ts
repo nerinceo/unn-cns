@@ -9,6 +9,11 @@ import { getJobLabels } from "@/lib/cns/taxonomy";
 import { notifyUser, notifyUsers } from "@/lib/cns/notify";
 import { getApplicationResumeTarget } from "@/lib/cns/application-resume-access";
 import { actionError, logError, userMessage } from "@/lib/errors";
+import { SALARY_PERIODS } from "@/lib/cns/job-constants";
+import {
+  LIMITS, all, bool, hasKey, optDate, optEmail, optId, optInt, optMoney, optOneOf, optText, optUrl,
+  reqId, reqInt, reqOneOf, reqText, reqUrl, type Valid,
+} from "@/lib/validate";
 
 function slugify(s: string) {
   return s
@@ -29,15 +34,34 @@ export async function registerEmployer(input: {
   country?: string;
   city?: string;
 }): Promise<ActionResult & { employerId?: string; id?: string; slug?: string }> {
+  if (!input || typeof input !== "object") return { error: "Organisation name is required." };
+  const v = all({
+    name: reqText(input.name, "Organisation name", LIMITS.name),
+    employer_type: reqOneOf(input.employer_type, "Organisation type", EMPLOYER_TYPES),
+    description: optText(input.description, "Description", LIMITS.description, { multiline: true }),
+    website: optUrl(input.website, "Website"),
+    email: optEmail(input.email, "Email"),
+    country: optText(input.country, "Country", LIMITS.label),
+    city: optText(input.city, "City", LIMITS.name),
+  });
+  if (!v.ok) return { error: v.error };
+
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
 
   const supabase = await createClient();
-  const slug = `${slugify(input.name)}-${Math.random().toString(36).slice(2, 6)}`;
+  const slug = `${slugify(v.value.name)}-${Math.random().toString(36).slice(2, 6)}`;
+
+  // Only the keys the caller sent, so a column default still applies to one it
+  // left out — exactly as the old `...input` spread behaved.
+  const row: Record<string, unknown> = {};
+  for (const k of Object.keys(v.value) as (keyof typeof v.value)[]) {
+    if (hasKey(input, k)) row[k] = v.value[k];
+  }
 
   const { data, error } = await supabase
     .from("cns_employers")
-    .insert({ ...input, slug, created_by: user.id, status: "pending" })
+    .insert({ ...row, slug, created_by: user.id, status: "pending" })
     .select("id")
     .single();
   if (error) return actionError("jobs:registerEmployer", error);
@@ -100,11 +124,122 @@ function friendlyJobError(error: { message: string; code?: string }): string {
   return userMessage(error);
 }
 
+/** cns_employers.employer_type CHECK constraint. */
+const EMPLOYER_TYPES = ["hospital", "clinic", "agency", "university", "other"] as const;
+/** cns_jobs CHECK constraints (cns_jobs_v1_alignment.sql). */
+const EMPLOYMENT_TYPES = [
+  "full-time", "part-time", "casual", "temporary", "contract", "permanent", "internship", "travel-assignment",
+] as const;
+const EXPERIENCE_LEVELS = ["none", "under-1", "1-3", "3-5", "5-plus"] as const;
+const WORK_MODES = ["onsite", "hybrid", "remote"] as const;
+const APPLY_MODES = ["in_app", "external"] as const;
+/** The statuses cns_set_application_status() accepts. */
+const APPLICATION_STATUSES = ["under_review", "shortlisted", "interview", "selected", "not_selected"] as const;
+const LIFECYCLE = ["paused", "active", "closed"] as const;
+/** cns_job_reports.reason CHECK constraint. */
+const REPORT_REASONS = [
+  "suspicious_job", "inaccurate_information", "discrimination", "payment_request",
+  "expired_job", "duplicate_job", "other",
+] as const;
+const QUESTION_TYPES = ["short_answer", "yes_no", "number"] as const;
+const YES_NO = ["yes", "no"] as const;
+/** numeric(12,2) */
+const SALARY_MAX = 9_999_999_999;
+const CURRENCY = /^[A-Z]{3}$/;
+const okValue = <T>(value: T): Valid<T> => ({ ok: true, value });
+
+/**
+ * Validate the composer's payload. Only keys actually present are checked and
+ * returned, so an edit that sends a subset leaves the other columns alone —
+ * the same contract as the old whitelist loop. Columns the database requires
+ * (title, employment_type, work_mode, vacancies, apply_mode) are required
+ * whenever sent, and the title always on create.
+ */
+function validateJobInput(input: Record<string, unknown>, isNew: boolean): Valid<Record<string, unknown>> {
+  const ml = { multiline: true };
+  const checks: Record<(typeof JOB_EDITABLE_FIELDS)[number], () => Valid<unknown>> = {
+    title: () => reqText(input.title, "Job title", LIMITS.title),
+    // NOT NULL in the database, but a draft may be saved before it is written —
+    // submitJobForReview() is the gate that demands 100+ characters. So a blank
+    // draft description stays the column's one legal blank, as it always was.
+    description: () => {
+      const r = optText(input.description, "Description", LIMITS.description, ml);
+      return r.ok ? okValue(r.value ?? "") : r;
+    },
+    responsibilities: () => optText(input.responsibilities, "Responsibilities", LIMITS.description, ml),
+    qualifications: () => optText(input.qualifications, "Qualifications", LIMITS.description, ml),
+    employment_type: () => reqOneOf(input.employment_type, "Employment type", EMPLOYMENT_TYPES),
+    // Taxonomy slugs. The vocabulary is staff-editable data, so it is checked
+    // for length here (no query) and for membership by the composer's options.
+    nursing_role: () => optText(input.nursing_role, "Nursing role", LIMITS.slug),
+    specialty: () => optText(input.specialty, "Specialty", LIMITS.slug),
+    work_setting: () => optText(input.work_setting, "Work setting", LIMITS.slug),
+    experience_level: () => optOneOf(input.experience_level, "Experience required", EXPERIENCE_LEVELS),
+    is_remote: () => okValue(bool(input.is_remote)),
+    work_mode: () => reqOneOf(input.work_mode, "Work mode", WORK_MODES),
+    country: () => optText(input.country, "Country", LIMITS.label),
+    state: () => optText(input.state, "State", LIMITS.name),
+    city: () => optText(input.city, "City", LIMITS.name),
+    street_address: () => optText(input.street_address, "Street address", LIMITS.short),
+    postal_code: () => optText(input.postal_code, "Postal code", LIMITS.phone),
+    experience_min_years: () => optInt(input.experience_min_years, "Minimum experience", { min: 0, max: 60 }),
+    qualification_required: () => optText(input.qualification_required, "Qualification required", LIMITS.short),
+    license_required: () => okValue(bool(input.license_required)),
+    language_requirements: () => optText(input.language_requirements, "Language requirements", LIMITS.short),
+    salary_min: () => optMoney(input.salary_min, "Salary from", { min: 0, max: SALARY_MAX }),
+    salary_max: () => optMoney(input.salary_max, "Salary to", { min: 0, max: SALARY_MAX }),
+    salary_currency: () => {
+      const r = optText(input.salary_currency, "Currency", 3);
+      if (!r.ok || r.value === null) return r;
+      const c = r.value.toUpperCase();
+      return CURRENCY.test(c) ? okValue(c) : { ok: false, error: "Currency is not valid." };
+    },
+    salary_period: () => optOneOf(input.salary_period, "Salary period", SALARY_PERIODS),
+    salary_undisclosed: () => okValue(bool(input.salary_undisclosed)),
+    salary_text: () => optText(input.salary_text, "Salary", LIMITS.short),
+    vacancies: () => reqInt(input.vacancies, "Vacancies", { min: 1, max: 100000 }),
+    application_deadline: () => optDate(input.application_deadline, "Application deadline"),
+    apply_mode: () => reqOneOf(input.apply_mode, "Apply mode", APPLY_MODES),
+    // cns_jobs_external_url: an external apply mode needs a link.
+    external_apply_url: () =>
+      input.apply_mode === "external"
+        ? reqUrl(input.external_apply_url, "External apply link")
+        : optUrl(input.external_apply_url, "External apply link"),
+    internal_ref: () => optText(input.internal_ref, "Internal reference", LIMITS.label),
+    visa_sponsorship: () => okValue(bool(input.visa_sponsorship)),
+  };
+
+  const out: Record<string, unknown> = {};
+  for (const k of JOB_EDITABLE_FIELDS) {
+    if (!hasKey(input, k) && !(k === "title" && isNew)) continue;
+    const r = checks[k]();
+    if (!r.ok) return { ok: false, error: r.error };
+    out[k] = r.value;
+  }
+  if (input.apply_mode === "external" && !hasKey(input, "external_apply_url")) {
+    return { ok: false, error: "External apply link is required." };
+  }
+  const lo = out.salary_min as number | null | undefined;
+  const hi = out.salary_max as number | null | undefined;
+  if (lo != null && hi != null && lo > hi) {
+    return { ok: false, error: "“Salary from” cannot be more than “Salary to”." };
+  }
+  return okValue(out);
+}
+
 export async function saveJob(
   employerId: string,
   input: Record<string, unknown>,
   jobId?: string
 ): Promise<ActionResult & { jobId?: string; id?: string; slug?: string }> {
+  const ids = all({ employerId: reqId(employerId, "Employer"), jobId: optId(jobId, "Job") });
+  if (!ids.ok) return { error: ids.error };
+  if (!input || typeof input !== "object" || Array.isArray(input)) return { error: "Nothing to save." };
+  const fields = validateJobInput(input, !ids.value.jobId);
+  if (!fields.ok) return { error: fields.error };
+  employerId = ids.value.employerId;
+  jobId = ids.value.jobId ?? undefined;
+
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
 
@@ -121,10 +256,12 @@ export async function saveJob(
   // -- verified against production. The database trigger is the real guard
   // (a direct PostgREST call never reaches this function), but nothing here
   // should be forwarding fields the composer does not own either.
-  const payload: Record<string, unknown> = { employer_id: employerId, updated_at: new Date().toISOString() };
-  for (const k of JOB_EDITABLE_FIELDS) {
-    if (k in input) payload[k] = input[k];
-  }
+  // validateJobInput() returns only whitelisted keys the caller actually sent.
+  const payload: Record<string, unknown> = {
+    employer_id: employerId,
+    updated_at: new Date().toISOString(),
+    ...fields.value,
+  };
 
   if (jobId) {
     const { error } = await supabase.from("cns_jobs").update(payload).eq("id", jobId);
@@ -140,7 +277,7 @@ export async function saveJob(
     .from("cns_jobs")
     .insert({
       ...payload,
-      slug: `${slugify(String(input.title ?? "job"))}-${Math.random().toString(36).slice(2, 7)}`,
+      slug: `${slugify(String(fields.value.title ?? "job"))}-${Math.random().toString(36).slice(2, 7)}`,
       created_by: user.id,
       status: "draft",
     })
@@ -166,6 +303,9 @@ export async function saveJob(
  * a day to be rejected for a missing deadline.
  */
 export async function submitJobForReview(jobId: string): Promise<ActionResult> {
+  const id = reqId(jobId, "Job");
+  if (!id.ok) return { error: id.error };
+  jobId = id.value;
   const supabase = await createClient();
 
   const { data: job, error: jobError } = await supabase
@@ -210,6 +350,10 @@ export async function submitJobForReview(jobId: string): Promise<ActionResult> {
 
 /** Employer pauses or closes a live job. Neither needs admin involvement. */
 export async function setJobLifecycle(jobId: string, next: "paused" | "active" | "closed"): Promise<ActionResult> {
+  const v = all({ jobId: reqId(jobId, "Job"), next: reqOneOf(next, "Status", LIFECYCLE) });
+  if (!v.ok) return { error: v.error };
+  jobId = v.value.jobId;
+  next = v.value.next;
   const supabase = await createClient();
 
   // Resuming a paused job returns it to 'active' without re-review; it was
@@ -347,16 +491,59 @@ export async function applyToJob(jobId: string, input: ApplyInput): Promise<Acti
   }
 }
 
+/** At most five questions exist per job (DB trigger); allow headroom, refuse floods. */
+const MAX_ANSWERS = 20;
+
+/** Validate the apply payload. Blank optional fields become null, never "". */
+function validateApplyInput(jobId: unknown, input: ApplyInput): Valid<{
+  jobId: string;
+  coverNote: string | null;
+  resumeId: string | null;
+  resumeFileId: string | null;
+  answers: { questionId: string; questionText: string; answer: string | null }[];
+}> {
+  if (!input || typeof input !== "object") return { ok: false, error: "Nothing to submit." };
+  const v = all({
+    jobId: reqId(jobId, "Job"),
+    coverNote: optText(input.coverNote, "Cover note", LIMITS.message, { multiline: true }),
+    resumeId: optId(input.resumeId, "CV"),
+    resumeFileId: optId(input.resumeFileId, "CV"),
+  });
+  if (!v.ok) return v;
+  const raw = input.answers ?? [];
+  if (!Array.isArray(raw)) return { ok: false, error: "Screening answers are not valid." };
+  if (raw.length > MAX_ANSWERS) return { ok: false, error: "Too many screening answers." };
+  const answers: { questionId: string; questionText: string; answer: string | null }[] = [];
+  for (const a of raw) {
+    if (!a || typeof a !== "object") return { ok: false, error: "Screening answers are not valid." };
+    const r = all({
+      questionId: reqId(a.questionId, "Question"),
+      questionText: reqText(a.questionText, "Question", LIMITS.bio),
+      // An optional question left blank is stored as null, not "" — the row is
+      // kept so the employer still sees the question was asked.
+      answer: optText(a.answer, "Answer", LIMITS.comment, { multiline: true }),
+    });
+    if (!r.ok) return r;
+    answers.push(r.value);
+  }
+  return { ok: true, value: { ...v.value, answers } };
+}
+
 async function applyToJobImpl(
-  jobId: string,
-  input: ApplyInput
+  rawJobId: string,
+  rawInput: ApplyInput
 ): Promise<ActionResult> {
+  const valid = validateApplyInput(rawJobId, rawInput);
+  if (!valid.ok) return { error: valid.error };
+  const { jobId, ...input } = valid.value;
+  const declarationAccepted = bool(rawInput.declarationAccepted);
+
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
 
   // §6.2 step 6: the declaration is a required step, so it is enforced here
   // rather than only being a disabled button in the UI.
-  if (!input.declarationAccepted) {
+  if (!declarationAccepted) {
     return { error: "Please accept the applicant declaration before submitting." };
   }
 
@@ -386,7 +573,7 @@ async function applyToJobImpl(
     .eq("job_id", jobId);
   if (questionsError) logError("jobs:applyToJob:questions", questionsError, { jobId });
 
-  const answered = new Map((input.answers ?? []).map((a) => [a.questionId, a.answer?.trim() ?? ""]));
+  const answered = new Map(input.answers.map((a) => [a.questionId, a.answer ?? ""]));
   const unanswered = (questions ?? []).filter(
     (q) => q.is_required && !answered.get(q.id as string)
   );
@@ -446,7 +633,7 @@ async function applyToJobImpl(
   // Answers carry the question TEXT, not just its id: an employer editing a
   // question later must not change what the candidate appears to have been
   // asked.
-  if (input.answers?.length) {
+  if (input.answers.length) {
     const { error: answersError } = await supabase.from("cns_application_answers").insert(
       input.answers.map((a) => ({
         application_id: created.id,
@@ -519,9 +706,11 @@ async function applyToJobImpl(
  * has to change with it or withdrawal returns "permission denied".
  */
 export async function withdrawApplication(applicationId: string): Promise<ActionResult> {
+  const id = reqId(applicationId, "Application");
+  if (!id.ok) return { error: id.error };
   const supabase = await createClient();
   const { error } = await supabase.rpc("cns_withdraw_application", {
-    p_application_id: applicationId,
+    p_application_id: id.value,
   });
   if (error) return actionError("jobs:withdrawApplication", error);
   revalidatePath("/jobs/applications");
@@ -557,13 +746,24 @@ const APPLICANT_STATUS_HEADING: Record<string, string> = {
 };
 
 export async function setApplicationStatus(applicationId: string, status: string, note?: string): Promise<ActionResult> {
+  const v = all({
+    applicationId: reqId(applicationId, "Application"),
+    status: reqOneOf(status, "Status", APPLICATION_STATUSES),
+    // Blank becomes null, which the function's coalesce() reads as "keep the
+    // existing note" — "" would have wiped it.
+    note: optText(note, "Note", LIMITS.comment, { multiline: true }),
+  });
+  if (!v.ok) return { error: v.error };
+  applicationId = v.value.applicationId;
+  status = v.value.status;
+
   const supabase = await createClient();
   // Definer function: lets an employer move status without holding a general
   // UPDATE grant, which would also let them edit profile_snapshot.
   const { error } = await supabase.rpc("cns_set_application_status", {
     p_application_id: applicationId,
     p_status: status,
-    p_note: note ?? null,
+    p_note: v.value.note,
   });
   if (error) return actionError("jobs:setApplicationStatus", error);
 
@@ -612,6 +812,10 @@ export async function setApplicationStatus(applicationId: string, status: string
 }
 
 export async function toggleSaveJob(jobId: string, save: boolean): Promise<ActionResult> {
+  const id = reqId(jobId, "Job");
+  if (!id.ok) return { error: id.error };
+  jobId = id.value;
+  save = bool(save);
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
   const supabase = await createClient();
@@ -653,25 +857,50 @@ export async function setScreeningQuestions(
     knockout_min?: number | null;
   }[]
 ): Promise<ActionResult> {
-  const supabase = await createClient();
+  const id = reqId(jobId, "Job");
+  if (!id.ok) return { error: id.error };
+  jobId = id.value;
+  if (!Array.isArray(questions)) return { error: "Screening questions are not valid." };
+  if (questions.length > 50) return { error: "Too many screening questions." };
 
-  const clean = questions
-    .map((q) => ({
-      question: q.question.trim(),
-      question_type: q.question_type,
-      is_required: q.is_required,
-      // A rule is only stored against the type it can apply to. The database
-      // has a CHECK saying the same thing; normalising here turns what would
-      // be a raw constraint error into a rule that is simply dropped when the
-      // employer switches a question's answer type after setting one.
-      knockout_expected: q.question_type === "yes_no" ? (q.knockout_expected ?? null) : null,
+  type CleanQuestion = {
+    question: string;
+    question_type: (typeof QUESTION_TYPES)[number];
+    is_required: boolean;
+    knockout_expected: "yes" | "no" | null;
+    knockout_min: number | null;
+  };
+  const kept: CleanQuestion[] = [];
+  for (const q of questions) {
+    if (!q || typeof q !== "object") return { error: "Screening questions are not valid." };
+    const text = optText(q.question, "Question", LIMITS.short);
+    if (!text.ok) return { error: text.error };
+    if (text.value === null) continue; // blank rows are dropped, as before
+    const type = reqOneOf(q.question_type, "Answer type", QUESTION_TYPES);
+    if (!type.ok) return { error: type.error };
+    if (q.knockout_min != null && typeof q.knockout_min !== "number") {
+      return { error: "“Meets criteria at” must be a number." };
+    }
+    // A rule is only stored against the type it can apply to. The database
+    // has a CHECK saying the same thing; normalising here turns what would
+    // be a raw constraint error into a rule that is simply dropped when the
+    // employer switches a question's answer type after setting one.
+    const expected = type.value === "yes_no" ? optOneOf(q.knockout_expected, "Expected answer", YES_NO) : okValue(null);
+    if (!expected.ok) return { error: expected.error };
+    kept.push({
+      question: text.value,
+      question_type: type.value,
+      is_required: bool(q.is_required),
+      knockout_expected: expected.value,
       knockout_min:
-        q.question_type === "number" && q.knockout_min != null && Number.isFinite(q.knockout_min)
+        type.value === "number" && q.knockout_min != null && Number.isFinite(q.knockout_min)
           ? q.knockout_min
           : null,
-    }))
-    .filter((q) => q.question.length > 0)
-    .slice(0, 5); // the database enforces this too, via a trigger
+    });
+  }
+  const clean = kept.slice(0, 5); // the database enforces this too, via a trigger
+
+  const supabase = await createClient();
 
   // Refuse what the column cannot hold BEFORE touching anything. knockout_min
   // is numeric(6,1), so 1000000 failed the insert — after the delete below had
@@ -721,6 +950,13 @@ export async function reportJob(
   reason: string,
   detail?: string
 ): Promise<ActionResult> {
+  const v = all({
+    jobId: reqId(jobId, "Job"),
+    reason: reqOneOf(reason, "Reason", REPORT_REASONS),
+    detail: optText(detail, "Detail", LIMITS.comment, { multiline: true }),
+  });
+  if (!v.ok) return { error: v.error };
+
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
 
@@ -729,10 +965,10 @@ export async function reportJob(
 
   const supabase = await createClient();
   const { error } = await supabase.from("cns_job_reports").insert({
-    job_id: jobId,
+    job_id: v.value.jobId,
     reporter_id: user.id,
-    reason,
-    detail: detail ?? null,
+    reason: v.value.reason,
+    detail: v.value.detail,
   });
   if (error) return actionError("jobs:reportJob", error);
   return { ok: true };
@@ -752,7 +988,9 @@ export async function reportJob(
 export async function getApplicationResumeUrl(
   applicationId: string
 ): Promise<ActionResult & { url?: string; href?: string; fileName?: string; title?: string }> {
-  const target = await getApplicationResumeTarget(applicationId);
+  const id = reqId(applicationId, "Application");
+  if (!id.ok) return { error: id.error };
+  const target = await getApplicationResumeTarget(id.value);
 
   switch (target.kind) {
     case "file":

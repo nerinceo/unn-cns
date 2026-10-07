@@ -13,6 +13,7 @@ Copied from `unn-platform` at commit **`e63d766`** (2026-09-20).
 |---|---|---|
 | `lib/auth/cookie-config.ts` | `lib/auth/cookie-config.ts` | **Most critical.** See below. |
 | `lib/access.ts` | `lib/access.ts` | Account scope + `resolveHome()`. Drift lands people in the WRONG APP — it does not throw, it just silently misroutes. |
+| `lib/validate.ts` | `lib/validate.ts` | Input validation for every server action (also in UHN). Drift means a rule tightened in one app stays loose in another — e.g. blank values accepted again. |
 | `lib/sanitize.ts` | `lib/sanitize.ts` | Rich-text allowlist. Must match what the Tiptap editor emits. |
 | `lib/lms/index.ts` | partial | LMS doc types + expertise vocabularies are duplicated, not shared. |
 | `lib/supabase/client.ts` | `lib/supabase/client.ts` | Browser client + host-only cookie dedupe |

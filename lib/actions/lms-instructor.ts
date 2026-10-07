@@ -8,9 +8,12 @@ import {
   validateUpload,
   DOC_MIME,
   isDocsStorageConfigured,
+  MAX_UPLOAD_BYTES,
 } from "@/lib/r2/docs";
 import { isLmsDocType, LMS_EXPERTISE, MIN_INSTRUCTOR_BIO } from "@/lib/lms";
 import { actionError, logError } from "@/lib/errors";
+import { LIMITS, all, optDate, optEmail, optText, optUrl, reqId, reqText } from "@/lib/validate";
+import { cleanFileName, precheckUpload } from "@/lib/actions/upload-check";
 
 /**
  * Instructor account settings — profile, credentials, agreement.
@@ -63,39 +66,56 @@ async function requireInstructor() {
 
 /** Save the public teaching profile. */
 export async function updateInstructorProfile(formData: FormData): Promise<ActionResult> {
-  const ctx = await requireInstructor();
-  if (ctx.error || !ctx.supabase) return { error: ctx.error ?? "Not signed in" };
+  if (!(formData instanceof FormData)) return { error: "A display name is required." };
 
-  const displayName = String(formData.get("display_name") ?? "").trim();
-  if (!displayName) return { error: "A display name is required." };
-  if (displayName.length > 80) return { error: "Keep your display name under 80 characters." };
+  const displayName = reqText(formData.get("display_name"), "Display name", 80);
+  if (!displayName.ok) {
+    return {
+      error: displayName.error.endsWith("is required.")
+        ? "A display name is required."
+        : "Keep your display name under 80 characters.",
+    };
+  }
 
-  const bio = String(formData.get("bio") ?? "").trim();
-  if (bio.length < MIN_INSTRUCTOR_BIO)
+  const bio = optText(formData.get("bio"), "Bio", LIMITS.bio, { multiline: true });
+  if (!bio.ok) return { error: bio.error };
+  if ((bio.value ?? "").length < MIN_INSTRUCTOR_BIO)
     return {
       error: `Please write at least ${MIN_INSTRUCTOR_BIO} characters about your teaching background.`,
     };
 
   // Only values from the known vocabulary — this array is rendered on public
   // course pages, so free text here would be an injection surface for content.
-  const expertise = formData
-    .getAll("expertise")
-    .map((v) => String(v))
-    .filter((v) => EXPERTISE.has(v));
+  const expertise = Array.from(
+    new Set(
+      formData
+        .getAll("expertise")
+        .map((v) => (typeof v === "string" ? v.trim() : ""))
+        .filter((v) => EXPERTISE.has(v)),
+    ),
+  );
   if (expertise.length === 0) return { error: "Select at least one area of expertise." };
+
+  const rest = all({
+    headline: optText(formData.get("headline"), "Headline", LIMITS.name),
+    website: optUrl(formData.get("website"), "Website"),
+    contact_email: optEmail(formData.get("contact_email"), "Contact email"),
+    license_number: optText(formData.get("license_number"), "Licence number", LIMITS.label),
+    license_country: optText(formData.get("license_country"), "Licence country", LIMITS.label),
+    license_expiry: optDate(formData.get("license_expiry"), "Licence expiry"),
+  });
+  if (!rest.ok) return { error: rest.error };
+
+  const ctx = await requireInstructor();
+  if (ctx.error || !ctx.supabase) return { error: ctx.error ?? "Not signed in" };
 
   const { error } = await ctx.supabase
     .from("lms_instructors")
     .update({
-      display_name: displayName,
-      headline: String(formData.get("headline") ?? "").trim() || null,
-      bio,
+      display_name: displayName.value,
+      bio: bio.value,
       expertise,
-      website: String(formData.get("website") ?? "").trim() || null,
-      contact_email: String(formData.get("contact_email") ?? "").trim() || null,
-      license_number: String(formData.get("license_number") ?? "").trim() || null,
-      license_country: String(formData.get("license_country") ?? "").trim() || null,
-      license_expiry: String(formData.get("license_expiry") ?? "").trim() || null,
+      ...rest.value,
       updated_at: now(),
     })
     .eq("id", ctx.instructor!.id);
@@ -147,15 +167,25 @@ export async function acceptInstructorAgreement(): Promise<ActionResult> {
  */
 export async function uploadInstructorDocument(formData: FormData): Promise<ActionResult> {
   if (!isDocsStorageConfigured()) return { error: "Document storage is not configured." };
+  if (!(formData instanceof FormData)) return { error: "Choose a file." };
 
-  const ctx = await requireInstructor();
-  if (ctx.error || !ctx.supabase) return { error: ctx.error ?? "Not signed in" };
-
-  const docType = String(formData.get("doc_type") ?? "");
+  const rawType = formData.get("doc_type");
+  const docType = typeof rawType === "string" ? rawType.trim() : "";
   if (!isLmsDocType(docType)) return { error: "Choose a document type." };
 
   const file = formData.get("file");
   if (!(file instanceof File)) return { error: "Choose a file." };
+  const declared = precheckUpload(file, DOC_MIME, MAX_UPLOAD_BYTES, {
+    tooBig: "Files must be under 5 MB.",
+    badType: "Please upload a PDF, Word document, or a photo (JPG, PNG).",
+  });
+  if (declared) return { error: declared };
+
+  const expiryV = optDate(formData.get("expiry_date"), "Expiry date");
+  if (!expiryV.ok) return { error: expiryV.error };
+
+  const ctx = await requireInstructor();
+  if (ctx.error || !ctx.supabase) return { error: ctx.error ?? "Not signed in" };
 
   const bytes = Buffer.from(await file.arrayBuffer());
   const checked = validateUpload(
@@ -170,14 +200,12 @@ export async function uploadInstructorDocument(formData: FormData): Promise<Acti
     .slice(2, 8)}`;
   await putDoc(key, bytes, checked.contentType);
 
-  const expiry = String(formData.get("expiry_date") ?? "").trim() || null;
-
   const { error } = await ctx.supabase.from("lms_instructor_documents").insert({
     instructor_id: ctx.instructor!.id,
     doc_type: docType,
     file_key: key,
-    file_name: file.name.slice(0, 200),
-    expiry_date: expiry,
+    file_name: cleanFileName(file, 200),
+    expiry_date: expiryV.value,
     status: "pending",
   });
   if (error) return actionError("lms-instructor:uploadInstructorDocument", error);
@@ -188,6 +216,9 @@ export async function uploadInstructorDocument(formData: FormData): Promise<Acti
 }
 
 export async function deleteInstructorDocument(documentId: string): Promise<ActionResult> {
+  const id = reqId(documentId, "Document");
+  if (!id.ok) return { error: id.error };
+  documentId = id.value;
   const ctx = await requireInstructor();
   if (ctx.error || !ctx.supabase) return { error: ctx.error ?? "Not signed in" };
 
@@ -208,6 +239,9 @@ export async function deleteInstructorDocument(documentId: string): Promise<Acti
 export async function getInstructorDocumentUrl(
   documentId: string,
 ): Promise<{ url: string } | { error: string }> {
+  const id = reqId(documentId, "Document");
+  if (!id.ok) return { error: id.error };
+  documentId = id.value;
   const ctx = await requireInstructor();
   if (ctx.error || !ctx.supabase) return { error: ctx.error ?? "Not signed in" };
 

@@ -271,8 +271,9 @@ section("lms: sellerReadiness");
   eq("bio padded with spaces to 100 not done", step({ bio: " ".repeat(10) + "x".repeat(90) }, "profile").done, false);
   eq("blank display name not done", step({ displayName: "  " }, "profile").done, false);
   // The step's own detail is the instructions shown to the instructor:
-  // "Display name, headline and a bio of at least 100 characters."
-  eq("profile done when the detail's three asks are met (expertise not mentioned)", step({ expertise: [] }, "profile").done, true);
+  // "Display name, headline, at least one area of expertise and a bio of at least 100 characters."
+  eq("profile detail mentions expertise", step({}, "profile").detail.includes("expertise"), true);
+  eq("no expertise → profile not done (matches the detail)", step({ expertise: [] }, "profile").done, false);
   eq("profile/credentials never block selling", [step({}, "profile").blocksSelling, step({}, "credentials").blocksSelling], [false, false]);
   eq("no agreement → cannot sell", lms.sellerReadiness({ ...base, agreementAcceptedAt: null }).canSell, false);
   eq("not approved → cannot sell", lms.sellerReadiness({ ...base, status: "pending" }).canSell, false);
@@ -389,9 +390,8 @@ section("question-bank-content: dedupeModelAnswer");
   eq("prefix of column is not a duplicate", qb.dedupeModelAnswer("A\nRationale: The information", rat), "A\nRationale: The information");
   eq("unicode rationale", qb.dedupeModelAnswer("A\nRationale: रक्तचाप — 120/80 mmHg", "रक्तचाप — 120/80 mmHg"), "A");
   eq("HTML in answer passes through untouched (no stripping here)", qb.dedupeModelAnswer("<b>A</b>\nRationale: x", "y"), "<b>A</b>\nRationale: x");
-  // Documented: "this only ever removes a byte-for-byte repeat".
-  eq("case-only difference is not a byte-for-byte repeat → kept", qb.dedupeModelAnswer("A\nRationale: the information processing model describes memory as three stages.", rat),
-    "A\nRationale: the information processing model describes memory as three stages.");
+  // Documented: removes a repeat that differs at most in letter case and whitespace.
+  eq("case-only difference is still a repeat → removed", qb.dedupeModelAnswer("A\nRationale: the information processing model describes memory as three stages.", rat), "A");
 }
 
 // ── lib/cns/library-visuals.ts ──────────────────────────────────────────────

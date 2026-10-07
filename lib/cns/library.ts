@@ -315,6 +315,19 @@ export type TocItem = { id: string; text: string };
  * sanitizer strips them all, so this never fires — but rebuilding the tag from
  * scratch would quietly delete them if that ever changes.
  */
+const NAMED_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+/** One pass over the common HTML entities (named + numeric). */
+function decodeEntities(s: string): string {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+    if (e[0] === "#") {
+      const n = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : m;
+    }
+    const k = e.toLowerCase();
+    return Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, k) ? NAMED_ENTITIES[k] : m;
+  });
+}
+
 export function buildToc(html: string | null): { html: string; toc: TocItem[] } {
   const toc: TocItem[] = [];
   if (!html) return { html: "", toc };
@@ -323,7 +336,9 @@ export function buildToc(html: string | null): { html: string; toc: TocItem[] } 
   const out = html.replace(
     /<h2(\s[^>]*)?>([\s\S]*?)<\/h2>/gi,
     (whole, attrs: string | undefined, inner: string) => {
-      const text = inner.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+      // Decode entities: the contents list renders this as plain text, so a
+      // heading's "&amp;" showed up literally (QA 2026-10-07).
+      const text = decodeEntities(inner.replace(/<[^>]*>/g, "")).replace(/\s+/g, " ").trim();
       if (!text) return whole;
 
       const base =

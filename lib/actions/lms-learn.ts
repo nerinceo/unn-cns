@@ -6,6 +6,7 @@ import { courseAccess } from "@/lib/cns/lms";
 import { playbackUrlFor } from "@/lib/lms/video";
 import { presignDocRead } from "@/lib/r2/docs";
 import { actionError, logError } from "@/lib/errors";
+import { LIMITS, bool, optText, reqId, reqInt } from "@/lib/validate";
 
 /**
  * UNN Learn — learner mutations and entitlement-gated reads.
@@ -30,6 +31,9 @@ import { actionError, logError } from "@/lib/errors";
 export async function getPartPlayback(
   partId: string,
 ): Promise<{ url: string } | { error: string }> {
+  const id = reqId(partId, "Video");
+  if (!id.ok) return { error: id.error };
+  partId = id.value;
   const supabase = await createClient();
   const { data: part, error: partError } = await supabase
     .from("lms_lecture_parts")
@@ -62,6 +66,9 @@ export async function getPartPlayback(
 export async function getResourceDownloadUrl(
   resourceId: string,
 ): Promise<{ url: string } | { error: string }> {
+  const id = reqId(resourceId, "File");
+  if (!id.ok) return { error: id.error };
+  resourceId = id.value;
   const supabase = await createClient();
   const { data: resource, error: resourceError } = await supabase
     .from("lms_lecture_resources")
@@ -99,6 +106,12 @@ export async function saveLectureProgress(
   lectureId: string,
   positionS: number,
 ): Promise<{ ok: boolean }> {
+  // The hottest write in the product: refuse junk before the first query.
+  const id = reqId(lectureId, "Lecture");
+  if (!id.ok || typeof positionS !== "number" || !Number.isFinite(positionS) || positionS < 0) {
+    return { ok: false };
+  }
+  lectureId = id.value;
   const supabase = await createClient();
   const { data: lecture, error: lectureError } = await supabase
     .from("lms_lectures")
@@ -116,7 +129,7 @@ export async function saveLectureProgress(
       user_id: access.userId,
       lecture_id: lectureId,
       course_id: lecture.course_id,
-      position_s: Math.max(0, Math.round(Number(positionS) || 0)),
+      position_s: Math.round(positionS),
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id,lecture_id" },
@@ -143,6 +156,10 @@ export async function setLectureComplete(
   lectureId: string,
   completed: boolean,
 ): Promise<ActionResult> {
+  const id = reqId(lectureId, "Lecture");
+  if (!id.ok) return { error: id.error };
+  lectureId = id.value;
+  completed = bool(completed);
   const supabase = await createClient();
   const { data: lecture, error: lectureError } = await supabase
     .from("lms_lectures")
@@ -187,22 +204,26 @@ export async function submitCourseReview(
   rating: number,
   body: string,
 ): Promise<ActionResult> {
+  const id = reqId(courseId, "Course");
+  if (!id.ok) return { error: id.error };
+  courseId = id.value;
+  const stars = reqInt(rating, "Rating", { min: 1, max: 5 });
+  if (!stars.ok) return { error: "Choose a rating from 1 to 5." };
+  const text = optText(body, "Review", LIMITS.comment, { multiline: true });
+  if (!text.ok) return { error: text.error };
+
   const supabase = await createClient();
   const access = await courseAccess(courseId);
   if (!access.ok) return { error: access.error };
   if (!access.enrolled) return { error: "Only enrolled learners can review a course." };
   if (access.isOwner) return { error: "You can't review your own course." };
 
-  const clean = Math.round(Number(rating));
-  if (!Number.isFinite(clean) || clean < 1 || clean > 5)
-    return { error: "Choose a rating from 1 to 5." };
-
   const { error } = await supabase.from("lms_reviews").upsert(
     {
       course_id: courseId,
       user_id: access.userId,
-      rating: clean,
-      body: body.trim().slice(0, 2000) || null,
+      rating: stars.value,
+      body: text.value,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "course_id,user_id" },

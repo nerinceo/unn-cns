@@ -20,6 +20,7 @@ import {
   DOC_MIME,
   isDocsStorageConfigured,
   sniffContentType,
+  MAX_UPLOAD_BYTES,
 } from "@/lib/r2/docs";
 import {
   putCover,
@@ -39,6 +40,33 @@ import {
 } from "@/lib/lms";
 import type { LmsCourse, LmsLecture, LmsLectureKind, LmsSection } from "@/lib/cns/lms";
 import { actionError, logError } from "@/lib/errors";
+import {
+  LIMITS, all, idList, optDate, optText, optUrl, reqId, reqInt, reqMoney, reqText, type Valid,
+} from "@/lib/validate";
+import { cleanFileName, precheckUpload } from "@/lib/actions/upload-check";
+
+const LEVELS = ["beginner", "intermediate", "advanced", "all"] as const;
+/** The builder's language picker offers ISO 639 codes ("en", "fil"…). */
+const LANGUAGE = /^[a-z]{2,3}$/;
+/**
+ * Lecture article HTML. Deliberately above LIMITS.post: a lesson can be far
+ * longer than a feed article, and this is a flood guard, not an editorial cap.
+ */
+const LECTURE_CONTENT_MAX = 200_000;
+/** Max entries in one reorder call — far beyond any real curriculum. */
+const MAX_REORDER = 1000;
+
+/** Course title rules, with the messages the builder already shows. */
+function courseTitle(raw: unknown): Valid<string> {
+  const t = reqText(raw, "Title", 80, { min: 6 });
+  if (t.ok) return t;
+  return {
+    ok: false,
+    error: /or fewer/.test(t.error)
+      ? "Keep the title under 80 characters."
+      : "Give your course a title of at least 6 characters.",
+  };
+}
 
 /**
  * UNN Learn — course authoring (instructor side, CNS).
@@ -61,16 +89,18 @@ import { actionError, logError } from "@/lib/errors";
 
 const now = () => new Date().toISOString();
 
-/** Split a textarea into trimmed, de-duplicated, non-empty lines. */
-function lines(value: FormDataEntryValue | null, max = 12): string[] {
-  return Array.from(
-    new Set(
-      String(value ?? "")
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    ),
-  ).slice(0, max);
+/**
+ * Split a textarea into trimmed, de-duplicated, non-empty lines, each at most
+ * LIMITS.short characters. Lines beyond `max` are dropped, as before.
+ */
+function lines(value: FormDataEntryValue | null, label: string, max = 12): Valid<string[]> {
+  const out = new Set<string>();
+  for (const raw of (typeof value === "string" ? value : "").split("\n")) {
+    const line = optText(raw, label, LIMITS.short);
+    if (!line.ok) return { ok: false, error: `Each line of ${label.toLowerCase()} must be ${LIMITS.short} characters or fewer.` };
+    if (line.value) out.add(line.value);
+  }
+  return { ok: true, value: Array.from(out).slice(0, max) };
 }
 
 type OwnedCourse = {
@@ -159,6 +189,9 @@ export type CourseForEdit = LmsCourse & { sections: EditSection[] };
 
 /** The full authoring tree for the builder. Owner-only. */
 export async function getCourseForEdit(courseId: string): Promise<CourseForEdit | null> {
+  const id = reqId(courseId, "Course");
+  if (!id.ok) return null;
+  courseId = id.value;
   const owned = await ownedCourse(courseId);
   if ("error" in owned) return null;
 
@@ -191,6 +224,15 @@ export async function getCourseForEdit(courseId: string): Promise<CourseForEdit 
 export async function createCourse(
   formData: FormData,
 ): Promise<ActionResult & { id?: string }> {
+  if (!(formData instanceof FormData)) return { error: "Give your course a title of at least 6 characters." };
+  const titleV = courseTitle(formData.get("title"));
+  if (!titleV.ok) return { error: titleV.error };
+  const title = titleV.value;
+
+  const rawCategory = formData.get("category");
+  const category = typeof rawCategory === "string" ? rawCategory.trim() : "";
+  if (!isLmsCategory(category)) return { error: "Choose a category." };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -205,13 +247,6 @@ export async function createCourse(
   if (instructorError) logError("lms-courses:createCourse:instructor", instructorError);
   if (instructor?.status !== "approved")
     return { error: "Your instructor account is not approved yet." };
-
-  const title = String(formData.get("title") ?? "").trim();
-  if (title.length < 6) return { error: "Give your course a title of at least 6 characters." };
-  if (title.length > 80) return { error: "Keep the title under 80 characters." };
-
-  const category = String(formData.get("category") ?? "").trim();
-  if (!isLmsCategory(category)) return { error: "Choose a category." };
 
   const { data, error } = await supabase
     .from("lms_courses")
@@ -236,39 +271,64 @@ export async function updateCourseLanding(
   courseId: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const owned = await ownedCourse(courseId);
-  if ("error" in owned) return owned;
+  const id = reqId(courseId, "Course");
+  if (!id.ok) return { error: id.error };
+  courseId = id.value;
+  if (!(formData instanceof FormData)) return { error: "Give your course a title of at least 6 characters." };
 
-  const title = String(formData.get("title") ?? "").trim();
-  if (title.length < 6) return { error: "Give your course a title of at least 6 characters." };
-  if (title.length > 80) return { error: "Keep the title under 80 characters." };
+  const titleV = courseTitle(formData.get("title"));
+  if (!titleV.ok) return { error: titleV.error };
+  const title = titleV.value;
 
-  const subtitle = String(formData.get("subtitle") ?? "").trim();
-  if (subtitle.length > 160) return { error: "Keep the short description under 160 characters." };
+  const subtitle = optText(formData.get("subtitle"), "Short description", 160);
+  if (!subtitle.ok) return { error: "Keep the short description under 160 characters." };
 
-  const category = String(formData.get("category") ?? "").trim();
+  const rawCategory = formData.get("category");
+  const category = typeof rawCategory === "string" ? rawCategory.trim() : "";
   if (!isLmsCategory(category)) return { error: "Choose a category." };
 
-  const level = String(formData.get("level") ?? "all");
-  if (!["beginner", "intermediate", "advanced", "all"].includes(level))
-    return { error: "Choose a level." };
+  const rawLevel = formData.get("level");
+  const level = rawLevel === null ? "all" : typeof rawLevel === "string" ? rawLevel.trim() : "";
+  if (!(LEVELS as readonly string[]).includes(level)) return { error: "Choose a level." };
+
+  const language = optText(formData.get("language"), "Language", 3);
+  if (!language.ok || (language.value !== null && !LANGUAGE.test(language.value)))
+    return { error: "Choose a language." };
+
+  // Rich HTML: only its size is checked here. sanitizeRichText() owns the
+  // content, and the raw string goes to it untouched, as before.
+  const rawDescription = formData.get("description");
+  const description = typeof rawDescription === "string" ? rawDescription : "";
+  if (description.length > LIMITS.post)
+    return { error: `Keep the description under ${LIMITS.post} characters.` };
+
+  const rest = all({
+    cover_url: optUrl(formData.get("cover_url"), "Cover image"),
+    what_you_learn: lines(formData.get("what_you_learn"), "What learners will learn", 8),
+    requirements: lines(formData.get("requirements"), "Requirements", 8),
+    who_is_for: lines(formData.get("who_is_for"), "Who this course is for", 8),
+  });
+  if (!rest.ok) return { error: rest.error };
+
+  const owned = await ownedCourse(courseId);
+  if ("error" in owned) return owned;
 
   const { error } = await owned.supabase
     .from("lms_courses")
     .update({
       title,
-      subtitle: subtitle || null,
+      subtitle: subtitle.value,
       category,
       level,
-      language: String(formData.get("language") ?? "en").trim() || "en",
-      cover_url: String(formData.get("cover_url") ?? "").trim() || null,
+      language: language.value ?? "en",
+      cover_url: rest.value.cover_url,
       // Sanitized server-side against the same allowlist HUB uses — the
       // editor's output is never trusted, because a direct POST bypasses the
       // editor entirely.
-      description: sanitizeRichText(String(formData.get("description") ?? "")) || null,
-      what_you_learn: lines(formData.get("what_you_learn"), 8),
-      requirements: lines(formData.get("requirements"), 8),
-      who_is_for: lines(formData.get("who_is_for"), 8),
+      description: sanitizeRichText(description) || null,
+      what_you_learn: rest.value.what_you_learn,
+      requirements: rest.value.requirements,
+      who_is_for: rest.value.who_is_for,
       updated_at: now(),
     })
     .eq("id", courseId);
@@ -293,17 +353,21 @@ export async function updateCoursePricing(
   courseId: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const owned = await ownedCourse(courseId);
-  if ("error" in owned) return owned;
+  const id = reqId(courseId, "Course");
+  if (!id.ok) return { error: id.error };
+  courseId = id.value;
+  if (!(formData instanceof FormData)) return { error: COURSE_PRICE_HINT };
 
-  const priceRaw = String(formData.get("price") ?? "").trim();
-  const price = Number(priceRaw);
-  if (priceRaw === "" || !isValidCoursePrice(price)) return { error: COURSE_PRICE_HINT };
+  // reqMoney refuses what Number() let through ("1e2", "0x10", "  ").
+  const priceV = reqMoney(formData.get("price"), "Price");
+  if (!priceV.ok || !isValidCoursePrice(priceV.value)) return { error: COURSE_PRICE_HINT };
+  const price = priceV.value;
 
-  const saleRaw = String(formData.get("sale_price") ?? "").trim();
+  const saleRaw = formData.get("sale_price");
   let salePrice: number | null = null;
-  if (saleRaw) {
-    const n = Number(saleRaw);
+  if (typeof saleRaw === "string" && saleRaw.trim()) {
+    const saleV = reqMoney(saleRaw, "Sale price");
+    const n = saleV.ok ? saleV.value : NaN;
     // A sale price of 0 would make a paid course free without saying so; a sale
     // is a discount, and giving it away is a price change.
     if (!isValidCoursePrice(n) || n === 0)
@@ -312,10 +376,17 @@ export async function updateCoursePricing(
     salePrice = n;
   }
 
-  const startsAt = String(formData.get("sale_starts_at") ?? "").trim() || null;
-  const endsAt = String(formData.get("sale_ends_at") ?? "").trim() || null;
+  const dates = all({
+    startsAt: optDate(formData.get("sale_starts_at"), "Sale start date"),
+    endsAt: optDate(formData.get("sale_ends_at"), "Sale end date"),
+  });
+  if (!dates.ok) return { error: dates.error };
+  const { startsAt, endsAt } = dates.value;
   if (startsAt && endsAt && new Date(startsAt) > new Date(endsAt))
     return { error: "The sale end date has to come after the start date." };
+
+  const owned = await ownedCourse(courseId);
+  if ("error" in owned) return owned;
 
   const { error } = await owned.supabase
     .from("lms_courses")
@@ -350,13 +421,34 @@ export async function updateCoursePricing(
 
 // ── Sections ────────────────────────────────────────────────────────────────
 
+/** Module title rules, with the messages the builder already shows. */
+function moduleTitle(raw: unknown): Valid<string> {
+  const t = reqText(raw, "Module title", 100);
+  if (t.ok) return t;
+  return {
+    ok: false,
+    error: /or fewer/.test(t.error) ? "Keep the module title under 100 characters." : "Give the module a title.",
+  };
+}
+
+/** Lecture title rules, with the messages the builder already shows. */
+function lectureTitle(raw: unknown): Valid<string> {
+  const t = reqText(raw, "Lecture title", 120);
+  if (t.ok) return t;
+  return {
+    ok: false,
+    error: /or fewer/.test(t.error) ? "Keep the lecture title under 120 characters." : "Give the lecture a title.",
+  };
+}
+
 export async function addSection(courseId: string, title: string): Promise<ActionResult> {
+  const v = all({ courseId: reqId(courseId, "Course"), title: moduleTitle(title) });
+  if (!v.ok) return { error: v.error };
+  courseId = v.value.courseId;
+  const clean = v.value.title;
+
   const owned = await ownedCourse(courseId);
   if ("error" in owned) return owned;
-
-  const clean = title.trim();
-  if (!clean) return { error: "Give the module a title." };
-  if (clean.length > 100) return { error: "Keep the module title under 100 characters." };
 
   const { data: last, error: lastError } = await owned.supabase
     .from("lms_sections")
@@ -379,6 +471,11 @@ export async function addSection(courseId: string, title: string): Promise<Actio
 }
 
 export async function renameSection(sectionId: string, title: string): Promise<ActionResult> {
+  const v = all({ sectionId: reqId(sectionId, "Module"), title: moduleTitle(title) });
+  if (!v.ok) return { error: v.error };
+  sectionId = v.value.sectionId;
+  const clean = v.value.title;
+
   const supabase = await createClient();
   const { data: section, error: sectionError } = await supabase
     .from("lms_sections")
@@ -390,9 +487,6 @@ export async function renameSection(sectionId: string, title: string): Promise<A
 
   const owned = await ownedCourse(section.course_id as string);
   if ("error" in owned) return owned;
-
-  const clean = title.trim();
-  if (!clean) return { error: "Give the module a title." };
 
   const { error } = await owned.supabase
     .from("lms_sections")
@@ -410,6 +504,9 @@ export async function renameSection(sectionId: string, title: string): Promise<A
  * feature. Unpublish the course instead.
  */
 export async function deleteSection(sectionId: string): Promise<ActionResult> {
+  const id = reqId(sectionId, "Module");
+  if (!id.ok) return { error: id.error };
+  sectionId = id.value;
   const supabase = await createClient();
   const { data: section, error: sectionError } = await supabase
     .from("lms_sections")
@@ -446,6 +543,16 @@ export async function reorderSections(
   courseId: string,
   orderedIds: string[],
 ): Promise<ActionResult> {
+  const v = all({
+    courseId: reqId(courseId, "Course"),
+    orderedIds: Array.isArray(orderedIds)
+      ? idList(orderedIds, "Modules", MAX_REORDER)
+      : { ok: false as const, error: "Modules contains an invalid id." },
+  });
+  if (!v.ok) return { error: v.error };
+  courseId = v.value.courseId;
+  orderedIds = v.value.orderedIds;
+
   const owned = await ownedCourse(courseId);
   if ("error" in owned) return owned;
 
@@ -469,12 +576,17 @@ export async function addLecture(
   kind: LmsLectureKind,
   title: string,
 ): Promise<ActionResult & { id?: string }> {
-  if (!["video", "article", "quiz"].includes(kind)) return { error: "Unknown lecture type." };
+  if (typeof kind !== "string" || !["video", "article", "quiz"].includes(kind)) return { error: "Unknown lecture type." };
   // CNS already has a question bank; a course-embedded quiz engine is a
   // separate build. Offering the option now would create lectures that can
   // never be completed.
   if (kind === "quiz")
     return { error: "Quizzes are coming soon — add a video or article for now." };
+
+  const v = all({ sectionId: reqId(sectionId, "Module"), title: lectureTitle(title) });
+  if (!v.ok) return { error: v.error };
+  sectionId = v.value.sectionId;
+  const clean = v.value.title;
 
   const supabase = await createClient();
   const { data: section, error: sectionError } = await supabase
@@ -487,10 +599,6 @@ export async function addLecture(
 
   const owned = await ownedCourse(section.course_id as string);
   if ("error" in owned) return owned;
-
-  const clean = title.trim();
-  if (!clean) return { error: "Give the lecture a title." };
-  if (clean.length > 120) return { error: "Keep the lecture title under 120 characters." };
 
   // Positions are course-wide so the player can walk the curriculum in one
   // ordered pass without re-sorting across modules.
@@ -526,19 +634,28 @@ export async function updateLecture(
   lectureId: string,
   patch: { title?: string; is_preview?: boolean; content?: string | null },
 ): Promise<ActionResult> {
-  const owned = await ownedLecture(lectureId);
-  if ("error" in owned) return owned;
+  const id = reqId(lectureId, "Lecture");
+  if (!id.ok) return { error: id.error };
+  lectureId = id.value;
+  if (!patch || typeof patch !== "object") return { error: "Nothing to save." };
 
   const update: Record<string, unknown> = { updated_at: now() };
 
-  if (typeof patch.title === "string") {
-    const clean = patch.title.trim();
-    if (!clean) return { error: "Give the lecture a title." };
-    if (clean.length > 120) return { error: "Keep the lecture title under 120 characters." };
-    update.title = clean;
+  if (patch.title !== undefined) {
+    const t = lectureTitle(patch.title);
+    if (!t.ok) return { error: t.error };
+    update.title = t.value;
   }
   if (typeof patch.is_preview === "boolean") update.is_preview = patch.is_preview;
-  if (patch.content !== undefined) update.content = sanitizeRichText(patch.content) || null;
+  if (patch.content !== undefined) {
+    // Rich HTML: size-checked here, content owned by sanitizeRichText().
+    if (patch.content !== null && typeof patch.content !== "string") return { error: "Lecture content is not valid." };
+    if ((patch.content?.length ?? 0) > LECTURE_CONTENT_MAX) return { error: "This lecture is too long to save." };
+    update.content = sanitizeRichText(patch.content) || null;
+  }
+
+  const owned = await ownedLecture(lectureId);
+  if ("error" in owned) return owned;
 
   const { error } = await owned.supabase
     .from("lms_lectures")
@@ -551,6 +668,9 @@ export async function updateLecture(
 }
 
 export async function deleteLecture(lectureId: string): Promise<ActionResult> {
+  const id = reqId(lectureId, "Lecture");
+  if (!id.ok) return { error: id.error };
+  lectureId = id.value;
   const owned = await ownedLecture(lectureId);
   if ("error" in owned) return owned;
   if (owned.course.enrollment_count > 0)
@@ -582,8 +702,38 @@ export async function reorderLectures(
   courseId: string,
   moves: { id: string; sectionId: string; position: number }[],
 ): Promise<ActionResult> {
+  const cid = reqId(courseId, "Course");
+  if (!cid.ok) return { error: cid.error };
+  courseId = cid.value;
+  if (!Array.isArray(moves) || moves.length > MAX_REORDER) return { error: "That reorder is not valid." };
+  const clean: { id: string; sectionId: string; position: number }[] = [];
+  for (const m of moves) {
+    if (!m || typeof m !== "object") return { error: "That reorder is not valid." };
+    const v = all({
+      id: reqId(m.id, "Lecture"),
+      sectionId: reqId(m.sectionId, "Module"),
+      position: reqInt(m.position, "Position", { min: 0, max: 100000 }),
+    });
+    if (!v.ok) return { error: v.error };
+    clean.push(v.value);
+  }
+  moves = clean;
+
   const owned = await ownedCourse(courseId);
   if ("error" in owned) return owned;
+
+  // Every target module must belong to THIS course — otherwise a lecture could
+  // be moved under another course's module. One read for the whole batch.
+  const targetIds = Array.from(new Set(moves.map((m) => m.sectionId)));
+  if (targetIds.length) {
+    const { data: sections, error: secErr } = await owned.supabase
+      .from("lms_sections")
+      .select("id")
+      .eq("course_id", courseId)
+      .in("id", targetIds);
+    if (secErr) return actionError("lms-courses:reorderLectures", secErr);
+    if ((sections ?? []).length !== targetIds.length) return { error: "That reorder is not valid." };
+  }
 
   for (const m of moves) {
     const { error } = await owned.supabase
@@ -664,17 +814,25 @@ export async function createLectureVideoUpload(
 
   if (!isVideoStorageConfigured()) return fail("Video storage is not configured.");
 
-  const owned = await ownedLecture(lectureId);
-  if ("error" in owned) return fail(owned.error);
-  if (owned.lecture.kind !== "video") return fail("This lecture is not a video lecture.");
-
-  if (!isAllowedVideoType(file.fileType))
+  // Every declared fact is checked before the first query.
+  const id = reqId(lectureId, "Lecture");
+  if (!id.ok) return fail(id.error);
+  lectureId = id.value;
+  if (!file || typeof file !== "object") return fail("Choose a video.");
+  const fileName = reqText(file.fileName, "File name", 255);
+  if (!fileName.ok) return fail(fileName.error);
+  if (typeof file.fileType !== "string" || !isAllowedVideoType(file.fileType))
     return fail(`That file type isn't supported. Upload ${VIDEO_TYPE_HINT}.`);
-  if (!Number.isFinite(file.fileSize) || file.fileSize <= 0) return fail("Invalid file size.");
+  if (typeof file.fileSize !== "number" || !Number.isFinite(file.fileSize) || file.fileSize <= 0)
+    return fail("Invalid file size.");
   if (file.fileSize > VIDEO_MAX_BYTES)
     return fail(
       `That video is too large. The limit is ${Math.round(VIDEO_MAX_BYTES / 1024 ** 3)}GB.`,
     );
+
+  const owned = await ownedLecture(lectureId);
+  if ("error" in owned) return fail(owned.error);
+  if (owned.lecture.kind !== "video") return fail("This lecture is not a video lecture.");
 
   const { data: instructor, error: quotaError } = await owned.supabase
     .from("lms_instructors")
@@ -719,7 +877,7 @@ export async function createLectureVideoUpload(
   if (error) return fail(actionError("lms-courses:createLectureVideoUpload", error).error);
   if (!part) return fail("Could not start the upload.");
 
-  const key = makeVideoKey(owned.course.id, file.fileName);
+  const key = makeVideoKey(owned.course.id, fileName.value);
   const uploadUrl = await presignVideoUpload(key, file.fileType);
   return { error: null, uploadUrl, key, contentType: file.fileType, partId: part.id as string };
 }
@@ -734,6 +892,23 @@ export async function confirmLectureVideo(
   partId: string,
   info: { key: string; durationS: number; bytes: number; title?: string },
 ): Promise<ActionResult> {
+  const id = reqId(partId, "Video");
+  if (!id.ok) return { error: id.error };
+  partId = id.value;
+  if (!info || typeof info !== "object") return { error: "That upload doesn't belong to this course." };
+  const key = reqText(info.key, "Upload", LIMITS.url);
+  // The exact shape makeVideoKey() mints: lms-video/<course uuid>/<stamp>.<ext>
+  if (!key.ok || key.value !== info.key || !/^lms-video\/[0-9a-f-]{36}\/[0-9a-z-]+\.[0-9a-z]{1,8}$/.test(key.value))
+    return { error: "That upload doesn't belong to this course." };
+  // Measured in the browser; a missing or unreadable duration has always been
+  // stored as 0, so only a non-number (or a negative) is refused.
+  for (const n of [info.durationS, info.bytes]) {
+    if (n !== undefined && n !== null && (typeof n !== "number" || n < 0)) return { error: "Invalid video details." };
+  }
+  if (typeof info.bytes === "number" && info.bytes > VIDEO_MAX_BYTES) return { error: "Invalid video details." };
+  const title = optText(info.title, "Video title", 120);
+  if (!title.ok) return { error: title.error };
+
   const owned = await ownedPart(partId);
   if ("error" in owned) return owned;
 
@@ -753,7 +928,7 @@ export async function confirmLectureVideo(
       duration_s: Math.max(0, Math.round(Number(info.durationS) || 0)),
       video_status: "ready",
       video_error: null,
-      ...(info.title ? { title: info.title.slice(0, 120) } : {}),
+      ...(title.value ? { title: title.value } : {}),
       updated_at: now(),
     })
     .eq("id", partId);
@@ -768,6 +943,14 @@ export async function confirmLectureVideo(
 
 /** Mark a part upload as failed so the builder shows the real state. */
 export async function failLectureVideo(partId: string, message: string): Promise<ActionResult> {
+  const id = reqId(partId, "Video");
+  if (!id.ok) return { error: id.error };
+  partId = id.value;
+  // Truncated rather than refused, as before: this records a failure, and
+  // refusing it would leave the part stuck on "uploading".
+  const msg = optText(typeof message === "string" ? message.slice(0, 300) : "", "Message", 300);
+  const videoError = (msg.ok && msg.value) || "Upload failed.";
+
   const owned = await ownedPart(partId);
   if ("error" in owned) return owned;
 
@@ -775,7 +958,7 @@ export async function failLectureVideo(partId: string, message: string): Promise
     .from("lms_lecture_parts")
     .update({
       video_status: owned.part.video_key ? "ready" : "error",
-      video_error: message.slice(0, 300),
+      video_error: videoError,
       updated_at: now(),
     })
     .eq("id", partId);
@@ -787,12 +970,16 @@ export async function failLectureVideo(partId: string, message: string): Promise
 
 /** Rename a part. An untitled part renders as "Part N" in the player. */
 export async function renameLecturePart(partId: string, title: string): Promise<ActionResult> {
+  const v = all({ partId: reqId(partId, "Video"), title: optText(title, "Part title", 120) });
+  if (!v.ok) return { error: v.error };
+  partId = v.value.partId;
+
   const owned = await ownedPart(partId);
   if ("error" in owned) return owned;
 
   const { error } = await owned.supabase
     .from("lms_lecture_parts")
-    .update({ title: title.trim().slice(0, 120) || null, updated_at: now() })
+    .update({ title: v.value.title, updated_at: now() })
     .eq("id", partId);
   if (error) return actionError("lms-courses:renameLecturePart", error);
 
@@ -801,6 +988,9 @@ export async function renameLecturePart(partId: string, title: string): Promise<
 }
 
 export async function deleteLecturePart(partId: string): Promise<ActionResult> {
+  const id = reqId(partId, "Video");
+  if (!id.ok) return { error: id.error };
+  partId = id.value;
   const owned = await ownedPart(partId);
   if ("error" in owned) return owned;
   if (owned.course.enrollment_count > 0)
@@ -820,6 +1010,16 @@ export async function reorderLectureParts(
   lectureId: string,
   orderedIds: string[],
 ): Promise<ActionResult> {
+  const v = all({
+    lectureId: reqId(lectureId, "Lecture"),
+    orderedIds: Array.isArray(orderedIds)
+      ? idList(orderedIds, "Videos", MAX_REORDER)
+      : { ok: false as const, error: "Videos contains an invalid id." },
+  });
+  if (!v.ok) return { error: v.error };
+  lectureId = v.value.lectureId;
+  orderedIds = v.value.orderedIds;
+
   const owned = await ownedLecture(lectureId);
   if ("error" in owned) return owned;
 
@@ -853,11 +1053,19 @@ export async function addLectureResource(
 ): Promise<ActionResult> {
   if (!isDocsStorageConfigured()) return { error: "Storage is not configured." };
 
+  const id = reqId(lectureId, "Lecture");
+  if (!id.ok) return { error: id.error };
+  lectureId = id.value;
+  const file = formData instanceof FormData ? formData.get("file") : null;
+  if (!(file instanceof File)) return { error: "Choose a file." };
+  const declared = precheckUpload(file, DOC_MIME, MAX_UPLOAD_BYTES, {
+    tooBig: "Files must be under 5 MB.",
+    badType: "Please upload a PDF, Word document, or a photo (JPG, PNG).",
+  });
+  if (declared) return { error: declared };
+
   const owned = await ownedLecture(lectureId);
   if ("error" in owned) return owned;
-
-  const file = formData.get("file");
-  if (!(file instanceof File)) return { error: "Choose a file." };
 
   const bytes = Buffer.from(await file.arrayBuffer());
   const checked = validateUpload(
@@ -876,7 +1084,7 @@ export async function addLectureResource(
     lecture_id: lectureId,
     course_id: owned.course.id,
     file_key: key,
-    file_name: file.name.slice(0, 200),
+    file_name: cleanFileName(file, 200),
     file_size: file.size,
   });
   if (error) return actionError("lms-courses:addLectureResource", error);
@@ -886,6 +1094,9 @@ export async function addLectureResource(
 }
 
 export async function deleteLectureResource(resourceId: string): Promise<ActionResult> {
+  const id = reqId(resourceId, "Resource");
+  if (!id.ok) return { error: id.error };
+  resourceId = id.value;
   const supabase = await createClient();
   const { data: resource, error: resourceError } = await supabase
     .from("lms_lecture_resources")
@@ -916,6 +1127,9 @@ export async function deleteLectureResource(resourceId: string): Promise<ActionR
  * this is the gate. Approval itself happens in HUB's admin portal.
  */
 export async function submitCourseForReview(courseId: string): Promise<ActionResult> {
+  const id = reqId(courseId, "Course");
+  if (!id.ok) return { error: id.error };
+  courseId = id.value;
   const owned = await ownedCourse(courseId);
   if ("error" in owned) return owned;
 
@@ -972,6 +1186,9 @@ export async function submitCourseForReview(courseId: string): Promise<ActionRes
 
 /** Pull a live course off the catalogue. Existing learners keep their access. */
 export async function unpublishCourse(courseId: string): Promise<ActionResult> {
+  const id = reqId(courseId, "Course");
+  if (!id.ok) return { error: id.error };
+  courseId = id.value;
   const owned = await ownedCourse(courseId);
   if ("error" in owned) return owned;
   if (owned.course.status !== "approved") return { error: "This course isn't live." };
@@ -988,6 +1205,9 @@ export async function unpublishCourse(courseId: string): Promise<ActionResult> {
 
 /** Delete a draft outright. The RLS policy already refuses anything live. */
 export async function deleteCourse(courseId: string): Promise<ActionResult> {
+  const id = reqId(courseId, "Course");
+  if (!id.ok) return { error: id.error };
+  courseId = id.value;
   const owned = await ownedCourse(courseId);
   if ("error" in owned) return owned;
   if (!["draft", "rejected"].includes(owned.course.status))
@@ -1027,13 +1247,19 @@ export async function uploadCourseCover(
 ): Promise<ActionResult & { url?: string }> {
   if (!isCoverStorageConfigured()) return { error: "Image storage is not configured." };
 
+  const id = reqId(courseId, "Course");
+  if (!id.ok) return { error: id.error };
+  courseId = id.value;
+  const file = formData instanceof FormData ? formData.get("file") : null;
+  if (!(file instanceof File)) return { error: "Choose an image." };
+  const declared = precheckUpload(file, isAllowedCoverType, COVER_MAX_BYTES, {
+    tooBig: `Images must be under ${Math.round(COVER_MAX_BYTES / 1024 ** 2)} MB.`,
+    badType: "Please upload a JPG, PNG or WebP image.",
+  });
+  if (declared) return { error: declared };
+
   const owned = await ownedCourse(courseId);
   if ("error" in owned) return owned;
-
-  const file = formData.get("file");
-  if (!(file instanceof File)) return { error: "Choose an image." };
-  if (file.size > COVER_MAX_BYTES)
-    return { error: `Images must be under ${Math.round(COVER_MAX_BYTES / 1024 ** 2)} MB.` };
 
   const bytes = Buffer.from(await file.arrayBuffer());
   const sniffed = sniffContentType(bytes);
