@@ -10,8 +10,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getJobLabels } from "@/lib/cns/taxonomy";
 import { getMySeekerProfile } from "@/lib/cns/seeker-data";
 import { scoreJobMatch } from "@/lib/cns/job-match";
-import { JOB_COLS, EMPLOYER_PUBLIC_COLS, type CnsJob, type CnsEmployer } from "@/lib/cns/jobs";
+import { JOB_COLS, EMPLOYER_PUBLIC_COLS, onlyOpenJobs, type CnsJob, type CnsEmployer } from "@/lib/cns/jobs";
 import { JobCard } from "@/components/jobs/JobCard";
+import { safeExternalUrl } from "@/lib/cns/url";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +41,9 @@ async function loadEmployer(slug: string) {
   const employer = employerRow as unknown as (CnsEmployer & { status: string }) | null;
   if (!employer || employer.status !== "approved") return null;
 
-  const { data: jobRows } = await supabase
-    .from("cns_jobs")
-    .select(JOB_COLS)
-    .eq("employer_id", employer.id)
-    .eq("status", "active")
+  const { data: jobRows } = await onlyOpenJobs(
+    supabase.from("cns_jobs").select(JOB_COLS).eq("employer_id", employer.id)
+  )
     .order("published_at", { ascending: false })
     .limit(50);
 
@@ -153,9 +152,9 @@ export default async function EmployerProfilePage({
                   {where}
                 </span>
               )}
-              {employer.website && (
+              {safeExternalUrl(employer.website) && (
                 <a
-                  href={employer.website}
+                  href={safeExternalUrl(employer.website)!}
                   target="_blank"
                   // noopener is what actually matters; noreferrer keeps us from
                   // leaking the nurse's path through the site to the hospital.
@@ -187,8 +186,9 @@ export default async function EmployerProfilePage({
 
         {jobs.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
-            {employer.name} has no roles open right now. Browse everything else on the board, or
-            set up a job alert on your profile.
+            {employer.name} has no roles open right now. Browse everything else on the{" "}
+            <Link href="/jobs" className="text-primary hover:underline">board</Link>, or{" "}
+            <Link href="/saved#alerts" className="text-primary hover:underline">set up a job alert</Link>.
           </p>
         ) : (
           <ul className="space-y-3">

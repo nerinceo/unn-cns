@@ -1,7 +1,9 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { safeExternalUrl } from "./url";
 import { schemaEmploymentType, countryCode } from "./taxonomy";
-import { JOBS_PAGE_SIZE, type JobSort } from "./job-constants";
+import { JOBS_PAGE_SIZE, todayIsoDate, type JobSort } from "./job-constants";
 
 // Re-exported so server components can pull data + labels from one place.
 export { WORK_MODE_LABEL, JOB_SORTS, isJobSort, JOBS_PAGE_SIZE } from "./job-constants";
@@ -13,6 +15,24 @@ export type { JobSort } from "./job-constants";
  * Published job pages are readable by `anon` (see cns_jobs.sql), so these reads
  * work with or without a session — which is what makes the pages crawlable.
  */
+
+/**
+ * Narrow a cns_jobs query to roles a nurse can still apply to: live AND not
+ * past their deadline.
+ *
+ * status='active' alone is not enough. Expired roles are only flipped to
+ * 'closed' by the daily cron, and on 2026-10-08 roles past their deadline were
+ * being counted as "open roles", listed first in search and offered in the
+ * sitemap. Every public read of live roles goes through here.
+ */
+export function onlyOpenJobs<Q>(query: Q): Q {
+  // Typed loosely on purpose: the PostgREST builder's generics recurse too
+  // deeply for a constraint, and both calls return the same builder type.
+  const q = query as unknown as { eq(c: string, v: string): { or(f: string): unknown } };
+  return q
+    .eq("status", "active")
+    .or(`application_deadline.is.null,application_deadline.gte.${todayIsoDate()}`) as Q;
+}
 
 export const JOB_COLS =
   "id,slug,title,description,responsibilities,qualifications,employment_type,work_mode," +
@@ -122,7 +142,7 @@ export async function buildJobPostingJsonLd(job: CnsJob, employer: CnsEmployer, 
     hiringOrganization: {
       "@type": "Organization",
       name: employer.name,
-      ...(employer.website ? { sameAs: employer.website } : {}),
+      ...(safeExternalUrl(employer.website) ? { sameAs: safeExternalUrl(employer.website) } : {}),
       ...(employer.logo_url ? { logo: employer.logo_url } : {}),
     },
     identifier: {
@@ -315,10 +335,9 @@ export async function listAllActiveJobsForSitemap(): Promise<
   // every row is far cheaper than the search path.
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from("cns_jobs")
-      .select("slug,published_at,created_at")
-      .eq("status", "active")
+    const { data, error } = await onlyOpenJobs(
+      supabase.from("cns_jobs").select("slug,published_at,created_at")
+    )
       .order("published_at", { ascending: false })
       .range(from, from + PAGE - 1);
     if (error || !data?.length) break;
@@ -345,6 +364,36 @@ export async function getJobBySlug(slug: string) {
     .maybeSingle();
 
   return { job, employer: (employerRow as unknown as CnsEmployer) ?? null };
+}
+
+/**
+ * A role that WAS public and has since ended — paused, closed or expired.
+ *
+ * Read with the service role because the public policy only exposes active
+ * rows: a nurse following her own application to a role the employer had
+ * closed got a 404, as did every old link and search result. Ended roles were
+ * public content; removed, rejected and never-approved ones are not, and still
+ * 404. Only the public columns leave this function.
+ */
+export const ENDED_STATUSES = ["paused", "closed", "expired"];
+export async function getEndedJobBySlug(slug: string) {
+  const admin = createAdminClient();
+  const { data: jobRow } = await admin
+    .from("cns_jobs")
+    .select(JOB_COLS)
+    .eq("slug", slug)
+    .in("status", ENDED_STATUSES)
+    .maybeSingle();
+  const job = jobRow as unknown as CnsJob | null;
+  if (!job) return null;
+  const { data: employerRow } = await admin
+    .from("cns_employers")
+    .select(EMPLOYER_PUBLIC_COLS)
+    .eq("id", job.employer_id)
+    .eq("status", "approved")
+    .maybeSingle();
+  if (!employerRow) return null;
+  return { job, employer: employerRow as unknown as CnsEmployer };
 }
 
 /** Employers the signed-in member can act for. */

@@ -7,6 +7,8 @@ import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { actionError, logError } from "@/lib/errors";
 import { LIMITS, all, optText, reqId, reqOneOf } from "@/lib/validate";
+import { deadlinePassed } from "@/lib/cns/job-constants";
+import { reviewablePending } from "@/lib/cns/job-live-edit";
 
 const EMPLOYER_DECISIONS = ["approved", "rejected", "suspended"] as const;
 const JOB_DECISIONS = ["active", "rejected", "changes_requested", "paused", "removed"] as const;
@@ -33,6 +35,10 @@ export async function reviewEmployer(
   employerId = v.value.employerId;
   decision = v.value.decision;
   note = v.value.note ?? undefined;
+  // The organisation is told why; a bare "not approved" left them nothing to fix.
+  if (decision !== "approved" && !note) {
+    return { error: "A reason is required — it is sent to the organisation." };
+  }
 
   const supabase = await createClient();
 
@@ -64,7 +70,9 @@ export async function reviewEmployer(
       message:
         decision === "approved"
           ? `${employer.name} has been approved. You can now publish nursing roles.`
-          : `${employer.name} was not approved.${note ? ` ${note}` : ""}`,
+          : decision === "suspended"
+            ? `${employer.name} has been suspended. ${note}`
+            : `${employer.name} was not approved. ${note}`,
       reference_id: employer.id,
     });
     if (notifyError) logError("admin-jobs:reviewEmployer:notify", notifyError, { employerId });
@@ -110,11 +118,16 @@ export async function reviewJob(jobId: string, decision: JobDecision, reason?: s
 
   const { data: job, error: jobError } = await supabase
     .from("cns_jobs")
-    .select("id,title,employer_id,slug")
+    .select("id,title,employer_id,slug,application_deadline")
     .eq("id", jobId)
     .maybeSingle();
   if (jobError) logError("admin-jobs:reviewJob:job", jobError, { jobId });
   if (!job) return { error: "Job not found" };
+  // Approving a role whose deadline has passed lists it as "closed" on the
+  // board the moment it goes live. Ask for changes instead.
+  if (decision === "active" && deadlinePassed(job.application_deadline as string | null)) {
+    return { error: "This role's application deadline has passed. Request changes so the employer can set a new date." };
+  }
 
   const { data, error } = await supabase
     .from("cns_jobs")
@@ -176,6 +189,103 @@ export async function reviewJob(jobId: string, decision: JobDecision, reason?: s
 
   revalidatePath("/admin/jobs");
   revalidatePath("/jobs");
+  return { ok: true };
+}
+
+/* ------------------------- changes to live roles --------------------------- */
+
+/**
+ * Staff decision on the changes an employer made to a LIVE role.
+ *
+ * The live listing keeps its approved text while the change waits (see
+ * cns_jobs_launch_fixes.sql). Approving applies exactly the reviewable keys —
+ * pending_changes is employer-writable, so nothing outside REVIEWED_FIELDS is
+ * ever forwarded. Rejecting discards the change and leaves the role live.
+ * Authorisation: the update runs as the caller, and only staff pass the guard
+ * trigger with content columns changed on a live row.
+ */
+export async function reviewJobChanges(
+  jobId: string,
+  decision: "approve" | "reject",
+  reason?: string
+): Promise<ActionResult> {
+  const v = all({
+    jobId: reqId(jobId, "Job"),
+    decision: reqOneOf(decision, "Decision", ["approve", "reject"] as const),
+    reason: optText(reason, "Reason", LIMITS.comment, { multiline: true }),
+  });
+  if (!v.ok) return { error: v.error };
+  if (v.value.decision === "reject" && !v.value.reason) {
+    return { error: "A reason is required so the employer knows what to change." };
+  }
+
+  const supabase = await createClient();
+  const { data: job, error: jobError } = await supabase
+    .from("cns_jobs")
+    .select("id,title,employer_id,slug,status,salary_min,salary_max,pending_changes")
+    .eq("id", v.value.jobId)
+    .maybeSingle();
+  if (jobError) logError("admin-jobs:reviewJobChanges:job", jobError, { jobId });
+  if (!job) return { error: "Job not found" };
+  const changes = reviewablePending(job.pending_changes);
+  if (!Object.keys(changes).length) return { error: "There are no changes waiting on this role." };
+
+  if (v.value.decision === "approve") {
+    const lo = ("salary_min" in changes ? changes.salary_min : job.salary_min) as number | null;
+    const hi = ("salary_max" in changes ? changes.salary_max : job.salary_max) as number | null;
+    if (lo != null && hi != null && Number(lo) > Number(hi)) {
+      return { error: "These changes would leave “Salary from” above “Salary to”. Reject them with a reason." };
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("cns_jobs")
+    .update({
+      ...(v.value.decision === "approve" ? changes : {}),
+      pending_changes: null,
+      pending_submitted_at: null,
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", job.id)
+    .select("id");
+  if (error) return actionError("admin-jobs:reviewJobChanges", error, undefined, { jobId });
+  if (!data?.length) return { error: "Not permitted." };
+
+  const { error: auditError } = await supabase.rpc("cns_write_audit", {
+    p_action: `job.changes_${v.value.decision === "approve" ? "approved" : "rejected"}`,
+    p_target_type: "job",
+    p_target_id: job.id,
+    p_reason: v.value.reason ?? null,
+    p_metadata: { title: job.title, fields: Object.keys(changes) },
+  });
+  if (auditError) logError("admin-jobs:reviewJobChanges:audit", auditError, { jobId });
+
+  const { data: members, error: membersError } = await createAdminClient()
+    .from("cns_employer_members")
+    .select("user_id")
+    .eq("employer_id", job.employer_id as string)
+    .eq("status", "approved");
+  if (membersError) logError("admin-jobs:reviewJobChanges:members", membersError, { jobId });
+  if (members?.length) {
+    const message =
+      v.value.decision === "approve"
+        ? `Your changes to "${job.title}" are approved and now live.`
+        : `Your changes to "${job.title}" were not approved; the role stays live as it was. ${v.value.reason}`;
+    const { error: notifyError } = await createAdminClient().from("notifications").insert(
+      members.map((m) => ({
+        user_id: m.user_id,
+        notification_type: `cns_job_changes_${v.value.decision === "approve" ? "approved" : "rejected"}`,
+        message,
+        reference_id: job.id,
+      }))
+    );
+    if (notifyError) logError("admin-jobs:reviewJobChanges:notify", notifyError, { jobId });
+  }
+
+  revalidatePath("/admin/jobs");
+  revalidatePath(`/jobs/${job.slug as string}`);
+  revalidatePath(`/employer/${job.employer_id as string}`);
   return { ok: true };
 }
 

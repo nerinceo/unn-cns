@@ -16,6 +16,25 @@ export function isJobSort(v: unknown): v is JobSort {
   return typeof v === "string" && (JOB_SORTS as readonly string[]).includes(v);
 }
 
+/** Today as YYYY-MM-DD (UTC) — the same calendar the deadline column uses. */
+export function todayIsoDate(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+/**
+ * Has a role's application deadline passed?
+ *
+ * The deadline is a DATE and is INCLUSIVE: a role closing on the 7th takes
+ * applications all day on the 7th, which is also what the JSON-LD promises
+ * (validThrough = deadlineT23:59:59). `new Date("2026-10-07") < new Date()`
+ * reads the date as midnight UTC, so it closed roles at the START of their last
+ * day — found 2026-10-08. Compare calendar dates instead.
+ */
+export function deadlinePassed(deadline: string | null | undefined, now: Date = new Date()): boolean {
+  if (!deadline) return false;
+  return deadline.slice(0, 10) < todayIsoDate(now);
+}
+
 /** One screen of results. Also the cap the RPC is called with. */
 export const JOBS_PAGE_SIZE = 20;
 

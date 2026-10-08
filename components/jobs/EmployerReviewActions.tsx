@@ -42,11 +42,25 @@ export function EmployerReviewActions({
             Approve
           </Button>
         )}
-        {current === "approved" && (
-          <Button size="sm" variant="ghost" onClick={() => go("suspended")} disabled={pending}>
+        {current === "approved" && !asking && (
+          <Button size="sm" variant="ghost" onClick={() => setAsking(true)} disabled={pending}>
             Suspend
           </Button>
         )}
+        {current === "approved" && asking && (
+          <>
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Reason (sent to them)"
+              className="h-8 w-44 rounded-md border border-border bg-card px-2 text-xs outline-none focus:border-primary"
+            />
+            <Button size="sm" variant="destructive" onClick={() => go("suspended")} disabled={pending || !note.trim()}>
+              Confirm
+            </Button>
+          </>
+        )}
+        {error && <span className="text-xs text-secondary">{error}</span>}
       </div>
     );
   }
@@ -70,7 +84,7 @@ export function EmployerReviewActions({
             placeholder="Reason (sent to them)"
             className="h-9 w-56 rounded-md border border-border bg-card px-2.5 text-sm outline-none focus:border-primary"
           />
-          <Button size="sm" variant="destructive" onClick={() => go("rejected")} disabled={pending}>
+          <Button size="sm" variant="destructive" onClick={() => go("rejected")} disabled={pending || !note.trim()}>
             Confirm rejection
           </Button>
         </div>

@@ -18,11 +18,14 @@ export function JobStatusActions({
   jobId,
   status,
   canPublish,
+  hideSubmit = false,
 }: {
   jobId: string;
   status: string;
   /** False while the organisation itself is still awaiting approval. */
   canPublish: boolean;
+  /** Set where a form with its own save-and-submit sits next to these actions. */
+  hideSubmit?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -38,7 +41,7 @@ export function JobStatusActions({
 
   return (
     <span className="flex flex-wrap items-center gap-2">
-      {(status === "draft" || status === "changes_requested") && (
+      {!hideSubmit && (status === "draft" || status === "changes_requested") && (
         <button
           onClick={() => run(() => submitJobForReview(jobId))}
           disabled={pending || !canPublish}

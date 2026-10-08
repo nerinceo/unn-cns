@@ -12,7 +12,7 @@ import {
   putDoc, presignDocRead, employerDocKey,
   validateUpload, DOC_MIME, isDocsStorageConfigured, MAX_UPLOAD_BYTES,
 } from "@/lib/r2/docs";
-import { LIMITS, all, optEmail, optText, reqId } from "@/lib/validate";
+import { LIMITS, all, optText, reqEmail, reqId, reqText } from "@/lib/validate";
 import { precheckUpload } from "@/lib/actions/upload-check";
 
 const DOC_UPLOAD_MESSAGES = {
@@ -95,16 +95,19 @@ export async function updateEmployerVerificationDetails(
   if (!id.ok) return { error: id.error };
   employerId = id.value;
   if (!(formData instanceof FormData)) return { error: "Nothing to save." };
-  // All optional here — submitForVerification() is the step that demands a
-  // contact person and business email. Blank becomes null, never "".
+  // Contact person and business email are marked required on the form and a
+  // blank save used to report "Saved." (found 2026-10-08) — so they are
+  // required here too, per the no-empty-values rule. Blank optional → null.
   const v = all({
     legal_name: optText(formData.get("legal_name"), "Registered legal name", LIMITS.name),
-    contact_person: optText(formData.get("contact_person"), "Contact person", LIMITS.name),
-    business_email: optEmail(formData.get("business_email"), "Business email"),
+    contact_person: reqText(formData.get("contact_person"), "Contact person", LIMITS.name),
+    business_email: reqEmail(formData.get("business_email"), "Business email"),
     phone: optText(formData.get("phone"), "Phone", LIMITS.phone),
   });
   if (!v.ok) {
-    return { error: /email/i.test(v.error) ? "That business email does not look right." : v.error };
+    return {
+      error: /email/i.test(v.error) && !/required/i.test(v.error) ? "That business email does not look right." : v.error,
+    };
   }
 
   // Explicit membership check — see the note in uploadEmployerDoc.

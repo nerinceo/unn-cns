@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { saveJob, submitJobForReview } from "@/lib/actions/jobs";
+import { saveJob, submitJobForReview, discardPendingJobChanges } from "@/lib/actions/jobs";
 import { settle } from "@/lib/utils/settle";
 
 /** One vocabulary, passed in from the server — see JobComposer's note. */
@@ -40,16 +40,27 @@ export function JobComposer({
   canPublish,
   options,
   existing,
+  live = false,
+  hasPending = false,
 }: {
   employerId: string;
   canPublish: boolean;
   options: JobOptions;
   /** Pass a job to edit it in place; omit to create a new one. */
   existing?: JobDraft;
+  /**
+   * The role is live (active or paused). Content edits then wait for review and
+   * the public listing keeps its approved text; `existing` already carries any
+   * pending values so the form shows what the employer last asked for.
+   */
+  live?: boolean;
+  /** A live role has changes waiting for review. */
+  hasPending?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const isEdit = Boolean(existing?.id);
   const str = (k: string, fallback = "") =>
     existing?.[k] === null || existing?.[k] === undefined ? fallback : String(existing[k]);
@@ -67,7 +78,9 @@ export function JobComposer({
     nursing_role: str("nursing_role", first("nursing_role")),
     specialty: str("specialty", first("specialty")),
     work_setting: str("work_setting", first("work_setting")),
-    experience_level: str("experience_level", first("experience_level")),
+    // Optional: blank means "not specified". Defaulting to the first option
+    // ("No Experience") published that claim on roles that asked for years.
+    experience_level: str("experience_level"),
     is_remote: Boolean(existing?.is_remote),
     visa_sponsorship: Boolean(existing?.visa_sponsorship),
     country: str("country", first("country")),
@@ -89,21 +102,31 @@ export function JobComposer({
 
   function submit(publish: boolean) {
     setError(null);
+    setNotice(null);
     start(async () => {
+      // Numbers go to the server AS TYPED. Converting here turned "abc" into
+      // NaN (saved as blank) and "0" vacancies into 1, so the server's own
+      // validation never saw what the employer entered.
       const payload = {
         ...f,
         // work_mode predates work_setting and still carries a NOT NULL default;
         // keep it consistent with the remote flag rather than leaving it stale.
         work_mode: f.is_remote ? "remote" : "onsite",
-        experience_min_years: f.experience_min_years ? Number(f.experience_min_years) : null,
-        salary_min: f.salary_min ? Number(f.salary_min) : null,
-        salary_max: f.salary_max ? Number(f.salary_max) : null,
-        vacancies: Number(f.vacancies) || 1,
+        experience_level: f.experience_level || null,
         application_deadline: f.application_deadline || null,
       };
       const res = await settle(saveJob(employerId, payload, existing?.id));
       if ("error" in res && res.error) {
         setError(res.error);
+        return;
+      }
+      if (live) {
+        setNotice(
+          "pendingReview" in res && res.pendingReview
+            ? "Saved. Your changes are waiting for Nerusalem review — the live listing keeps its current text until they are approved."
+            : "Saved."
+        );
+        router.refresh();
         return;
       }
       if (publish && "id" in res && res.id) {
@@ -124,10 +147,35 @@ export function JobComposer({
     });
   }
 
+  function discard() {
+    if (!existing?.id) return;
+    setError(null);
+    setNotice(null);
+    start(async () => {
+      const res = await settle(discardPendingJobChanges(existing.id as string));
+      if (res?.error) setError(res.error);
+      else router.refresh();
+    });
+  }
+
   const descTooShort = f.description.trim().length > 0 && f.description.trim().length < 100;
 
   return (
     <div className="space-y-4 rounded-lg border border-border bg-card p-5">
+      {live && (
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+          <p className="text-muted-foreground">
+            {hasPending
+              ? "Your changes to this live role are waiting for Nerusalem review. The listing keeps its approved text until then; the form below shows your changes."
+              : "This role is live. Changes to its content are reviewed by Nerusalem before they appear; the deadline and vacancies update straight away."}
+          </p>
+          {hasPending && (
+            <Button variant="outline" size="sm" onClick={discard} disabled={pending}>
+              Discard changes
+            </Button>
+          )}
+        </div>
+      )}
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Job title</span>
         <span className="mb-1.5 block text-xs text-muted-foreground">
@@ -178,7 +226,8 @@ export function JobComposer({
         <Select label="Work setting" value={f.work_setting}
                 onChange={set("work_setting")} options={options.work_setting} />
         <Select label="Experience required" value={f.experience_level}
-                onChange={set("experience_level")} options={options.experience_level} />
+                onChange={set("experience_level")} options={options.experience_level}
+                placeholder="Not specified" />
         <Select label="Country" value={f.country}
                 onChange={set("country")} options={options.country} />
         <label className="block">
@@ -252,27 +301,32 @@ export function JobComposer({
           {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {isEdit ? "Save changes" : "Save draft"}
         </Button>
-        <Button onClick={() => submit(true)} disabled={pending || !canPublish || !f.title.trim()}>
-          {isEdit ? "Save & submit" : "Submit for review"}
-        </Button>
-        {!canPublish && (
+        {!live && (
+          <Button onClick={() => submit(true)} disabled={pending || !canPublish || !f.title.trim()}>
+            {isEdit ? "Save & submit" : "Submit for review"}
+          </Button>
+        )}
+        {!live && !canPublish && (
           <span className="text-xs text-muted-foreground">
             Submitting unlocks once Nerusalem approves your organisation.
           </span>
         )}
       </div>
+      {notice && <p className="text-sm text-primary">{notice}</p>}
       {error && <p className="text-sm text-secondary">{error}</p>}
     </div>
   );
 }
 
 function Select({
-  label, value, onChange, options,
+  label, value, onChange, options, placeholder,
 }: {
   label: string;
   value: string;
   onChange: (e: { target: { value: string } }) => void;
   options: Option[];
+  /** Adds a blank first option, for fields that are optional. */
+  placeholder?: string;
 }) {
   return (
     <label className="block">
@@ -282,6 +336,7 @@ function Select({
         onChange={onChange}
         className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
       >
+        {placeholder !== undefined && <option value="">{placeholder}</option>}
         {options.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}

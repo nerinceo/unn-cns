@@ -4,6 +4,26 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getJobLabels } from "@/lib/cns/taxonomy";
 import { jobDescriptionHtml, type CnsJob } from "@/lib/cns/jobs";
 import { JobReviewActions } from "@/components/jobs/JobReviewActions";
+import { JobChangesActions } from "@/components/jobs/JobChangesActions";
+import { deadlinePassed } from "@/lib/cns/job-constants";
+import { reviewablePending } from "@/lib/cns/job-live-edit";
+
+/** How a field reads in the change review. */
+const FIELD_LABEL: Record<string, string> = {
+  title: "Title", description: "Description", responsibilities: "Responsibilities",
+  qualifications: "Qualifications", employment_type: "Employment type", nursing_role: "Nursing role",
+  specialty: "Specialty", work_setting: "Work setting", experience_level: "Experience required",
+  is_remote: "Remote", work_mode: "Work mode", country: "Country", state: "State", city: "City",
+  street_address: "Street address", postal_code: "Postal code", experience_min_years: "Minimum experience (years)",
+  qualification_required: "Qualification required", license_required: "Registration required",
+  language_requirements: "Languages", salary_min: "Salary from", salary_max: "Salary to",
+  salary_currency: "Currency", salary_period: "Salary period", salary_undisclosed: "Salary hidden",
+  salary_text: "Salary text", apply_mode: "Apply mode", external_apply_url: "External apply link",
+  visa_sponsorship: "Visa sponsorship",
+};
+
+const show = (v: unknown) =>
+  v === null || v === undefined || v === "" ? "—" : typeof v === "boolean" ? (v ? "Yes" : "No") : String(v);
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Job approvals — Central Nerusalem Space Admin" };
@@ -26,12 +46,34 @@ export default async function AdminJobsPage() {
         "country,state,city,nursing_role,specialty,work_setting,employment_type," +
         "experience_level,is_remote,application_deadline,license_required,vacancies,created_at"
     )
-    .in("status", ["submitted", "active", "changes_requested", "rejected"])
+    // Removed, paused, closed and expired roles stay in the history: a removal
+    // vanished from this page the moment it was made, leaving staff no trail.
+    .in("status", ["submitted", "active", "changes_requested", "rejected", "removed", "paused", "closed", "expired"])
     .order("created_at", { ascending: false })
     .limit(100);
 
+  // Changes employers have made to roles that are already live.
+  const { data: changeRows } = await admin
+    .from("cns_jobs")
+    .select(
+      "id,slug,title,description,responsibilities,qualifications,status,employer_id," +
+        "country,state,city,nursing_role,specialty,work_setting,employment_type,experience_level," +
+        "is_remote,work_mode,street_address,postal_code,experience_min_years,qualification_required," +
+        "license_required,language_requirements,salary_min,salary_max,salary_currency,salary_period," +
+        "salary_undisclosed,salary_text,apply_mode,external_apply_url,visa_sponsorship," +
+        "pending_changes,pending_submitted_at"
+    )
+    .not("pending_changes", "is", null)
+    .in("status", ["active", "paused"])
+    .order("pending_submitted_at", { ascending: true });
+  const changed = ((changeRows ?? []) as unknown as Record<string, unknown>[])
+    .map((row) => ({ row, changes: reviewablePending(row.pending_changes) }))
+    .filter((x) => Object.keys(x.changes).length > 0);
+
   const jobs = (rows ?? []) as unknown as CnsJob[];
-  const employerIds = Array.from(new Set(jobs.map((j) => j.employer_id)));
+  const employerIds = Array.from(
+    new Set([...jobs.map((j) => j.employer_id), ...changed.map((c) => c.row.employer_id as string)])
+  );
   const { data: employers } = employerIds.length
     ? await admin
         .from("cns_employers")
@@ -59,6 +101,50 @@ export default async function AdminJobsPage() {
           payment from applicants. Reject those with a reason.
         </p>
       </header>
+
+      {changed.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            Changes to live roles ({changed.length})
+          </h2>
+          <p className="mb-3 max-w-2xl text-xs text-muted-foreground">
+            These roles are live with their approved text. Approving applies the changes below;
+            rejecting keeps the live version.
+          </p>
+          <ul className="space-y-4">
+            {changed.map(({ row, changes }) => (
+              <li key={row.id as string} className="rounded-lg border border-border bg-card p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-medium">{row.title as string}</h3>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                      <Building2 className="h-3.5 w-3.5" />
+                      {empById.get(row.employer_id as string)?.name ?? "Employer"}
+                      <Link href={`/jobs/${row.slug as string}`} className="text-xs text-primary hover:underline">
+                        View live
+                      </Link>
+                    </p>
+                    <dl className="mt-3 space-y-2 text-sm">
+                      {Object.entries(changes).map(([k, next]) => (
+                        <div key={k} className="rounded-md border border-border p-2">
+                          <dt className="text-xs font-medium text-muted-foreground">{FIELD_LABEL[k] ?? k}</dt>
+                          <dd className="mt-1 grid gap-1 sm:grid-cols-2">
+                            <span className="whitespace-pre-wrap break-words text-muted-foreground line-through decoration-muted-foreground/50">
+                              {show(row[k])}
+                            </span>
+                            <span className="whitespace-pre-wrap break-words">{show(next)}</span>
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                  <JobChangesActions jobId={row.id as string} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
@@ -104,6 +190,11 @@ export default async function AdminJobsPage() {
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {j.application_deadline ?? "no deadline"}
+                          {deadlinePassed(j.application_deadline) && (
+                            <span className="rounded bg-secondary/10 px-1.5 py-0.5 text-secondary">
+                              deadline passed
+                            </span>
+                          )}
                         </div>
                       </dl>
 

@@ -46,6 +46,9 @@ export function JobReviewActions({
   }
 
   if (compact) {
+    // Paused, closed and expired are the employer's (or the deadline's) decision;
+    // reopening one is not a moderation action, so the history row is read-only.
+    if (current === "paused" || current === "closed" || current === "expired") return null;
     return (
       <span className="flex flex-wrap items-center gap-1.5">
         {current === "active" ? (

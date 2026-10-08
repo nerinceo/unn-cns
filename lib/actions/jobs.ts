@@ -4,19 +4,24 @@
 import type { ActionResult } from "@/lib/actions/result";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { checkLimit } from "@/lib/ratelimit";
 import { getJobLabels } from "@/lib/cns/taxonomy";
 import { notifyUser, notifyUsers } from "@/lib/cns/notify";
 import { getApplicationResumeTarget } from "@/lib/cns/application-resume-access";
 import { actionError, logError, userMessage } from "@/lib/errors";
-import { SALARY_PERIODS } from "@/lib/cns/job-constants";
+import { SALARY_PERIODS, deadlinePassed } from "@/lib/cns/job-constants";
+import { LIVE_STATUSES, splitLiveEdit } from "@/lib/cns/job-live-edit";
 import {
   LIMITS, all, bool, hasKey, optDate, optEmail, optId, optInt, optMoney, optOneOf, optText, optUrl,
-  reqId, reqInt, reqOneOf, reqText, reqUrl, type Valid,
+  reqId, reqInt, reqOneOf, reqText, reqUrl, tagList, type Valid,
 } from "@/lib/validate";
 
 function slugify(s: string) {
   return s
+    // Markup in a name is shown literally, but must not shape the URL
+    // ("QAJ Hospital <i>x</i>" became /employers/qaj-hospital-i-x-i).
+    .replace(/<[^>]*>/g, " ")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
@@ -227,11 +232,28 @@ function validateJobInput(input: Record<string, unknown>, isNew: boolean): Valid
   return okValue(out);
 }
 
+/** Employer withdraws the changes waiting on a live role. The live version is untouched. */
+export async function discardPendingJobChanges(jobId: string): Promise<ActionResult> {
+  const id = reqId(jobId, "Job");
+  if (!id.ok) return { error: id.error };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("cns_jobs")
+    .update({ pending_changes: null, pending_submitted_at: null, updated_at: new Date().toISOString() })
+    .eq("id", id.value)
+    .select("employer_id");
+  if (error) return actionError("jobs:discardPendingJobChanges", error, undefined, { jobId: id.value });
+  if (!data?.length) return { error: "Job not found" };
+  revalidatePath(`/employer/${data[0].employer_id as string}`);
+  revalidatePath("/admin/jobs");
+  return { ok: true };
+}
+
 export async function saveJob(
   employerId: string,
   input: Record<string, unknown>,
   jobId?: string
-): Promise<ActionResult & { jobId?: string; id?: string; slug?: string }> {
+): Promise<ActionResult & { jobId?: string; id?: string; slug?: string; pendingReview?: boolean }> {
   const ids = all({ employerId: reqId(employerId, "Employer"), jobId: optId(jobId, "Job") });
   if (!ids.ok) return { error: ids.error };
   if (!input || typeof input !== "object" || Array.isArray(input)) return { error: "Nothing to save." };
@@ -251,6 +273,19 @@ export async function saveJob(
 
   const supabase = await createClient();
 
+  // A rejected or suspended organisation has nowhere to take a role, and
+  // letting it keep drafting was a dead end that looked like a working portal.
+  const { data: org, error: orgError } = await supabase
+    .from("cns_employers")
+    .select("status")
+    .eq("id", employerId)
+    .maybeSingle();
+  if (orgError) logError("jobs:saveJob:employer", orgError, { employerId });
+  if (!org) return { error: "Organisation not found." };
+  if (org.status === "rejected" || org.status === "suspended") {
+    return { error: "Your organisation is not approved to post roles. Contact Nerusalem if you believe this is a mistake." };
+  }
+
   // Whitelist. `input` comes from a client, and spreading it straight into the
   // row let an employer send status:'active' and put a job live without review
   // -- verified against production. The database trigger is the real guard
@@ -264,6 +299,39 @@ export async function saveJob(
   };
 
   if (jobId) {
+    const { data: current, error: readError } = await supabase
+      .from("cns_jobs")
+      .select("*")
+      .eq("id", jobId)
+      .eq("employer_id", employerId)
+      .maybeSingle();
+    if (readError) logError("jobs:saveJob:read", readError, { jobId });
+    if (!current) return { error: "Job not found" };
+
+    // A live role keeps its approved content until staff accept the change
+    // (cns_jobs_launch_fixes.sql enforces the same rule in the database).
+    if (LIVE_STATUSES.includes(current.status as string)) {
+      const split = splitLiveEdit(current as Record<string, unknown>, fields.value);
+      if ("error" in split) return { error: split.error };
+      const { error } = await supabase
+        .from("cns_jobs")
+        .update({
+          ...split.instant,
+          pending_changes: split.pending,
+          pending_submitted_at: split.pending ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", jobId);
+      if (error) {
+        logError("jobs:saveJob:updateLive", error, { jobId });
+        return { error: friendlyJobError(error) };
+      }
+      revalidatePath(`/employer/${employerId}`);
+      revalidatePath("/admin/jobs");
+      revalidatePath(`/jobs/${current.slug as string}`);
+      return { id: jobId, pendingReview: Boolean(split.pending) };
+    }
+
     const { error } = await supabase.from("cns_jobs").update(payload).eq("id", jobId);
     if (error) {
       logError("jobs:saveJob:update", error, { jobId });
@@ -327,6 +395,11 @@ export async function submitJobForReview(jobId: string): Promise<ActionResult> {
   // listing, and a board of undated jobs risks every listing being delisted.
   if (!job.application_deadline) missing.push("an application deadline");
   if (missing.length) return { error: `Add ${missing.join(", ")} before submitting.` };
+  // A role whose deadline has already passed would go live closed — found
+  // 2026-10-08, when a 2025 deadline was submitted, approved and listed.
+  if (deadlinePassed(job.application_deadline as string)) {
+    return { error: "The application deadline has already passed. Choose today or a later date." };
+  }
 
   const { data: employer, error: employerError } = await supabase
     .from("cns_employers")
@@ -562,14 +635,14 @@ async function applyToJobImpl(
   if (jobError) logError("jobs:applyToJob:job", jobError, { jobId });
   if (!job) return { error: "Job not found" };
   if (job.status !== "active") return { error: "This role is no longer accepting applications." };
-  if (job.application_deadline && new Date(job.application_deadline as string) < new Date()) {
+  if (deadlinePassed(job.application_deadline as string | null)) {
     return { error: "Applications for this role have closed." };
   }
 
   // Required screening questions must actually be answered.
   const { data: questions, error: questionsError } = await supabase
     .from("cns_job_screening_questions")
-    .select("id,question,is_required")
+    .select("id,question,question_type,is_required")
     .eq("job_id", jobId);
   if (questionsError) logError("jobs:applyToJob:questions", questionsError, { jobId });
 
@@ -579,6 +652,15 @@ async function applyToJobImpl(
   );
   if (unanswered.length) {
     return { error: `Please answer: ${unanswered.map((q) => q.question).join(", ")}` };
+  }
+  // A number question is a count or a duration: "-5 years" was accepted and
+  // then scored by the knockout rules as a real answer.
+  const badNumber = (questions ?? []).find((q) => {
+    const a = answered.get(q.id as string);
+    return q.question_type === "number" && a && !/^d+(.d+)?$/.test(a.trim());
+  });
+  if (badNumber) {
+    return { error: `Please enter a number of 0 or more for: ${badNumber.question}` };
   }
 
   // The attached CV must be the applicant's own. The employer's CV access
@@ -658,16 +740,11 @@ async function applyToJobImpl(
 
   // Tell the employer. In-app always; by email too once CNS holds a Resend
   // key, which is the switch that also turns on applicant status emails.
-  const { data: members, error: membersError } = await supabase
-    .from("cns_employer_members")
-    .select("user_id")
-    .eq("employer_id", job.employer_id as string)
-    .eq("status", "approved");
-  if (membersError) logError("jobs:applyToJob:notifyMembers", membersError, { jobId });
-  if (members?.length) {
+  const members = await employerMemberIds(job.employer_id as string, "jobs:applyToJob:notifyMembers");
+  if (members.length) {
     await notifyUsers(
-      members.map((m) => ({
-        userId: m.user_id as string,
+      members.map((userId) => ({
+        userId,
         type: "cns_job_application_received",
         message: `New application for ${job.title}.`,
         referenceId: created.id as string,
@@ -686,6 +763,25 @@ async function applyToJobImpl(
 
   revalidatePath("/applications");
   return { ok: true };
+}
+
+/**
+ * The approved members of an employer — the people to tell about its pipeline.
+ *
+ * Read with the service role ON PURPOSE. The callers run as the APPLICANT, and
+ * cns_employer_members RLS shows a member list only to that employer's own
+ * members and staff, so a session read here returned no rows and no employer
+ * was ever told about a new application (found 2026-10-08, job-module run).
+ * Only user ids leave this function, and only to address a notification.
+ */
+async function employerMemberIds(employerId: string, tag: string): Promise<string[]> {
+  const { data, error } = await createAdminClient()
+    .from("cns_employer_members")
+    .select("user_id")
+    .eq("employer_id", employerId)
+    .eq("status", "approved");
+  if (error) logError(tag, error, { employerId });
+  return (data ?? []).map((m) => m.user_id as string);
 }
 
 /**
@@ -713,7 +809,32 @@ export async function withdrawApplication(applicationId: string): Promise<Action
     p_application_id: id.value,
   });
   if (error) return actionError("jobs:withdrawApplication", error);
-  revalidatePath("/jobs/applications");
+
+  // Tell the employer, so a withdrawn candidate is not chased for an interview.
+  // Read after the RPC: it is the applicant's own row, so RLS allows it.
+  const { data: app, error: appError } = await supabase
+    .from("cns_job_applications")
+    .select("id,job:job_id(title,employer_id)")
+    .eq("id", id.value)
+    .maybeSingle();
+  if (appError) logError("jobs:withdrawApplication:read", appError, { applicationId: id.value });
+  const job = (app?.job ?? null) as { title: string; employer_id: string } | null;
+  if (job) {
+    const members = await employerMemberIds(job.employer_id, "jobs:withdrawApplication:notifyMembers");
+    if (members.length) {
+      await notifyUsers(
+        members.map((userId) => ({
+          userId,
+          type: "cns_job_application_withdrawn",
+          message: `An applicant withdrew their application for ${job.title}.`,
+          referenceId: id.value,
+        }))
+      );
+    }
+  }
+
+  revalidatePath("/applications");
+  revalidatePath("/jobs", "layout");
   return { ok: true };
 }
 
@@ -832,6 +953,61 @@ export async function toggleSaveJob(jobId: string, save: boolean): Promise<Actio
     if (unsaveError) logError("jobs:toggleSaveJob:unsave", unsaveError, { jobId });
   }
   revalidatePath("/jobs");
+  return { ok: true };
+}
+
+/* --------------------------------- job alerts ------------------------------ */
+
+/**
+ * Create or update the member's job alert (one per member — unique user_id).
+ *
+ * The daily digest (app/api/cron/job-alerts) and the table already existed;
+ * the only way to create a row was SQL, while the board told nurses to "set up
+ * a job alert on your profile" (found 2026-10-08). Values are taxonomy slugs;
+ * an alert with neither a country nor a role is refused because the cron skips
+ * it as spam.
+ */
+export async function saveJobAlert(input: { countries: string[]; roles: string[] }): Promise<ActionResult> {
+  if (!input || typeof input !== "object") return { error: "Nothing to save." };
+  const v = all({
+    countries: tagList(input.countries, "Countries", 8, LIMITS.slug),
+    roles: tagList(input.roles, "Roles", 8, LIMITS.slug),
+  });
+  if (!v.ok) return { error: v.error };
+  if (!v.value.countries.length && !v.value.roles.length) {
+    return { error: "Choose at least one country or role to be alerted about." };
+  }
+
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("cns_job_alerts").upsert(
+    {
+      user_id: user.id,
+      countries: v.value.countries,
+      roles: v.value.roles,
+      channel: "email",
+      is_active: true,
+    },
+    { onConflict: "user_id" }
+  );
+  if (error) return actionError("jobs:saveJobAlert", error);
+  revalidatePath("/saved");
+  return { ok: true };
+}
+
+/** Stop the member's job alert. The row is kept so turning it back on keeps their choices. */
+export async function turnOffJobAlert(): Promise<ActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("cns_job_alerts")
+    .update({ is_active: false })
+    .eq("user_id", user.id);
+  if (error) return actionError("jobs:turnOffJobAlert", error);
+  revalidatePath("/saved");
   return { ok: true };
 }
 
@@ -962,6 +1138,20 @@ export async function reportJob(
 
   const limited = await checkLimit("report", user.id);
   if (limited) return limited;
+
+  // One open report per member per job. Repeats piled up in the admin queue as
+  // separate items (found 2026-10-08); the first one is already being looked
+  // at, so a repeat is acknowledged without adding a row. Service role because
+  // reporters cannot read the reports table.
+  const { data: open, error: openError } = await createAdminClient()
+    .from("cns_job_reports")
+    .select("id")
+    .eq("job_id", v.value.jobId)
+    .eq("reporter_id", user.id)
+    .in("status", ["open", "reviewing"])
+    .limit(1);
+  if (openError) logError("jobs:reportJob:dedupe", openError, { jobId: v.value.jobId });
+  if (open?.length) return { ok: true };
 
   const supabase = await createClient();
   const { error } = await supabase.from("cns_job_reports").insert({

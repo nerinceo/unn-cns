@@ -52,6 +52,10 @@ export function VerificationPanel({ state }: { state: VerificationState }) {
     start(async () => {
       const res = await settle(fn());
       if (res && "error" in res && res.error) setError(res.error);
+      // No result at all means the request never reached the action — e.g. the
+      // platform refused an oversize upload with a 413. That showed "Saved."
+      // for a file that was never stored (found 2026-10-08).
+      else if (!res) setError("That did not go through. Please try again.");
       else {
         setSaved(true);
         router.refresh();
@@ -106,7 +110,7 @@ export function VerificationPanel({ state }: { state: VerificationState }) {
       <div className="mt-5">
         <h3 className="text-sm font-medium">Registration document</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Business registration or operating licence. PDF or photo, up to 5 MB.
+          Business registration or operating licence. PDF, Word or a photo, up to 5 MB.
         </p>
 
         {state.hasDocument ? (
@@ -128,11 +132,19 @@ export function VerificationPanel({ state }: { state: VerificationState }) {
         <input
           ref={input}
           type="file"
-          accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (!f) return;
+            // Checked here as well as on the server: past the platform's body
+            // limit the request never reaches the server to be refused politely.
+            if (f.size > 5 * 1024 * 1024) {
+              setSaved(false);
+              setError("Files must be under 5 MB.");
+              e.target.value = "";
+              return;
+            }
             const form = new FormData();
             form.append("file", f);
             run(() => uploadEmployerDoc(state.employerId, form));

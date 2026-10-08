@@ -3,6 +3,8 @@ import { Building2, Globe, MapPin } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isStaff } from "@/lib/cns/admin";
 import { EmployerReviewActions } from "@/components/jobs/EmployerReviewActions";
+import { EmployerDocButton } from "@/components/jobs/EmployerDocButton";
+import { safeExternalUrl } from "@/lib/cns/url";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Employer approvals — Central Nerusalem Space" };
@@ -15,10 +17,13 @@ export default async function AdminEmployersPage() {
   // Service role: review_note is no longer in the authenticated column grant
   // (0064 section 9, E-B-001), and this list is staff-only (checked above).
   const supabase = createAdminClient();
+  // legal_name … registration_doc_key: approval marks an organisation
+  // verified, so the reviewer must see what it submitted for verification.
+  // These were collected and never shown (found 2026-10-08).
   const { data: employers } = await supabase
     .from("cns_employers")
     .select(
-      "id,name,slug,employer_type,description,website,country,city,status,verification_status,review_note,created_at"
+      "id,name,slug,employer_type,description,website,country,city,status,verification_status,review_note,created_at,legal_name,contact_person,business_email,phone,registration_doc_key"
     )
     .order("created_at", { ascending: false });
 
@@ -64,7 +69,7 @@ export default async function AdminEmployersPage() {
                       )}
                       {e.website && (
                         <a
-                          href={e.website as string}
+                          href={safeExternalUrl(e.website as string) ?? undefined}
                           target="_blank"
                           rel="noopener noreferrer nofollow"
                           className="flex items-center gap-1 text-primary hover:underline"
@@ -77,6 +82,29 @@ export default async function AdminEmployersPage() {
                     {e.description && (
                       <p className="mt-2 max-w-xl text-sm text-muted-foreground">{e.description}</p>
                     )}
+                    <div className="mt-3 max-w-xl rounded-md border border-border bg-muted/30 p-3 text-xs">
+                      <p className="mb-2 font-semibold uppercase tracking-wide text-muted-foreground">
+                        Verification details
+                        {e.verification_status === "submitted" && (
+                          <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 normal-case tracking-normal text-primary">
+                            submitted for verification
+                          </span>
+                        )}
+                      </p>
+                      <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+                        <Detail label="Legal name" value={e.legal_name as string | null} />
+                        <Detail label="Contact person" value={e.contact_person as string | null} />
+                        <Detail label="Business email" value={e.business_email as string | null} />
+                        <Detail label="Phone" value={e.phone as string | null} />
+                      </dl>
+                      <div className="mt-2">
+                        {e.registration_doc_key ? (
+                          <EmployerDocButton employerId={e.id as string} />
+                        ) : (
+                          <span className="text-secondary">No registration document uploaded.</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <EmployerReviewActions employerId={e.id as string} />
                 </div>
@@ -113,6 +141,15 @@ export default async function AdminEmployersPage() {
           </ul>
         </section>
       )}
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="break-words">{value || <span className="text-secondary">not provided</span>}</dd>
     </div>
   );
 }

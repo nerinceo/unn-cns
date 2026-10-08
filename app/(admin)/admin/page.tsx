@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Building2, Clock, Briefcase, Users } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { onlyOpenJobs } from "@/lib/cns/jobs";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin — Central Nerusalem Space" };
@@ -15,7 +16,8 @@ export default async function AdminOverview() {
   const [pendingEmployers, employers, liveJobs, applications] = await Promise.all([
     admin.from("cns_employers").select("id", head).eq("status", "pending"),
     admin.from("cns_employers").select("id", head),
-    admin.from("cns_jobs").select("id", head).eq("status", "active"),
+    // Open roles only — an expired-but-not-yet-closed role is not "live".
+    onlyOpenJobs(admin.from("cns_jobs").select("id", head)),
     admin.from("cns_job_applications").select("id", head),
   ]).then((rs) => rs.map((r) => r.count ?? 0));
 
@@ -47,7 +49,8 @@ export default async function AdminOverview() {
         <Stat icon={Clock} label="Pending employers" value={pendingEmployers} href="/admin/employers" />
         <Stat icon={Building2} label="Organisations" value={employers} href="/admin/employers" />
         <Stat icon={Briefcase} label="Live roles" value={liveJobs} href="/jobs" />
-        <Stat icon={Users} label="Applications" value={applications} href="/admin/employers" />
+        {/* No staff applications view exists; this tile linked to Employers. */}
+        <Stat icon={Users} label="Applications" value={applications} />
       </div>
     </div>
   );
@@ -59,14 +62,21 @@ function Stat({
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: number;
-  href: string;
+  /** Omit for a count with no page behind it. */
+  href?: string;
 }) {
-  return (
-    <Link href={href} className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary">
+  const body = (
+    <>
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Icon className="h-3.5 w-3.5" /> {label}
       </p>
       <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+    </>
+  );
+  if (!href) return <div className="rounded-lg border border-border bg-card p-4">{body}</div>;
+  return (
+    <Link href={href} className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary">
+      {body}
     </Link>
   );
 }

@@ -4,15 +4,28 @@ import { createClient } from "@/lib/supabase/server";
 import { JOB_COLS, formatSalary, type CnsJob } from "@/lib/cns/jobs";
 import { getJobLabels } from "@/lib/cns/taxonomy";
 import { SaveJobButton } from "@/components/jobs/SaveJobButton";
+import { JobAlertForm } from "@/components/jobs/JobAlertForm";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Saved Jobs — Central Nerusalem Space" };
+export const metadata = { title: "Saved Jobs and Alerts — Central Nerusalem Space" };
 
 /** Blueprint §6.4: saved jobs must show active, closed and expired states. */
 const CLOSED = new Set(["closed", "expired", "paused", "removed", "rejected"]);
 
-export default async function SavedJobsPage() {
+export default async function SavedJobsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ country?: string | string[]; role?: string | string[] }>;
+}) {
   const supabase = await createClient();
+  const sp = await searchParams;
+  const listOf = (v?: string | string[]) => (Array.isArray(v) ? v : v ? [v] : []);
+
+  // RLS scopes this to the viewer's own row (one alert per member).
+  const { data: alert } = await supabase
+    .from("cns_job_alerts")
+    .select("countries,roles,is_active")
+    .maybeSingle();
 
   const { data: saves } = await supabase
     .from("cns_job_saves")
@@ -35,6 +48,18 @@ export default async function SavedJobsPage() {
   const empById = new Map((employers ?? []).map((e) => [e.id as string, e]));
   const byId = new Map(jobs.map((j) => [j.id, j]));
 
+  // "Get alerts for these filters" on the board arrives with its filters in
+  // the query string; they pre-fill the form but are not saved until confirmed.
+  const fromBoard = { countries: listOf(sp.country), roles: listOf(sp.role) };
+  const optionsOf = (m: Record<string, string>) =>
+    Object.entries(m).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  const alertInitial =
+    fromBoard.countries.length || fromBoard.roles.length
+      ? { ...fromBoard, active: Boolean(alert?.is_active) }
+      : alert
+        ? { countries: (alert.countries as string[]) ?? [], roles: (alert.roles as string[]) ?? [], active: Boolean(alert.is_active) }
+        : null;
+
   return (
     <div className="space-y-8">
       <header className="rounded-2xl border border-border bg-card p-6 sm:p-8">
@@ -42,8 +67,16 @@ export default async function SavedJobsPage() {
           <Bookmark className="h-7 w-7 text-primary" />
           <h1 className="text-2xl font-semibold sm:text-3xl">Saved Jobs</h1>
         </div>
-        <p className="mt-2 max-w-2xl text-muted-foreground">Roles you have kept to come back to.</p>
+        <p className="mt-2 max-w-2xl text-muted-foreground">
+          Roles you have kept to come back to, and the alert that finds new ones for you.
+        </p>
       </header>
+
+      <JobAlertForm
+        countries={optionsOf(labels.country)}
+        roles={optionsOf(labels.nursing_role)}
+        initial={alertInitial}
+      />
 
       {!ids.length ? (
         <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">

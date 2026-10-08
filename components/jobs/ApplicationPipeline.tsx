@@ -39,6 +39,8 @@ export type PipelineRow = {
   /** 0–100 fit against this job, or null when the profile is too thin. */
   matchPercent: number | null;
   screening: ScreeningVerdict;
+  /** What the applicant answered, with the question text frozen at apply time. */
+  answers: { question_text: string; answer: string | null }[];
 };
 
 /** Ordered as the funnel runs; the two terminal states sit apart at the end. */
@@ -197,6 +199,7 @@ export function ApplicationPipeline({ rows }: { rows: PipelineRow[] }) {
                 matchPercent={r.matchPercent}
                 applicantId={r.applicantId}
                 hasResume={r.hasResume}
+                answers={r.answers}
               />
             </div>
           ))}

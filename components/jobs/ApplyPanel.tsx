@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { applyToJob } from "@/lib/actions/jobs";
 import { settle } from "@/lib/utils/settle";
 import { hubLink } from "@/lib/hub";
+import { deadlinePassed } from "@/lib/cns/job-constants";
 
 export type ScreeningQuestion = {
   id: string;
@@ -24,7 +25,7 @@ export type ResumeChoice = { id: string; label: string; kind: "file" | "built" }
  */
 export function ApplyPanel({
   jobId, jobSlug, applyMode, externalUrl, signedIn, deadline,
-  questions = [], resumes = [], alreadyApplied,
+  questions = [], resumes = [], alreadyApplied, withdrawn = false, ended = false,
 }: {
   jobId: string;
   jobSlug: string;
@@ -35,6 +36,10 @@ export function ApplyPanel({
   questions?: ScreeningQuestion[];
   resumes?: ResumeChoice[];
   alreadyApplied?: boolean;
+  /** The member applied and later withdrew. Re-applying is not possible. */
+  withdrawn?: boolean;
+  /** Paused, closed or expired by the employer or the deadline cron. */
+  ended?: boolean;
 }) {
   const [note, setNote] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -45,12 +50,28 @@ export function ApplyPanel({
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  const closed = deadline ? new Date(deadline) < new Date() : false;
+  const closed = deadlinePassed(deadline);
 
-  if (closed) {
+  if (withdrawn) {
     return (
       <div className="rounded-lg border border-border bg-muted p-4 text-sm text-muted-foreground">
-        Applications for this role have closed.
+        You withdrew your application for this role. See{" "}
+        <a href="/applications" className="text-primary underline">your applications</a>.
+      </div>
+    );
+  }
+
+  if (closed || ended) {
+    return (
+      <div className="rounded-lg border border-border bg-muted p-4 text-sm text-muted-foreground">
+        {alreadyApplied ? (
+          <>
+            This role is no longer accepting applications. Yours is still with the employer — track it
+            under <a href="/applications" className="text-primary underline">your applications</a>.
+          </>
+        ) : (
+          "Applications for this role have closed."
+        )}
       </div>
     );
   }

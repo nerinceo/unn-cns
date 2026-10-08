@@ -205,6 +205,12 @@ export default async function ApplicationsInbox({
         questionsByJob.get(a.job_id as string) ?? [],
         answersByApplication.get(a.id as string) ?? []
       ),
+      // The verdict above only exists when the employer set knockout rules; the
+      // answers themselves are what they asked for, so they are always shown.
+      answers: (answersByApplication.get(a.id as string) ?? []).map((x) => ({
+        question_text: x.question_text,
+        answer: x.answer,
+      })),
     };
   });
 

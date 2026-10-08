@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Briefcase, Sparkles, UserRoundCog } from "lucide-react";
-import { searchPublishedJobs, isJobSort, JOBS_PAGE_SIZE } from "@/lib/cns/jobs";
+import { searchPublishedJobs, isJobSort, JOBS_PAGE_SIZE, onlyOpenJobs } from "@/lib/cns/jobs";
 import { getTaxonomy, getJobLabels } from "@/lib/cns/taxonomy";
 import { getMySeekerProfile } from "@/lib/cns/seeker-data";
 import { scoreJobMatch, RECOMMEND_THRESHOLD } from "@/lib/cns/job-match";
@@ -84,7 +84,7 @@ export default async function JobsPage({
     const taxonomy = await getTaxonomy();
     const supabase = await createClient();
     const [{ data: facetRows }, { data: verified }] = await Promise.all([
-      supabase.from("cns_jobs").select("country,specialty,nursing_role").eq("status", "active"),
+      onlyOpenJobs(supabase.from("cns_jobs").select("country,specialty,nursing_role")),
       supabase
         .from("cns_employers")
         .select("id,name,slug")
@@ -177,6 +177,22 @@ export default async function JobsPage({
                 </>
               )}
               {narrowed > 0 && ` · ${narrowed} filter${narrowed === 1 ? "" : "s"} applied`}
+              {/* Alerts match on country and role only — the two the daily
+                  digest reads — so the link appears when one of them is set. */}
+              {(selected.country.length > 0 || selected.role.length > 0) && (
+                <>
+                  {" · "}
+                  <Link
+                    href={`/saved?${new URLSearchParams([
+                      ...selected.country.map((c) => ["country", c]),
+                      ...selected.role.map((r) => ["role", r]),
+                    ]).toString()}#alerts`}
+                    className="text-primary hover:underline"
+                  >
+                    Get alerts for these filters
+                  </Link>
+                </>
+              )}
             </p>
             {total > 1 && <JobSort sort={sort} />}
           </div>

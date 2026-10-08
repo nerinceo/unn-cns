@@ -9,6 +9,9 @@ import { scoreJobMatch, normaliseSeekerVocabulary, matchTone, RECOMMEND_THRESHOL
 import { evaluateScreening, type ScreeningQuestion, type ScreeningAnswer } from "@/lib/cns/screening";
 import { isJobSort, JOB_SORTS, JOBS_PAGE_SIZE, toCountryCode, EMPLOYMENT_TYPE_SCHEMA, EMPLOYMENT_TYPE_LABEL } from "@/lib/cns/job-constants";
 import type { CnsJob } from "@/lib/cns/jobs";
+import { deadlinePassed, todayIsoDate } from "@/lib/cns/job-constants";
+import { splitLiveEdit, reviewablePending } from "@/lib/cns/job-live-edit";
+import { safeExternalUrl } from "@/lib/cns/url";
 
 // lib/cns/jobs.ts is a server module: `import "server-only"` (a marker Next
 // resolves at build time, not an installed package) plus the Supabase client
@@ -18,7 +21,7 @@ import type { CnsJob } from "@/lib/cns/jobs";
 const M = Module as unknown as { _resolveFilename: (req: string, ...rest: unknown[]) => string };
 const resolve = M._resolveFilename;
 const EMPTY_MODULE = Module.createRequire(import.meta.url).resolve("next/dist/compiled/server-only/empty.js");
-const SERVER_ONLY_DEPS = /^server-only$|lib[\\/]supabase[\\/]server|lib[\\/]cns[\\/]taxonomy/;
+const SERVER_ONLY_DEPS = /^server-only$|lib[\\/]supabase[\\/](server|admin)|lib[\\/]cns[\\/]taxonomy/;
 M._resolveFilename = (req, ...rest) => {
   if (req === "server-only") return EMPTY_MODULE;
   const file = resolve(req, ...rest);
@@ -238,6 +241,35 @@ eq("blank line splits paragraphs, single newline is <br/>", jobDescriptionHtml(c
 eq("HTML is escaped (no injection into the page or JSON-LD)", jobDescriptionHtml(cj({ description: '<script>alert("x")</script> & co' })), '<p>&lt;script&gt;alert("x")&lt;/script&gt; &amp; co</p>');
 eq("responsibilities + qualifications get headings", jobDescriptionHtml(cj({ responsibilities: "Rounds", qualifications: "BSc" })),
   "<p>Care for ICU patients.</p><h3>Responsibilities</h3><p>Rounds</p><h3>Qualifications</h3><p>BSc</p>");
+
+// ── 2026-10-08 job-module fixes ─────────────────────────────────────────────
+const NOON = new Date("2026-10-07T12:00:00Z");
+eq("deadline: today is still open (inclusive)", deadlinePassed("2026-10-07", NOON), false);
+eq("deadline: yesterday has passed", deadlinePassed("2026-10-06", NOON), true);
+eq("deadline: none never passes", deadlinePassed(null, NOON), false);
+eq("deadline: timestamp form compared by date", deadlinePassed("2026-10-07T00:00:00Z", NOON), false);
+eq("today ISO", todayIsoDate(NOON), "2026-10-07");
+
+const live = { status: "active", title: "Staff Nurse", salary_min: 40000, salary_max: 65000, vacancies: 3, application_deadline: "2099-01-01", pending_changes: null };
+type Split = { instant: Record<string, unknown>; pending: Record<string, unknown> | null };
+const sp1 = splitLiveEdit(live, { title: "Staff Nurse — guaranteed visa", vacancies: 4 }) as Split;
+eq("live edit: title waits for review", sp1.pending, { title: "Staff Nurse — guaranteed visa" });
+eq("live edit: vacancies apply now", sp1.instant, { vacancies: 4 });
+const sp2 = splitLiveEdit({ ...live, pending_changes: { title: "X" } }, { title: "Staff Nurse" }) as Split;
+eq("live edit: reverting to the live value drops the pending change", sp2.pending, null);
+const sp3 = splitLiveEdit(live, { salary_min: "40000", title: "Staff Nurse" }) as Split;
+eq("live edit: unchanged numeric (string vs number) is not a change", [sp3.instant, sp3.pending], [{}, null]);
+eq("live edit: past deadline refused", "error" in splitLiveEdit(live, { application_deadline: "2020-01-01" }), true);
+eq("live edit: clearing the deadline refused", "error" in splitLiveEdit(live, { application_deadline: null }), true);
+eq("live edit: salary from above live salary to refused", "error" in splitLiveEdit(live, { salary_min: 90000 }), true);
+eq("live edit: unknown keys ignored", (splitLiveEdit(live, { status: "active", employer_id: "x" }) as Split).pending, null);
+eq("reviewable pending drops non-content keys", reviewablePending({ title: "A", status: "active", employer_id: "e", published_at: "x" }), { title: "A" });
+eq("reviewable pending: junk is empty", reviewablePending("nope"), {});
+
+eq("url: bare host gets https", safeExternalUrl("navzz.com"), "https://navzz.com/");
+eq("url: http kept", safeExternalUrl("http://a.org/x"), "http://a.org/x");
+eq("url: javascript dropped", safeExternalUrl("javascript:alert(1)"), null);
+eq("url: blank is null", safeExternalUrl("  "), null);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) {

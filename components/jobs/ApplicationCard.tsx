@@ -78,7 +78,7 @@ type Snapshot = {
 
 export function ApplicationCard({
   id, jobTitle, snapshot, coverNote, status, employerNote, createdAt, contact, matchPercent,
-  applicantId, hasResume,
+  applicantId, hasResume, answers = [],
 }: {
   id: string;
   jobTitle: string;
@@ -92,6 +92,8 @@ export function ApplicationCard({
   matchPercent?: number | null;
   applicantId?: string;
   hasResume?: boolean;
+  /** Screening answers, in the order the questions were asked. */
+  answers?: { question_text: string; answer: string | null }[];
 }) {
   const s = snapshot as Snapshot;
   const [open, setOpen] = useState(false);
@@ -230,6 +232,24 @@ export function ApplicationCard({
         <p className="mt-3 border-l-2 border-border pl-3 text-sm text-muted-foreground">
           {coverNote}
         </p>
+      )}
+
+      {answers.length > 0 && (
+        <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Screening answers
+          </p>
+          <dl className="space-y-2 text-sm">
+            {answers.map((a, i) => (
+              <div key={i}>
+                <dt className="text-xs text-muted-foreground">{a.question_text}</dt>
+                <dd className="mt-0.5 whitespace-pre-wrap break-words">
+                  {a.answer ?? <span className="text-muted-foreground">Not answered</span>}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       )}
 
       <button

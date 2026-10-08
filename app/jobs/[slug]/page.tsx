@@ -6,13 +6,14 @@ import {
   ArrowLeft, MapPin, Clock, Banknote, ShieldCheck, Users, CalendarDays, BadgeCheck,
 } from "lucide-react";
 import {
-  getJobBySlug, formatSalary, buildJobPostingJsonLd, jobDescriptionHtml,
+  getJobBySlug, getEndedJobBySlug, formatSalary, buildJobPostingJsonLd, jobDescriptionHtml,
 } from "@/lib/cns/jobs";
 import { getJobLabels } from "@/lib/cns/taxonomy";
 import { ReportJobButton } from "@/components/jobs/ReportJobButton";
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
 import { recordJobView } from "@/lib/cns/job-views";
 import { ApplyPanel } from "@/components/jobs/ApplyPanel";
+import { SaveJobButton } from "@/components/jobs/SaveJobButton";
 
 export const dynamic = "force-dynamic";
 
@@ -24,9 +25,12 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const found = await getJobBySlug(slug);
+  const live = await getJobBySlug(slug);
+  const found = live?.job?.status === "active" ? live : await getEndedJobBySlug(slug);
   if (!found?.job) return { title: "Job not found" };
   const { job, employer } = found;
+  // An ended role stays reachable for applicants but must not be re-indexed.
+  const robots = job.status === "active" ? undefined : { index: false, follow: true };
   const where = [job.city, job.country].filter(Boolean).join(", ");
   return {
     title: `${job.title} — ${employer?.name ?? "Nerusalem"}`,
@@ -37,25 +41,26 @@ export async function generateMetadata({
       description: job.description.slice(0, 155),
       type: "article",
     },
+    ...(robots ? { robots } : {}),
   };
 }
 
 export default async function JobDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const found = await getJobBySlug(slug);
+  // RLS only exposes published jobs to anon, but a member of the employer can
+  // also read drafts — never render those as if they were live.
+  const live = await getJobBySlug(slug);
+  const found = live?.job?.status === "active" ? live : await getEndedJobBySlug(slug);
   if (!found?.job || !found.employer) notFound();
 
   const { job, employer } = found;
-  // RLS only exposes published jobs to anon, but a member of the employer can
-  // also read drafts — don't render those as if they were live.
-  // Employer members can read their own drafts; do not render those as live.
-  if (job.status !== "active") notFound();
+  const ended = job.status !== "active";
 
   const user = await getCurrentUser();
 
   // Deduped per viewer per day in the database, so a refresh does not inflate
   // it and an employer previewing their own role does not either.
-  await recordJobView(job.id);
+  if (!ended) await recordJobView(job.id);
 
   const url = `${SITE}/jobs/${job.slug}`;
   const [jsonLd, labels] = await Promise.all([
@@ -74,8 +79,10 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
 
   let resumes: { id: string; label: string; kind: "file" | "built" }[] = [];
   let alreadyApplied = false;
+  let withdrawn = false;
+  let saved = false;
   if (user) {
-    const [{ data: files }, { data: built }, { data: existing }] = await Promise.all([
+    const [{ data: files }, { data: built }, { data: existing }, { data: saveRow }] = await Promise.all([
       supabase
         .from("cns_resume_files")
         .select("id,file_name")
@@ -84,11 +91,18 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
       supabase.from("cns_resumes").select("id,title").order("is_default", { ascending: false }),
       supabase
         .from("cns_job_applications")
-        .select("id")
+        .select("id,status")
         .eq("job_id", job.id)
         .eq("applicant_id", user.id)
         .maybeSingle(),
+      supabase
+        .from("cns_job_saves")
+        .select("job_id")
+        .eq("job_id", job.id)
+        .eq("user_id", user.id)
+        .maybeSingle(),
     ]);
+    saved = Boolean(saveRow);
     resumes = [
       ...(files ?? []).map((f) => ({
         id: f.id as string,
@@ -102,6 +116,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
       })),
     ];
     alreadyApplied = Boolean(existing);
+    withdrawn = existing?.status === "withdrawn";
   }
   const salary = job.salary_text ?? formatSalary(job);
   const countryLabel = labels.country[job.country as string] ?? job.country;
@@ -114,10 +129,12 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
         manual action when markup disagrees with the visible page, so these must
         never be maintained separately.
       */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
-      />
+      {!ended && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
+        />
+      )}
 
       <Link
         href="/jobs"
@@ -127,7 +144,12 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
       </Link>
 
       <header>
-        <h1 className="text-2xl font-semibold">{job.title}</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-2xl font-semibold">{job.title}</h1>
+          {/* /saved tells members to "use the bookmark on any role"; until
+              2026-10-08 no role page carried one. */}
+          {user && !ended && <SaveJobButton jobId={job.id} saved={saved} withLabel />}
+        </div>
         <p className="mt-1 flex flex-wrap items-center gap-2 text-muted-foreground">
           <Link href={`/employers/${employer.slug}`} className="hover:text-foreground hover:underline">
             {employer.name}
@@ -156,11 +178,16 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
         </Fact>
       </dl>
 
-      {(job.experience_level || job.nursing_role || job.work_setting || job.license_required || job.qualification_required || job.specialty) && (
+      {(job.experience_level || job.experience_min_years || job.nursing_role || job.work_setting || job.license_required || job.qualification_required || job.specialty) && (
         <div className="flex flex-wrap gap-2">
           {job.experience_level && (
             <Chip>{labels.experience_level[job.experience_level] ?? job.experience_level}</Chip>
           )}
+          {job.experience_min_years ? (
+            <Chip>
+              {job.experience_min_years}+ {job.experience_min_years === 1 ? "year" : "years"} experience
+            </Chip>
+          ) : null}
           {job.nursing_role && <Chip>{labels.nursing_role[job.nursing_role]}</Chip>}
           {job.work_setting && <Chip>{labels.work_setting[job.work_setting]}</Chip>}
           {job.license_required && (
@@ -184,6 +211,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
         questions={(questions ?? []) as never}
         resumes={resumes}
         alreadyApplied={alreadyApplied}
+        withdrawn={withdrawn}
+        ended={ended}
       />
 
       {/* Same HTML that goes into the JSON-LD description. */}

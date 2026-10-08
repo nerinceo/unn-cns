@@ -27,12 +27,14 @@ export default async function EditJobPage({
 
   const { data: jobRow } = await supabase
     .from("cns_jobs")
-    .select(JOB_COLS)
+    .select(`${JOB_COLS},pending_changes`)
     .eq("id", jobId)
     .eq("employer_id", employerId)
     .maybeSingle();
   if (!jobRow) notFound();
   const job = jobRow as unknown as Record<string, unknown>;
+  const pendingChanges = (job.pending_changes ?? null) as Record<string, unknown> | null;
+  const live = job.status === "active" || job.status === "paused";
 
   const [{ data: employer }, { data: questions }, jobOptions] = await Promise.all([
     supabase.from("cns_employers").select("status").eq("id", employerId).maybeSingle(),
@@ -73,6 +75,11 @@ export default async function EditJobPage({
             jobId={jobId}
             status={job.status as string}
             canPublish={employer?.status === "approved"}
+            // The composer below has its own "Save & submit", which saves what
+            // is on screen first. A second Submit here submitted the LAST SAVED
+            // version and reported a short description the employer had just
+            // lengthened (found 2026-10-08).
+            hideSubmit
           />
         </div>
       </header>
@@ -81,7 +88,9 @@ export default async function EditJobPage({
         employerId={employerId}
         canPublish={employer?.status === "approved"}
         options={jobOptions}
-        existing={{ ...job, id: jobId }}
+        existing={{ ...job, ...(pendingChanges ?? {}), id: jobId }}
+        live={live}
+        hasPending={Boolean(pendingChanges)}
       />
 
       <ScreeningEditor jobId={jobId} initial={(questions ?? []) as never} />
