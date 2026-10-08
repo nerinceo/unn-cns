@@ -1,6 +1,9 @@
-import Link from "next/link";
-import { ClipboardList, GraduationCap, ArrowRight, MapPin, Clock } from "lucide-react";
+import { ClipboardList, GraduationCap, ArrowRight, MapPin, Clock, Lock } from "lucide-react";
 import { getInstitutions } from "@/lib/cns/question-bank";
+import {
+  PaidBankTrigger,
+  QuestionBankPaidGate,
+} from "@/components/question-bank/QuestionBankPaidGate";
 import {
   ACCESS_COPY,
   BANK_DIRECTORY,
@@ -42,7 +45,11 @@ const REGION_FALLBACK = {
  * Copy is verbatim from lib/cns/question-bank-content.ts — do not edit strings
  * inline here.
  */
-export default async function QuestionBankPage() {
+export default async function QuestionBankPage({
+  searchParams,
+}: {
+  searchParams: { locked?: string };
+}) {
   // A bank is open when its university has a cns_institutions row — the same
   // test the institution page uses. Read failure returns [] (getInstitutions
   // swallows it); in that case nothing is known, so every card stays a link
@@ -53,6 +60,7 @@ export default async function QuestionBankPage() {
   const isOpen = (key: string) => live.size === 0 || live.has(key);
 
   return (
+    <QuestionBankPaidGate initialOpen={searchParams.locked === "1"}>
     <div className="space-y-10">
       <header className="rounded-2xl border border-border bg-gradient-to-br from-primary/[0.08] via-card to-card p-6 sm:p-8">
         <div className="flex items-center gap-3">
@@ -130,7 +138,10 @@ export default async function QuestionBankPage() {
 
                     {open ? (
                       <span className="mt-5 inline-flex items-center justify-between gap-1.5 border-t border-border pt-4 text-[14px] font-bold text-primary">
-                        {DIRECTORY_COPY.cardCta}
+                        <span className="inline-flex items-center gap-1.5">
+                          <Lock className="h-4 w-4" />
+                          Paid access
+                        </span>
                         <ArrowRight className="h-4 w-4 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
                       </span>
                     ) : (
@@ -148,14 +159,16 @@ export default async function QuestionBankPage() {
                 </>
               );
 
+              // TEMPORARY GATE (2026-10-08): open banks show the paid-access
+              // popup instead of linking to /question-bank/${bank.key}. To
+              // reopen, put the Link back and delete [institution]/layout.tsx.
               return open ? (
-                <Link
+                <PaidBankTrigger
                   key={bank.key}
-                  href={`/question-bank/${bank.key}`}
                   className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-primary/40"
                 >
                   {body}
-                </Link>
+                </PaidBankTrigger>
               ) : (
                 <div
                   key={bank.key}
@@ -170,5 +183,6 @@ export default async function QuestionBankPage() {
         </section>
       ))}
     </div>
+    </QuestionBankPaidGate>
   );
 }
