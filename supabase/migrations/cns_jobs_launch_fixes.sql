@@ -3,6 +3,7 @@
 --
 --   1. cns_search_jobs: expired roles are no longer "open", and a "%" or "_"
 --      typed into the search box is a literal, not a wildcard.
+--   3. The expiry cron could not expire anything: the guard refused it.
 --   2. Live roles: content edits wait for review (pending_changes) instead of
 --      going public instantly — enforced here, not only in the app.
 --
@@ -145,6 +146,13 @@ begin
       or (old.status = 'submitted'         and new.status = 'draft')
       or (old.status = 'active'            and new.status in ('paused', 'closed'))
       or (old.status = 'paused'            and new.status in ('active', 'closed'))
+      -- Expiry. cns_close_expired_jobs() (the daily cron) runs as the service
+      -- role, which is not "staff", so without this the cron itself was refused
+      -- and roles past their deadline stayed live for months (found
+      -- 2026-10-08). Only a role whose deadline has really passed may expire.
+      or (old.status in ('active', 'paused') and new.status = 'expired'
+          and new.application_deadline is not null
+          and new.application_deadline < current_date)
     ) then
       raise exception
         'A job cannot be moved from % to % by an employer. Nerusalem reviews every posting.',
@@ -203,6 +211,8 @@ select column_name from information_schema.columns
    and column_name in ('pending_changes', 'pending_submitted_at');
 select tgname from pg_trigger
  where tgrelid = 'public.cns_jobs'::regclass and tgname = 'cns_jobs_guard_status_trg';
+-- Closes what the cron should already have closed; returns how many.
+select public.cns_close_expired_jobs() as expired_now;
 select count(*) as expired_in_search
   from public.cns_search_jobs(p_limit => 100) s
  where (s.job->>'application_deadline')::date < current_date;
