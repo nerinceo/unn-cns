@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Send, Building2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { cn } from "@/lib/utils/cn";
 import { WithdrawButton } from "@/components/jobs/WithdrawButton";
 
@@ -28,6 +29,11 @@ const STATUS: Record<string, { label: string; hint: string; tone: "neutral" | "g
   withdrawn: { label: "Withdrawn", hint: "You withdrew this application.", tone: "bad" },
 };
 
+/** Roles with no public page any more. */
+const GONE = new Set(["removed", "rejected", "draft", "submitted", "changes_requested"]);
+/** Roles that still have a page but no longer take applications. */
+const ENDED_LABEL: Record<string, string> = { paused: "Paused", closed: "Closed", expired: "Closed" };
+
 export default async function MyApplicationsPage() {
   const supabase = await createClient();
 
@@ -38,16 +44,30 @@ export default async function MyApplicationsPage() {
     .order("created_at", { ascending: false });
 
   const jobIds = (applications ?? []).map((a) => a.job_id as string);
-  const { data: jobs } = jobIds.length
+  const { data: visibleJobs } = jobIds.length
     ? await supabase
         .from("cns_jobs")
         .select("id,slug,title,city,country,employer_id,status")
         .in("id", jobIds)
     : { data: [] };
 
-  const employerIds = Array.from(new Set((jobs ?? []).map((j) => j.employer_id as string)));
+  // RLS shows only LIVE roles, so an application to a role the employer had
+  // paused or closed read "Role removed / Employer" (found 2026-10-08). These
+  // are roles this member applied to — the ids come from her own applications
+  // above — so their public columns are read with the service role.
+  const seen = new Set((visibleJobs ?? []).map((j) => j.id as string));
+  const hidden = jobIds.filter((id) => !seen.has(id));
+  const { data: hiddenJobs } = hidden.length
+    ? await createAdminClient()
+        .from("cns_jobs")
+        .select("id,slug,title,city,country,employer_id,status")
+        .in("id", hidden)
+    : { data: [] };
+  const jobs = [...(visibleJobs ?? []), ...(hiddenJobs ?? [])];
+
+  const employerIds = Array.from(new Set(jobs.map((j) => j.employer_id as string)));
   const { data: employers } = employerIds.length
-    ? await supabase.from("cns_employers").select("id,name").in("id", employerIds)
+    ? await createAdminClient().from("cns_employers").select("id,name").in("id", employerIds)
     : { data: [] };
 
   const jobById = new Map((jobs ?? []).map((j) => [j.id as string, j]));
@@ -90,12 +110,19 @@ export default async function MyApplicationsPage() {
               <li key={a.id as string} className="rounded-lg border border-border bg-card p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    {job ? (
+                    {job && !GONE.has(job.status as string) ? (
                       <Link href={`/jobs/${job.slug}`} className="font-medium hover:text-primary">
                         {job.title as string}
                       </Link>
                     ) : (
-                      <span className="font-medium text-muted-foreground">Role removed</span>
+                      <span className="font-medium text-muted-foreground">
+                        {job ? `${job.title as string} (role removed)` : "Role removed"}
+                      </span>
+                    )}
+                    {job && ENDED_LABEL[job.status as string] && (
+                      <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                        {ENDED_LABEL[job.status as string]}
+                      </span>
                     )}
                     <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
                       <Building2 className="h-3.5 w-3.5" />
