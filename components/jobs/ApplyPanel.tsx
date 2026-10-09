@@ -7,6 +7,7 @@ import { applyToJob } from "@/lib/actions/jobs";
 import { settle } from "@/lib/utils/settle";
 import { hubLink } from "@/lib/hub";
 import { deadlinePassed } from "@/lib/cns/job-constants";
+import { safeExternalUrl } from "@/lib/cns/url";
 
 export type ScreeningQuestion = {
   id: string;
@@ -24,13 +25,15 @@ export type ResumeChoice = { id: string; label: string; kind: "file" | "built" }
  * get the value proposition and a sign-in prompt rather than a dead button.
  */
 export function ApplyPanel({
-  jobId, jobSlug, applyMode, externalUrl, signedIn, deadline,
+  jobId, jobSlug, applyMode, externalUrl, sourceName = null, signedIn, deadline,
   questions = [], resumes = [], alreadyApplied, withdrawn = false, ended = false,
 }: {
   jobId: string;
   jobSlug: string;
   applyMode: string;
   externalUrl: string | null;
+  /** An imported role's source, for "Apply on <source>". */
+  sourceName?: string | null;
   signedIn: boolean;
   deadline: string | null;
   questions?: ScreeningQuestion[];
@@ -88,15 +91,19 @@ export function ApplyPanel({
     );
   }
 
-  if (applyMode === "external" && externalUrl) {
+  // Re-checked at render: a stored link that is not http(s) (javascript:,
+  // data:) must never become an href.
+  const safeUrl = applyMode === "external" ? safeExternalUrl(externalUrl) : null;
+  if (safeUrl) {
     return (
       <a
-        href={externalUrl}
+        href={safeUrl}
         target="_blank"
         rel="noopener noreferrer nofollow"
         className="inline-flex h-10 items-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
       >
-        Apply on employer site <ExternalLink className="ml-2 h-4 w-4" />
+        {sourceName ? `Apply on ${sourceName}` : "Apply on employer site"}
+        <ExternalLink className="ml-2 h-4 w-4" />
       </a>
     );
   }

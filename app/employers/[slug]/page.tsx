@@ -4,7 +4,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
-  ArrowLeft, Building2, ShieldCheck, Globe, MapPin, Briefcase,
+  ArrowLeft, Building2, ShieldCheck, Globe, MapPin, Briefcase, Info,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getJobLabels } from "@/lib/cns/taxonomy";
@@ -69,6 +69,9 @@ export async function generateMetadata({
         where ? ` in ${where}` : ""
       }.`,
     alternates: { canonical: `${SITE}/employers/${employer.slug}` },
+    // A stub exists only to hold imported roles: an indexed page would be
+    // Nerusalem appearing to speak for an organisation that never joined.
+    ...(employer.is_stub ? { robots: { index: false, follow: true } } : {}),
   };
 }
 
@@ -104,10 +107,12 @@ export default async function EmployerProfilePage({
 
   return (
     <div className="space-y-8">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
-      />
+      {!employer.is_stub && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
+        />
+      )}
 
       <Link
         href="/jobs"
@@ -170,6 +175,14 @@ export default async function EmployerProfilePage({
             {employer.description && (
               <p className="mt-3 max-w-2xl whitespace-pre-line text-sm text-muted-foreground">
                 {employer.description}
+              </p>
+            )}
+
+            {employer.is_stub && (
+              <p className="mt-3 flex max-w-2xl items-start gap-2 rounded-md border border-border bg-muted p-3 text-xs text-muted-foreground">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {employer.name} is not on Nerusalem yet. The roles below are collected from public
+                job listings, and you apply on the original posting.
               </p>
             )}
           </div>

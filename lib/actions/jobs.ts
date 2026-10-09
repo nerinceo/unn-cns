@@ -629,12 +629,17 @@ async function applyToJobImpl(
   // check here exists to return a sentence rather than a constraint error.
   const { data: job, error: jobError } = await supabase
     .from("cns_jobs")
-    .select("id,status,application_deadline,title,employer_id")
+    .select("id,status,application_deadline,title,employer_id,source")
     .eq("id", jobId)
     .maybeSingle();
   if (jobError) logError("jobs:applyToJob:job", jobError, { jobId });
   if (!job) return { error: "Job not found" };
   if (job.status !== "active") return { error: "This role is no longer accepting applications." };
+  // An imported role's employer is not on Nerusalem: an application stored
+  // here would reach nobody while the nurse believed it had been sent.
+  if (job.source && job.source !== "native") {
+    return { error: "This role is applied for on the original posting. Use the Apply button on the role page." };
+  }
   if (deadlinePassed(job.application_deadline as string | null)) {
     return { error: "Applications for this role have closed." };
   }

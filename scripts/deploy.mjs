@@ -92,6 +92,11 @@ const ENV_FROM_LOCAL = [
   "QB_SOURCE",
   "CONTENT_SUPABASE_URL",
   "CONTENT_SUPABASE_SECRET_KEY",
+  // Imported job listings (lib/cns/job-import). Optional: a key missing here
+  // is simply not synced, and /admin/job-sources flags the sources it breaks.
+  "ADZUNA_APP_ID",
+  "ADZUNA_APP_KEY",
+  "JOOBLE_API_KEY",
 ];
 
 const ENV_LITERAL = {

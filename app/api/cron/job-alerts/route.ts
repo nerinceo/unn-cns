@@ -64,6 +64,10 @@ export async function GET(request: NextRequest) {
       .from("cns_jobs")
       .select("id,title,slug,country,nursing_role,published_at")
       .eq("status", "active")
+      // Imported roles arrive by the hundred four times a day; alerting on
+      // them would turn a digest into spam and burn the email quota. Alerts
+      // are for roles posted here by reviewed employers.
+      .eq("source", "native")
       .gte("published_at", since);
     // Logged so a failed read is not mistaken for "no new jobs today" below.
     if (freshError) logError("cron:job-alerts:fresh", freshError);

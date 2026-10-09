@@ -49,6 +49,10 @@ export default async function AdminJobsPage() {
     // Removed, paused, closed and expired roles stay in the history: a removal
     // vanished from this page the moment it was made, leaving staff no trail.
     .in("status", ["submitted", "active", "changes_requested", "rejected", "removed", "paused", "closed", "expired"])
+    // Imported roles live in /admin/job-sources, or hundreds of them would push
+    // every employer's role off this page. An imported role still comes here
+    // when its source is set to wait for approval (status 'submitted').
+    .or("source.eq.native,status.eq.submitted")
     .order("created_at", { ascending: false })
     .limit(100);
 

@@ -9,8 +9,9 @@ import {
   ArrowRight,
   Stethoscope,
   Hospital,
+  Globe,
 } from "lucide-react";
-import { formatSalary, type CnsJob, type CnsEmployer } from "@/lib/cns/jobs";
+import { formatSalary, isImportedJob, type CnsJob, type CnsEmployer } from "@/lib/cns/jobs";
 import type { MatchResult } from "@/lib/cns/job-match";
 import { MatchBadge, MatchReasons } from "./MatchBadge";
 
@@ -118,6 +119,9 @@ export function JobCard({
             <Fact icon={Plane} tone="visa">
               Visa sponsorship
             </Fact>
+          )}
+          {isImportedJob(job) && job.source_name && (
+            <Fact icon={Globe}>Via {job.source_name}</Fact>
           )}
         </dl>
 

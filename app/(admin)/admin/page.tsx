@@ -15,9 +15,11 @@ export default async function AdminOverview() {
 
   const [pendingEmployers, employers, liveJobs, applications] = await Promise.all([
     admin.from("cns_employers").select("id", head).eq("status", "pending"),
-    admin.from("cns_employers").select("id", head),
+    // Real organisations and their roles. Imported roles and their stub
+    // employers are counted in /admin/job-sources.
+    admin.from("cns_employers").select("id", head).eq("is_stub", false),
     // Open roles only — an expired-but-not-yet-closed role is not "live".
-    onlyOpenJobs(admin.from("cns_jobs").select("id", head)),
+    onlyOpenJobs(admin.from("cns_jobs").select("id", head).eq("source", "native")),
     admin.from("cns_job_applications").select("id", head),
   ]).then((rs) => rs.map((r) => r.count ?? 0));
 

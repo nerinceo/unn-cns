@@ -1,7 +1,7 @@
 import {
   BookOpen, BookOpenCheck, ClipboardList, Briefcase, Library, TrendingUp, Home, FileText,
   Building2, Inbox, LayoutDashboard, Settings, Users, Send, UserRound, Bookmark, Flag,
-  GraduationCap, Bot, School, BadgeCheck, Calculator, HeartHandshake, LayoutGrid, PlusCircle,
+  GraduationCap, Bot, School, BadgeCheck, Calculator, HeartHandshake, LayoutGrid, PlusCircle, Rss,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -88,6 +88,7 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/employers", label: "Employers", icon: Building2 },
   { href: "/admin/jobs", label: "Job approvals", icon: Briefcase },
+  { href: "/admin/job-sources", label: "Job sources", icon: Rss },
   { href: "/admin/reports", label: "Reports", icon: Flag },
   { href: "/admin/content", label: "Content", icon: ClipboardList },
   { href: "/admin/members", label: "Members", icon: Users },

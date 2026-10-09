@@ -49,6 +49,8 @@ async function listApprovedEmployers(): Promise<{ slug: string }[]> {
     .from("cns_employers")
     .select("slug")
     .eq("status", "approved")
+    // Stub employers hold imported roles and are noindex (cns_job_sources.sql).
+    .eq("is_stub", false)
     .limit(5000);
   return (data ?? []) as { slug: string }[];
 }

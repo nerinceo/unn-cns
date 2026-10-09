@@ -25,6 +25,8 @@ export default async function AdminEmployersPage() {
     .select(
       "id,name,slug,employer_type,description,website,country,city,status,verification_status,review_note,created_at,legal_name,contact_person,business_email,phone,registration_doc_key"
     )
+    // Stubs for imported roles are not organisations awaiting review.
+    .eq("is_stub", false)
     .order("created_at", { ascending: false });
 
   const pending = (employers ?? []).filter((e) => e.status === "pending");

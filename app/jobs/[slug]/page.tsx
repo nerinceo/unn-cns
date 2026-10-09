@@ -3,11 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
-  ArrowLeft, MapPin, Clock, Banknote, ShieldCheck, Users, CalendarDays, BadgeCheck,
+  ArrowLeft, MapPin, Clock, Banknote, ShieldCheck, Users, CalendarDays, BadgeCheck, Globe,
 } from "lucide-react";
 import {
   getJobBySlug, getEndedJobBySlug, formatSalary, buildJobPostingJsonLd, jobDescriptionHtml,
+  isImportedJob,
 } from "@/lib/cns/jobs";
+import { ImportedJobNote } from "@/components/jobs/ImportedJobNote";
 import { getJobLabels } from "@/lib/cns/taxonomy";
 import { ReportJobButton } from "@/components/jobs/ReportJobButton";
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
@@ -30,7 +32,10 @@ export async function generateMetadata({
   if (!found?.job) return { title: "Job not found" };
   const { job, employer } = found;
   // An ended role stays reachable for applicants but must not be re-indexed.
-  const robots = job.status === "active" ? undefined : { index: false, follow: true };
+  // Neither is an imported one: it is another site's listing, and indexing a
+  // copy of it is what gets a whole job board demoted.
+  const robots =
+    job.status === "active" && !isImportedJob(job) ? undefined : { index: false, follow: true };
   const where = [job.city, job.country].filter(Boolean).join(", ");
   return {
     title: `${job.title} — ${employer?.name ?? "Nerusalem"}`,
@@ -55,6 +60,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
 
   const { job, employer } = found;
   const ended = job.status !== "active";
+  const imported = isImportedJob(job);
 
   const user = await getCurrentUser();
 
@@ -129,7 +135,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
         manual action when markup disagrees with the visible page, so these must
         never be maintained separately.
       */}
-      {!ended && (
+      {!ended && !imported && (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
@@ -159,6 +165,11 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
               <ShieldCheck className="h-3 w-3" /> Verified employer
             </span>
           )}
+          {imported && job.source_name && (
+            <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              <Globe className="h-3 w-3" /> Via {job.source_name}
+            </span>
+          )}
         </p>
       </header>
 
@@ -173,9 +184,16 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
         <Fact icon={Banknote} label="Salary">
           {salary ?? "Not disclosed"}
         </Fact>
-        <Fact icon={Users} label="Vacancies">
-          {job.vacancies}
-        </Fact>
+        {imported ? (
+          // An imported listing never states a head count; "1" would be ours.
+          <Fact icon={Globe} label="Listed on">
+            {job.source_name ?? "Another site"}
+          </Fact>
+        ) : (
+          <Fact icon={Users} label="Vacancies">
+            {job.vacancies}
+          </Fact>
+        )}
       </dl>
 
       {(job.experience_level || job.experience_min_years || job.nursing_role || job.work_setting || job.license_required || job.qualification_required || job.specialty) && (
@@ -206,6 +224,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
         jobSlug={job.slug}
         applyMode={job.apply_mode}
         externalUrl={job.external_apply_url}
+        sourceName={imported ? job.source_name ?? null : null}
         signedIn={Boolean(user)}
         deadline={job.application_deadline}
         questions={(questions ?? []) as never}
@@ -214,6 +233,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
         withdrawn={withdrawn}
         ended={ended}
       />
+
+      {imported && <ImportedJobNote source={job.source ?? ""} sourceName={job.source_name ?? null} />}
 
       {/* Same HTML that goes into the JSON-LD description. */}
       <article

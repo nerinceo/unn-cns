@@ -41,10 +41,23 @@ export const JOB_COLS =
   "language_requirements,changes_requested_note," +
   "qualification_required,license_required,salary_min,salary_max,salary_currency," +
   "salary_period,salary_undisclosed,vacancies,application_deadline,apply_mode," +
-  "external_apply_url,visa_sponsorship,status,published_at,employer_id,created_at";
+  "external_apply_url,visa_sponsorship,status,published_at,employer_id,created_at," +
+  "source,source_name";
 
 export const EMPLOYER_PUBLIC_COLS =
-  "id,slug,name,employer_type,description,logo_url,website,country,city,verification_status";
+  "id,slug,name,employer_type,description,logo_url,website,country,city,verification_status,is_stub";
+
+/**
+ * A role imported from a job network or careers board (cns_job_sources.sql),
+ * rather than posted here by a reviewed employer. Such a role:
+ *   - is badged "Via <source>" and applies on the original site;
+ *   - carries NO JobPosting markup and is noindex — it is someone else's
+ *     listing, and Google acts against boards that republish them as their own;
+ *   - stays out of the sitemap and the job-alert digest.
+ */
+export function isImportedJob(job: { source?: string | null }): boolean {
+  return Boolean(job.source) && job.source !== "native";
+}
 
 export type CnsEmployer = {
   id: string;
@@ -57,6 +70,8 @@ export type CnsEmployer = {
   country: string | null;
   city: string | null;
   verification_status: string;
+  /** An unverified placeholder for an imported role's employer. */
+  is_stub?: boolean;
 };
 
 export type CnsJob = {
@@ -99,6 +114,10 @@ export type CnsJob = {
   published_at: string | null;
   employer_id: string;
   created_at: string;
+  /** "native", or the feed an imported role came from. */
+  source?: string;
+  /** Shown as "Via <source_name>" on an imported role. */
+  source_name?: string | null;
 };
 
 export function formatSalary(job: CnsJob): string | null {
@@ -336,7 +355,7 @@ export async function listAllActiveJobsForSitemap(): Promise<
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await onlyOpenJobs(
-      supabase.from("cns_jobs").select("slug,published_at,created_at")
+      supabase.from("cns_jobs").select("slug,published_at,created_at").eq("source", "native")
     )
       .order("published_at", { ascending: false })
       .range(from, from + PAGE - 1);
