@@ -10,6 +10,7 @@ import {
   Stethoscope,
   Hospital,
   Globe,
+  Zap,
 } from "lucide-react";
 import { formatSalary, isImportedJob, type CnsJob, type CnsEmployer } from "@/lib/cns/jobs";
 import type { MatchResult } from "@/lib/cns/job-match";
@@ -51,6 +52,7 @@ export function JobCard({
     .filter(Boolean)
     .join(", ");
   const verified = employer?.verification_status === "verified";
+  const posted = postedAgo(job.published_at ?? job.created_at);
 
   return (
     <Link
@@ -64,11 +66,21 @@ export function JobCard({
         className={`w-1 shrink-0 ${job.visa_sponsorship ? "bg-emerald-500" : "bg-primary/70"}`}
       />
 
-      <div className="min-w-0 flex-1 p-5">
+      <div className="min-w-0 flex-1 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
-              <Hospital className="h-5 w-5" />
+            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
+              {employer?.logo_url ? (
+                // Plain <img>: next/image throws on any host missing from
+                // remotePatterns, and one odd logo URL would take down the
+                // whole results list.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={employer.logo_url} alt="" loading="lazy" className="h-full w-full bg-white object-contain p-1" />
+              ) : employer?.name ? (
+                <span className="text-base font-bold">{employer.name.trim().charAt(0).toUpperCase()}</span>
+              ) : (
+                <Hospital className="h-5 w-5" />
+              )}
             </span>
             <div className="min-w-0">
               <h2 className="text-[16px] font-bold leading-snug group-hover:text-primary">
@@ -83,11 +95,15 @@ export function JobCard({
                     aria-label="Verified employer"
                   />
                 )}
+                {/* On a phone the side column is hidden; recency moves here
+                    so the title keeps the full width. */}
+                {posted && <span className="text-xs font-normal sm:hidden">· {posted}</span>}
               </p>
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <div className="hidden shrink-0 flex-col items-end gap-1.5 sm:flex">
+            {posted && <span className="text-xs text-muted-foreground">{posted}</span>}
             {match && <MatchBadge match={match} />}
             {job.specialty && (
               <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-[12px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-600/20 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/25">
@@ -99,6 +115,11 @@ export function JobCard({
         </div>
 
         <dl className="mt-4 flex flex-wrap items-center gap-2">
+          {match && (
+            <span className="sm:hidden">
+              <MatchBadge match={match} />
+            </span>
+          )}
           {location && (
             <Fact icon={MapPin}>
               {location}
@@ -108,6 +129,11 @@ export function JobCard({
           <Fact icon={Clock}>
             {labels.employment_type[job.employment_type] ?? job.employment_type}
           </Fact>
+          {job.specialty && (
+            <span className="sm:hidden">
+              <Fact icon={Stethoscope}>{labels.specialty[job.specialty] ?? job.specialty}</Fact>
+            </span>
+          )}
           {job.nursing_role && <Fact>{labels.nursing_role[job.nursing_role] ?? job.nursing_role}</Fact>}
           {job.work_setting && <Fact>{labels.work_setting[job.work_setting] ?? job.work_setting}</Fact>}
           {salary && (
@@ -123,16 +149,34 @@ export function JobCard({
           {isImportedJob(job) && job.source_name && (
             <Fact icon={Globe}>Via {job.source_name}</Fact>
           )}
+          {/* In-app apply from a reviewed employer: the one thing an imported
+              listing can never offer, so it is the badge worth scanning for. */}
+          {!isImportedJob(job) && job.apply_mode === "in_app" && (
+            <Fact icon={Zap} tone="apply">
+              Easy apply
+            </Fact>
+          )}
         </dl>
 
         {match && <MatchReasons match={match} />}
       </div>
 
-      <span className="flex shrink-0 items-center pr-4">
+      <span className="hidden shrink-0 items-center pr-4 sm:flex">
         <ArrowRight className="h-4 w-4 -translate-x-1 text-primary opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
       </span>
     </Link>
   );
+}
+
+/** "Today", "3d ago", "2w ago" — recency is the first thing a job hunter checks. */
+function postedAgo(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (!Number.isFinite(days) || days < 0) return null;
+  if (days === 0) return "Today";
+  if (days < 7) return `${days}d ago`;
+  if (days < 60) return `${Math.floor(days / 7)}w ago`;
+  return `${Math.floor(days / 30)}mo ago`;
 }
 
 /**
@@ -146,10 +190,11 @@ function Fact({
   children,
 }: {
   icon?: typeof MapPin;
-  tone?: "neutral" | "pay" | "visa";
+  tone?: "neutral" | "pay" | "visa" | "apply";
   children: React.ReactNode;
 }) {
   const tones = {
+    apply: "bg-primary/10 text-primary ring-primary/20",
     neutral: "bg-muted text-slate-700 ring-border dark:text-slate-300",
     pay: "bg-success-soft text-success ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300",
     visa: "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300",

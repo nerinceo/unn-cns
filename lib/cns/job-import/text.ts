@@ -132,6 +132,21 @@ export const COUNTRY_OPTIONS: { iso: string; label: string }[] = [
   { iso: "SG", label: "Singapore" }, { iso: "CH", label: "Switzerland" },
 ];
 
+/**
+ * The city part of an upstream place, or null when it is really a country —
+ * Jooble answers a search for "India" with location "India", which rendered
+ * as "India, India".
+ */
+export function cityFromPlace(place: string | null | undefined): string | null {
+  const city = (place ?? "").split(",")[0].trim();
+  if (!city) return null;
+  const lc = city.toLowerCase();
+  const isCountry =
+    COUNTRY_OPTIONS.some((c) => c.label.toLowerCase() === lc) ||
+    ["uk", "usa", "uae", "us", "ksa", "remote", "anywhere"].includes(lc);
+  return isCountry ? null : city.slice(0, 120);
+}
+
 export function countryValue(iso: string | null | undefined): string | null {
   if (!iso) return null;
   return COUNTRY_BY_ISO[iso.toUpperCase()] ?? "other";

@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useState } from "react";
-import { X, SlidersHorizontal, Search } from "lucide-react";
+import { X, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { Category, TaxonomyKind } from "@/lib/cns/taxonomy";
 
@@ -41,6 +41,9 @@ const POSTED_WITHIN: { value: string; label: string }[] = [
  * monthly-equivalent column written at save time, not a control.
  */
 
+/** Options shown per group before "Show all" — a 17-country list buries the rest. */
+const FOLD_AT = 6;
+
 export function JobFilters({
   taxonomy,
   selected,
@@ -54,7 +57,10 @@ export function JobFilters({
   const pathname = usePathname();
   const params = useSearchParams();
   const [open, setOpen] = useState(false);
-  const [keyword, setKeyword] = useState(q);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // The keyword box lives in JobsHero now; the query is still kept when the
+  // filters are cleared.
+  const keyword = q;
 
   const byParam: Record<string, string[]> = {
     country: selected.country,
@@ -90,14 +96,6 @@ export function JobFilters({
     const next = new URLSearchParams(params.toString());
     if (value) next.set(param, value);
     else next.delete(param);
-    push(next);
-  }
-
-  function submitKeyword(e: React.FormEvent) {
-    e.preventDefault();
-    const next = new URLSearchParams(params.toString());
-    if (keyword.trim()) next.set("q", keyword.trim());
-    else next.delete("q");
     push(next);
   }
 
@@ -151,31 +149,26 @@ export function JobFilters({
   ];
 
   return (
-    <div>
-      <form onSubmit={submitKeyword} className="mb-4 flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="Job title, city or keyword"
-            aria-label="Search jobs"
-            className="h-10 w-full rounded-md border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary"
-          />
-        </div>
-        <button className="h-10 shrink-0 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
-          Search
-        </button>
+    <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-4 lg:shadow-card">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <SlidersHorizontal className="h-4 w-4 text-primary" />
+          Filters
+          {chips.length > 0 && (
+            <span className="rounded-full bg-primary px-1.5 text-[11px] font-semibold tabular-nums text-primary-foreground">
+              {chips.length}
+            </span>
+          )}
+        </h2>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex h-10 shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-sm lg:hidden"
+          className="rounded-md border border-border px-3 py-1.5 text-xs font-medium lg:hidden"
           aria-expanded={open}
         >
-          <SlidersHorizontal className="h-4 w-4" />
-          Filters
+          {open ? "Hide" : "Show"}
         </button>
-      </form>
+      </div>
 
       {chips.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -265,13 +258,18 @@ export function JobFilters({
           const options = taxonomy[kind] ?? [];
           if (!options.length) return null;
           const chosen = byParam[param] ?? [];
+          // Checked options always stay visible, even inside a folded group.
+          const showAll = expanded[param] || options.length <= FOLD_AT;
+          const visible = showAll
+            ? options
+            : options.filter((o, i) => i < FOLD_AT || chosen.includes(o.value));
           return (
             <fieldset key={param}>
               <legend className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {title}
               </legend>
               <div className="space-y-1">
-                {options.map((o) => (
+                {visible.map((o) => (
                   <label
                     key={o.value}
                     className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
@@ -286,6 +284,15 @@ export function JobFilters({
                   </label>
                 ))}
               </div>
+              {options.length > FOLD_AT && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((e) => ({ ...e, [param]: !showAll }))}
+                  className="mt-1.5 text-xs font-medium text-primary hover:underline"
+                >
+                  {showAll ? "Show less" : `Show all ${options.length}`}
+                </button>
+              )}
             </fieldset>
           );
         })}

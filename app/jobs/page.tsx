@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Briefcase, Sparkles, UserRoundCog } from "lucide-react";
-import { searchPublishedJobs, isJobSort, JOBS_PAGE_SIZE, onlyOpenJobs } from "@/lib/cns/jobs";
+import { searchPublishedJobs, isJobSort, JOBS_PAGE_SIZE } from "@/lib/cns/jobs";
 import { getTaxonomy, getJobLabels } from "@/lib/cns/taxonomy";
 import { getMySeekerProfile } from "@/lib/cns/seeker-data";
 import { scoreJobMatch, RECOMMEND_THRESHOLD } from "@/lib/cns/job-match";
 import { JobFilters } from "@/components/jobs/JobFilters";
-import { JobsHome } from "@/components/jobs/JobsHome";
+import { JobsHero } from "@/components/jobs/JobsHero";
+import { JobsAside } from "@/components/jobs/JobsAside";
 import { JobCard } from "@/components/jobs/JobCard";
 import { JobSort } from "@/components/jobs/JobSort";
 import { JobPagination } from "@/components/jobs/JobPagination";
@@ -18,13 +19,15 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Nursing Jobs — Nerusalem",
   description:
-    "Nursing roles from verified hospitals, clinics and recruitment agencies. Apply with your Nerusalem profile.",
+    "Nursing and healthcare jobs across India, the Gulf, the UK and beyond. Easy apply to verified employers with your Nerusalem profile.",
 };
 
 /** Repeated query params arrive as a string or an array; normalise to an array. */
 function many(v: string | string[] | undefined): string[] {
   if (!v) return [];
-  return Array.isArray(v) ? v : v.split(",").filter(Boolean);
+  // Blank entries dropped: the hero's "All countries" submits country="",
+  // and an empty value would filter the board down to nothing.
+  return (Array.isArray(v) ? v : v.split(",")).filter(Boolean);
 }
 
 function one(v: string | string[] | undefined): string | undefined {
@@ -75,90 +78,69 @@ export default async function JobsPage({
     (sponsorship ? 1 : 0) +
     (remote ? 1 : 0);
 
-  const [labels, seeker] = await Promise.all([getJobLabels(), getMySeekerProfile()]);
-
-  // Directory view when nothing is being searched or filtered (§8.1); the
-  // results list takes over the moment it is. They are different jobs and one
-  // screen would do neither well.
-  if (narrowed === 0 && !q) {
-    const taxonomy = await getTaxonomy();
-    const supabase = await createClient();
-    const [{ data: facetRows }, { data: verified }] = await Promise.all([
-      onlyOpenJobs(supabase.from("cns_jobs").select("country,specialty,nursing_role")),
-      supabase
-        .from("cns_employers")
-        .select("id,name,slug")
-        .eq("status", "approved")
-        .eq("verification_status", "verified")
-        .limit(12),
-    ]);
-
-    const tally = (key: "country" | "specialty" | "nursing_role") => {
-      const counts = new Map<string, number>();
-      for (const r of facetRows ?? []) {
-        const v = r[key] as string | null;
-        if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
-      }
-      return counts;
-    };
-    // A facet with zero jobs is omitted: a shortcut leading to an empty page
-    // is worse than no shortcut.
-    const withCounts = (kind: keyof typeof taxonomy, counts: Map<string, number>) =>
-      taxonomy[kind]
-        .map((cat) => ({ cat, count: counts.get(cat.value) ?? 0 }))
-        .filter((x) => x.count > 0)
-        .sort((a, b) => b.count - a.count);
-
-    return (
-      <div className="space-y-10">
-        {seeker && <RecommendedForYou seeker={seeker} labels={labels} />}
-        <JobsHome
-          countries={withCounts("country", tally("country"))}
-          specialties={withCounts("specialty", tally("specialty"))}
-          roles={withCounts("nursing_role", tally("nursing_role"))}
-          verifiedEmployers={(verified ?? []) as never}
-          totalJobs={(facetRows ?? []).length}
-        />
-      </div>
-    );
-  }
-
-  const taxonomy = await getTaxonomy();
-  const { results, total, pageCount } = await searchPublishedJobs({
-    q,
-    ...selected,
-    postedWithin,
-    sponsorship,
-    remote,
-    sort,
-    page,
-    pageSize: JOBS_PAGE_SIZE,
-  });
+  const supabase = await createClient();
+  const [labels, seeker, taxonomy, search, { data: verified }] = await Promise.all([
+    getJobLabels(),
+    getMySeekerProfile(),
+    getTaxonomy(),
+    // Search-first: the unfiltered board is simply the newest roles (employer-
+    // posted ones ranked first by cns_search_jobs), not a directory of links
+    // to click through before seeing a single job.
+    searchPublishedJobs({
+      q,
+      ...selected,
+      postedWithin,
+      sponsorship,
+      remote,
+      sort,
+      page,
+      pageSize: JOBS_PAGE_SIZE,
+    }),
+    supabase
+      .from("cns_employers")
+      .select("id,name,slug")
+      .eq("status", "approved")
+      .eq("verification_status", "verified")
+      .limit(8),
+  ]);
+  const { results, total, pageCount } = search;
 
   // Params minus `page`, so the pager can rebuild every other part of the URL.
   const carried = new URLSearchParams();
   for (const [k, v] of Object.entries(sp)) {
     if (k === "page" || v === undefined) continue;
-    for (const item of Array.isArray(v) ? v : [v]) carried.append(k, item);
+    for (const item of Array.isArray(v) ? v : [v]) if (item) carried.append(k, item);
   }
+  // What the hero's form must carry: everything except what it edits. With
+  // more than one country ticked in the sidebar the hero leaves country alone.
+  const heroOwnsCountry = selected.country.length <= 1;
+  const heroCarried = Array.from(carried.entries()).filter(
+    ([k]) => k !== "q" && !(heroOwnsCountry && k === "country")
+  );
 
   const from = (page - 1) * JOBS_PAGE_SIZE + 1;
   const to = Math.min(page * JOBS_PAGE_SIZE, total);
+  const browsing = narrowed === 0 && !q && page === 1;
 
   return (
     <div className="space-y-6">
-      <header>
-        <div className="flex items-center gap-3">
-          <Briefcase className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-semibold">Nursing Jobs</h1>
-        </div>
-        <p className="mt-2 max-w-2xl text-muted-foreground">
-          Roles from hospitals, clinics and agencies verified by Nerusalem. Apply in one tap with the
-          profile you already have.
-        </p>
-      </header>
+      <JobsHero
+        q={q}
+        country={heroOwnsCountry ? selected.country[0] ?? "" : ""}
+        countries={taxonomy.country}
+        carried={heroCarried}
+        total={browsing ? total : 0}
+        quick={{
+          sponsorship: Boolean(sponsorship),
+          remote: Boolean(remote),
+          recent: postedWithin === 7,
+          base: carried.toString(),
+        }}
+      />
 
-      <div className="grid gap-8 lg:grid-cols-[240px_minmax(0,1fr)]">
+      {browsing && seeker && <RecommendedForYou seeker={seeker} labels={labels} />}
+
+      <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_260px]">
         {/* Left panel on wide screens, drawer on small — blueprint §5. */}
         <JobFilters taxonomy={taxonomy} selected={selected} q={q} />
 
@@ -198,17 +180,29 @@ export default async function JobsPage({
           </div>
 
           {results.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
-              <p className="font-medium">No roles match those filters</p>
-              <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-                Try removing a filter, or browse the latest roles.
-              </p>
-              <Link
-                href="/jobs"
-                className="mt-4 inline-flex h-10 items-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground"
-              >
-                Clear all filters
-              </Link>
+            <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
+              <Briefcase className="mx-auto h-8 w-8 text-muted-foreground/60" />
+              {browsing ? (
+                <>
+                  <p className="mt-3 font-medium">No open roles right now</p>
+                  <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                    New roles are added several times a day. Set up an alert and we will tell you.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-3 font-medium">No roles match that search</p>
+                  <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                    Try a broader keyword or remove a filter.
+                  </p>
+                  <Link
+                    href="/jobs"
+                    className="mt-4 inline-flex h-10 items-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground"
+                  >
+                    See all roles
+                  </Link>
+                </>
+              )}
             </div>
           ) : (
             <>
@@ -227,6 +221,10 @@ export default async function JobsPage({
               <JobPagination page={page} pageCount={pageCount} query={carried} />
             </>
           )}
+        </div>
+
+        <div className="lg:col-start-2 xl:col-start-auto">
+          <JobsAside verifiedEmployers={(verified ?? []) as { id: string; name: string; slug: string }[]} />
         </div>
       </div>
     </div>

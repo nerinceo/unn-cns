@@ -1,6 +1,6 @@
 import "server-only";
 import {
-  countryValue, employmentType, htmlToText, isHealthcareTitle, oneLine,
+  cityFromPlace, countryValue, employmentType, htmlToText, isHealthcareTitle, oneLine,
 } from "./text";
 
 /**
@@ -177,7 +177,7 @@ async function fetchJooble(s: SourceRow): Promise<FetchResult> {
         company: oneLine(str(r.company)),
         description: htmlToText(str(r.snippet)),
         applyUrl: str(r.link),
-        city: place ? place.split(",")[0].trim() : null,
+        city: cityFromPlace(place),
         state: null,
         country: countryValue(cfg(s, "country") || null),
         employmentType: employmentType(str(r.type)),
@@ -215,7 +215,7 @@ async function fetchGreenhouse(s: SourceRow): Promise<FetchResult> {
       company,
       description: htmlToText(str(r.content)),
       applyUrl: str(r.absolute_url),
-      city: place ? place.split(",")[0].trim() : null,
+      city: cityFromPlace(place),
       state: null,
       country: countryValue(cfg(s, "country") || null),
       employmentType: employmentType(title),
@@ -259,7 +259,7 @@ async function fetchLever(s: SourceRow): Promise<FetchResult> {
       company,
       description: htmlToText(body),
       applyUrl: str(r.hostedUrl) || str(r.applyUrl),
-      city: place ? place.split(",")[0].trim() : null,
+      city: cityFromPlace(place),
       state: null,
       country: countryValue(str(r.country) || cfg(s, "country") || null),
       employmentType: employmentType(cat.commitment),
