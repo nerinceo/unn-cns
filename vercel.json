@@ -9,10 +9,6 @@
     {
       "path": "/api/cron/job-alerts",
       "schedule": "30 3 * * *"
-    },
-    {
-      "path": "/api/cron/import-jobs",
-      "schedule": "15 */6 * * *"
     }
   ]
 }

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { LayoutGrid, Check } from "lucide-react";
 import { hubLink } from "@/lib/hub";
 
+const UHN_ADMIN_URL = `${(process.env.NEXT_PUBLIC_UHN_URL ?? "https://uhn.nerusalem.com").replace(/\/+$/, "")}/admin/cns`;
+
 /**
  * Moves between the portals a person actually has.
  *
@@ -36,7 +38,10 @@ export function PortalSwitcher({
     ...(isInstructor
       ? [{ key: "instructor", label: "Teaching", desc: "Author your courses", href: "/instructor" }]
       : []),
-    ...(isStaff ? [{ key: "admin", label: "Admin", desc: "Platform administration", href: "/admin" }] : []),
+    // Admin lives in the UHN console since 2026-10-09 (one place for all of it).
+    ...(isStaff
+      ? [{ key: "admin", label: "Admin", desc: "Platform administration", href: UHN_ADMIN_URL, external: true }]
+      : []),
   ];
 
   return (
