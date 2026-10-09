@@ -163,11 +163,14 @@ export async function setLectureComplete(
   const supabase = await createClient();
   const { data: lecture, error: lectureError } = await supabase
     .from("lms_lectures")
-    .select("id, course_id")
+    .select("id, course_id, kind")
     .eq("id", lectureId)
     .maybeSingle();
   if (lectureError) logError("lms-learn:setLectureComplete:read", lectureError, { lectureId });
   if (!lecture) return { error: "Lecture not found." };
+  // A quiz is completed by submitting it (a final exam: by passing it), in the
+  // grading function. The database refuses a tick on one anyway; this says why.
+  if (lecture.kind === "quiz") return { error: "Submit the quiz to complete it." };
 
   const access = await courseAccess(lecture.course_id as string);
   if (!access.ok) return { error: access.error };

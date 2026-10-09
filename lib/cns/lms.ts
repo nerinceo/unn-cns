@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/errors";
+import type { QuizMode } from "@/lib/lms/quiz";
 
 /**
  * UNN Learn — data access for courses delivered in CNS.
@@ -159,6 +160,8 @@ export type EnrolledCourse = {
   progressPercent: number;
   completedAt: string | null;
   course: LmsCourse & { instructor: { display_name: string } | null };
+  /** Set once the learner has earned one (HUB migration 0076). */
+  certificateNo: string | null;
 };
 
 /** Every course this learner has access to, most recently touched first. */
@@ -169,15 +172,27 @@ export async function getMyCourses(): Promise<EnrolledCourse[]> {
   } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const { data } = await supabase
-    .from("lms_enrollments")
-    .select(
-      `id, progress_percent, completed_at, updated_at,
-       course:course_id(${COURSE_CARD_COLS}, instructor:instructor_id(display_name))`,
-    )
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .order("updated_at", { ascending: false });
+  const [{ data }, { data: certRows, error: certError }] = await Promise.all([
+    supabase
+      .from("lms_enrollments")
+      .select(
+        `id, progress_percent, completed_at, updated_at,
+         course:course_id(${COURSE_CARD_COLS}, instructor:instructor_id(display_name))`,
+      )
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("lms_certificates")
+      .select("course_id, certificate_no")
+      .eq("user_id", user.id)
+      .is("revoked_at", null),
+  ]);
+  // A failed certificate read must not hide the learner's courses.
+  if (certError) logError("lms:getMyCourses:certificates", certError);
+  const certBy = new Map(
+    (certRows ?? []).map((c) => [c.course_id as string, c.certificate_no as string]),
+  );
 
   return ((data ?? []) as unknown as {
     id: string;
@@ -191,6 +206,7 @@ export async function getMyCourses(): Promise<EnrolledCourse[]> {
       progressPercent: r.progress_percent ?? 0,
       completedAt: r.completed_at,
       course: r.course!,
+      certificateNo: certBy.get(r.course!.id) ?? null,
     }));
 }
 
@@ -225,7 +241,35 @@ export type PlayerLecture = Pick<
    */
   position_s: number;
   resources: LmsLectureResource[];
+  /** Kind 'quiz' only: its rules and this learner's history. Never the questions. */
+  quiz: PlayerQuiz | null;
 };
+
+/**
+ * A quiz as the player shows it before an attempt starts. The settings are not
+ * secret (RLS exposes them like lecture metadata); the questions are fetched
+ * only by starting an attempt, through lms_start_attempt().
+ */
+export type PlayerQuiz = {
+  id: string;
+  mode: QuizMode;
+  pass_percent: number;
+  time_limit_min: number | null;
+  /** Questions in one attempt: the draw count, capped at what is written. */
+  questions_per_attempt: number;
+  max_attempts: number | null;
+  retake_wait_hours: number;
+  attemptsUsed: number;
+  passed: boolean;
+  best: number | null;
+  last: { id: string; percent: number; passed: boolean; submitted_at: string } | null;
+  /** An attempt still running — the player resumes it instead of starting another. */
+  openAttemptId: string | null;
+  /** Set while the retake wait is running. */
+  nextAvailableAt: string | null;
+};
+
+export type PlayerCertificate = { certificate_no: string; issued_at: string };
 
 export type PlayerData = {
   course: LmsCourse;
@@ -235,7 +279,60 @@ export type PlayerData = {
   isOwner: boolean;
   progressPercent: number;
   completedAt: string | null;
+  /** True when the course has a final exam — the only route to a certificate. */
+  hasFinal: boolean;
+  certificate: PlayerCertificate | null;
 };
+
+type QuizRow = {
+  id: string;
+  mode: QuizMode;
+  pass_percent: number;
+  time_limit_min: number | null;
+  draw_count: number | null;
+  max_attempts: number | null;
+  retake_wait_hours: number;
+  question_count: number;
+};
+
+type AttemptRow = {
+  id: string;
+  quiz_id: string;
+  status: "in_progress" | "submitted";
+  deadline_at: string | null;
+  submitted_at: string | null;
+  percent: number | null;
+  passed: boolean | null;
+};
+
+function toPlayerQuiz(q: QuizRow, attempts: AttemptRow[]): PlayerQuiz {
+  const done = attempts
+    .filter((a) => a.status === "submitted" && a.submitted_at)
+    .sort((a, b) => (a.submitted_at! < b.submitted_at! ? 1 : -1));
+  const open = attempts.find((a) => a.status === "in_progress") ?? null;
+  const last = done[0] ?? null;
+  const waitUntil =
+    last && q.retake_wait_hours > 0
+      ? new Date(new Date(last.submitted_at!).getTime() + q.retake_wait_hours * 3_600_000)
+      : null;
+  return {
+    id: q.id,
+    mode: q.mode,
+    pass_percent: q.pass_percent,
+    time_limit_min: q.time_limit_min,
+    questions_per_attempt: Math.min(q.draw_count ?? q.question_count, q.question_count),
+    max_attempts: q.max_attempts,
+    retake_wait_hours: q.retake_wait_hours,
+    attemptsUsed: done.length,
+    passed: done.some((a) => a.passed),
+    best: done.length ? Math.max(...done.map((a) => a.percent ?? 0)) : null,
+    last: last
+      ? { id: last.id, percent: last.percent ?? 0, passed: !!last.passed, submitted_at: last.submitted_at! }
+      : null,
+    openAttemptId: open?.id ?? null,
+    nextAvailableAt: waitUntil && waitUntil.getTime() > Date.now() ? waitUntil.toISOString() : null,
+  };
+}
 
 /**
  * Everything the player renders, with content stripped from any lecture the
@@ -268,27 +365,64 @@ export async function getPlayerData(slugOrId: string): Promise<PlayerData | null
   const access = await courseAccess(course.id);
   if (!access.ok) return null;
 
-  const [{ data: sectionRows }, { data: progressRows }, { data: enrollment }] =
-    await Promise.all([
-      supabase
-        .from("lms_sections")
-        .select(
-          "id, course_id, title, position, lectures:lms_lectures(id, section_id, course_id, title, kind, position, is_preview, duration_s, video_status, content, parts:lms_lecture_parts(id, title, position, duration_s, video_status), resources:lms_lecture_resources(id, file_name, file_size))",
-        )
-        .eq("course_id", course.id)
-        .order("position"),
-      supabase
-        .from("lms_lecture_progress")
-        .select("lecture_id, completed, position_s")
-        .eq("user_id", access.userId)
-        .eq("course_id", course.id),
-      supabase
-        .from("lms_enrollments")
-        .select("progress_percent, completed_at")
-        .eq("user_id", access.userId)
-        .eq("course_id", course.id)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: sectionRows },
+    { data: quizRows, error: quizzesError },
+    { data: progressRows },
+    { data: enrollment },
+    { data: attemptRows, error: attemptsError },
+    { data: certificateRow, error: certificateError },
+  ] = await Promise.all([
+    supabase
+      .from("lms_sections")
+      .select(
+        "id, course_id, title, position, lectures:lms_lectures(id, section_id, course_id, title, kind, position, is_preview, duration_s, video_status, content, parts:lms_lecture_parts(id, title, position, duration_s, video_status), resources:lms_lecture_resources(id, file_name, file_size))",
+      )
+      .eq("course_id", course.id)
+      .order("position"),
+    // Quiz settings are a SEPARATE read on purpose: if it fails (e.g. migration
+    // 0076 not yet applied) only quizzes are missing — video and article
+    // lectures render exactly as before.
+    supabase
+      .from("lms_quizzes")
+      .select("id, lecture_id, mode, pass_percent, time_limit_min, draw_count, max_attempts, retake_wait_hours, question_count")
+      .eq("course_id", course.id),
+    supabase
+      .from("lms_lecture_progress")
+      .select("lecture_id, completed, position_s")
+      .eq("user_id", access.userId)
+      .eq("course_id", course.id),
+    supabase
+      .from("lms_enrollments")
+      .select("progress_percent, completed_at")
+      .eq("user_id", access.userId)
+      .eq("course_id", course.id)
+      .maybeSingle(),
+    supabase
+      .from("lms_quiz_attempts")
+      .select("id, quiz_id, status, deadline_at, submitted_at, percent, passed")
+      .eq("user_id", access.userId)
+      .eq("course_id", course.id),
+    supabase
+      .from("lms_certificates")
+      .select("certificate_no, issued_at")
+      .eq("user_id", access.userId)
+      .eq("course_id", course.id)
+      .is("revoked_at", null)
+      .maybeSingle(),
+  ]);
+  if (quizzesError) logError("lms:getPlayerData:quizzes", quizzesError, { courseId: course.id });
+  if (attemptsError) logError("lms:getPlayerData:attempts", attemptsError, { courseId: course.id });
+  const quizByLecture = new Map(
+    ((quizRows ?? []) as (QuizRow & { lecture_id: string })[]).map((q) => [q.lecture_id, q]),
+  );
+  if (certificateError) logError("lms:getPlayerData:certificate", certificateError, { courseId: course.id });
+
+  const attemptsByQuiz = new Map<string, AttemptRow[]>();
+  for (const a of (attemptRows ?? []) as AttemptRow[]) {
+    attemptsByQuiz.set(a.quiz_id, [...(attemptsByQuiz.get(a.quiz_id) ?? []), a]);
+  }
+  let hasFinal = false;
 
   const progressBy = new Map(
     (progressRows ?? []).map((p) => [
@@ -300,7 +434,7 @@ export async function getPlayerData(slugOrId: string): Promise<PlayerData | null
   const entitled = access.enrolled || access.isOwner;
 
   const sections = ((sectionRows ?? []) as unknown as (LmsSection & {
-    lectures: (PlayerLecture & { content: string | null })[];
+    lectures: (Omit<PlayerLecture, "quiz"> & { content: string | null })[];
   })[]).map((s) => ({
     ...s,
     lectures: [...(s.lectures ?? [])]
@@ -308,6 +442,8 @@ export async function getPlayerData(slugOrId: string): Promise<PlayerData | null
       .map((l): PlayerLecture => {
         const locked = !entitled && !l.is_preview;
         const p = progressBy.get(l.id);
+        const quizRow = l.kind === "quiz" ? (quizByLecture.get(l.id) ?? null) : null;
+        if (quizRow?.mode === "final") hasFinal = true;
         return {
           id: l.id,
           section_id: l.section_id,
@@ -328,6 +464,7 @@ export async function getPlayerData(slugOrId: string): Promise<PlayerData | null
           locked,
           completed: p?.completed ?? false,
           position_s: p?.position_s ?? 0,
+          quiz: quizRow ? toPlayerQuiz(quizRow, attemptsByQuiz.get(quizRow.id) ?? []) : null,
         };
       }),
   }));
@@ -340,7 +477,75 @@ export async function getPlayerData(slugOrId: string): Promise<PlayerData | null
     isOwner: access.isOwner,
     progressPercent: enrollment?.progress_percent ?? 0,
     completedAt: (enrollment?.completed_at as string | null) ?? null,
+    hasFinal,
+    certificate: (certificateRow as PlayerCertificate | null) ?? null,
   };
+}
+
+// ── Certificates ─────────────────────────────────────────────────────────────
+//
+// Issued by the database, never by this app: lms__issue_certificate() in HUB
+// migration 0076 runs when every lecture is complete AND the final exam is
+// passed. Here they are only read.
+
+export type Certificate = {
+  id: string;
+  certificate_no: string;
+  verification_code: string;
+  learner_name: string;
+  course_title: string;
+  instructor_name: string | null;
+  contact_hours: number | null;
+  final_percent: number | null;
+  issued_at: string;
+  revoked_at: string | null;
+  course: { slug: string } | null;
+};
+
+const CERTIFICATE_NO = /^NER-\d{4}-\d{6,}$/;
+
+/** One of the caller's own certificates (RLS: user_id = auth.uid()). */
+export async function getMyCertificate(certificateNo: string): Promise<Certificate | null> {
+  if (!CERTIFICATE_NO.test(certificateNo)) return null;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("lms_certificates")
+    .select(
+      "id, certificate_no, verification_code, learner_name, course_title, instructor_name, contact_hours, final_percent, issued_at, revoked_at, course:course_id(slug)",
+    )
+    .eq("certificate_no", certificateNo)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (error) logError("lms:getMyCertificate", error, { certificateNo });
+  return (data as unknown as Certificate | null) ?? null;
+}
+
+export type VerifiedCertificate = {
+  certificate_no: string;
+  learner_name: string;
+  course_title: string;
+  instructor_name: string | null;
+  contact_hours: number | null;
+  issued_at: string;
+  revoked: boolean;
+};
+
+/**
+ * Public check behind /verify/<code>. Works signed out: the lookup is a
+ * SECURITY DEFINER function keyed on a 32-hex random code that returns only
+ * what is printed on the certificate, so nothing is enumerable.
+ */
+export async function verifyCertificate(code: string): Promise<VerifiedCertificate | null> {
+  if (!/^[0-9a-f]{32}$/.test(code)) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("lms_verify_certificate", { p_code: code });
+  if (error) logError("lms:verifyCertificate", error);
+  return (data as VerifiedCertificate | null) ?? null;
 }
 
 // ── Instructor reads ─────────────────────────────────────────────────────────

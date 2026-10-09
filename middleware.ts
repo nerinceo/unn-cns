@@ -47,6 +47,11 @@ import { isSuspendedFromClaims } from "@/lib/auth/suspension";
  *                 a page that redirects Googlebot to HUB is not indexable.
  *                 Only APPROVED employers resolve (the page 404s otherwise),
  *                 and it renders nothing RLS does not already expose to anon.
+ *   /verify/    — course certificate checks. An employer or a nursing council
+ *                 confirms a certificate with no Nerusalem account. Same shape
+ *                 as /r/: a 32-hex random code resolved by a SECURITY DEFINER
+ *                 function (lms_verify_certificate) that returns only what is
+ *                 printed on the certificate. Pages are marked noindex.
  *   /robots.txt, /sitemap.xml — needed for the above to be discovered.
  *   /api/cron/  — Vercel cron invokes these with no session, so the auth gate
  *                 would redirect them and the job would silently never run.
@@ -61,6 +66,7 @@ const PUBLIC_PATHS = [
   "/r/",
   "/jobs",
   "/employers/",
+  "/verify/",
   "/robots.txt",
   "/sitemap.xml",
 ];
@@ -194,6 +200,14 @@ export async function middleware(request: NextRequest) {
   // /employers, the health check and the sitemap exactly as before. Only an
   // account that HAS a scope is measured against it, and mayEnterCns() still
   // admits professionals to the board — it answers false only for vendors.
+  // The one exception: a certificate check. The people who open these are
+  // hospital HR and recruiters — often signed in with a professional account
+  // that CNS otherwise confines to the job board. The page renders the same
+  // thing for everyone and nothing personal to the viewer, so confinement has
+  // nothing to protect here, and bouncing a recruiter off a credential check
+  // would defeat the page.
+  if (path.startsWith("/verify/")) return supabaseResponse;
+
   if (user) {
     const scope = scopeFromClaims(user);
     if (!mayEnterCns(scope, path)) {

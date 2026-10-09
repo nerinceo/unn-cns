@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  Award,
   Check,
   CheckCircle2,
   ChevronLeft,
@@ -12,6 +13,7 @@ import {
   Circle,
   Download,
   FileText,
+  HelpCircle,
   Loader2,
   Lock,
   PanelRightClose,
@@ -27,7 +29,9 @@ import {
 } from "@/lib/actions/lms-learn";
 import { settle } from "@/lib/utils/settle";
 import { formatDuration } from "@/lib/lms";
+import { QUIZ_MODE_LABEL } from "@/lib/lms/quiz";
 import type { PlayerData, PlayerLecture } from "@/lib/cns/lms";
+import { QuizPlayer } from "./QuizPlayer";
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2] as const;
 
@@ -305,6 +309,20 @@ export function CoursePlayer({
                   />
                 )}
               </div>
+            ) : lecture.kind === "quiz" ? (
+              lecture.quiz ? (
+                <QuizPlayer
+                  key={lecture.id}
+                  lectureId={lecture.id}
+                  quiz={lecture.quiz}
+                  canTake={data.enrolled || data.isOwner || lecture.is_preview}
+                  courseHasCertificate={!!data.certificate}
+                />
+              ) : (
+                <p className="p-6 text-sm text-muted-foreground sm:p-8">
+                  This quiz isn&apos;t ready yet.
+                </p>
+              )
             ) : (
               <div className="p-6 sm:p-8">
                 {lecture.content ? (
@@ -395,7 +413,14 @@ export function CoursePlayer({
                   </select>
                 )}
 
-                {data.enrolled && (
+                {/* A quiz completes itself on submit (a final exam: on a pass). */}
+                {data.enrolled && lecture.kind === "quiz" && completed && (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Completed
+                  </span>
+                )}
+                {data.enrolled && lecture.kind !== "quiz" && (
                   <button
                     type="button"
                     className={completed ? btnOutline : btnPrimary}
@@ -453,6 +478,15 @@ export function CoursePlayer({
               <p className="mt-1 text-xs text-emerald-800">
                 Nicely done. Everything stays available if you want to revisit it.
               </p>
+              {data.certificate && (
+                <Link
+                  href={`/lms/certificate/${data.certificate.certificate_no}`}
+                  className={`${btnPrimary} mt-3`}
+                >
+                  <Award className="h-4 w-4" />
+                  View your certificate
+                </Link>
+              )}
             </div>
           )}
         </div>
@@ -519,7 +553,7 @@ function CurriculumRow({
   active: boolean;
   href: string;
 }) {
-  const Icon = lecture.kind === "article" ? FileText : PlayCircle;
+  const Icon = lecture.kind === "article" ? FileText : lecture.kind === "quiz" ? HelpCircle : PlayCircle;
   const partCount = lecture.parts.length;
 
   const body = (
@@ -541,7 +575,11 @@ function CurriculumRow({
         </span>
         <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted-foreground">
           <Icon className="h-3 w-3" />
-          {lecture.duration_s > 0 ? formatDuration(lecture.duration_s) : lecture.kind}
+          {lecture.duration_s > 0
+            ? formatDuration(lecture.duration_s)
+            : lecture.quiz
+              ? QUIZ_MODE_LABEL[lecture.quiz.mode]
+              : lecture.kind}
           {partCount > 1 && <span>· {partCount} videos</span>}
           {lecture.is_preview && <span className="font-medium text-primary">Preview</span>}
         </span>

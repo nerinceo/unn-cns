@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight,
+  Award,
   BookOpen,
   CheckCircle2,
   Clock,
@@ -96,7 +97,7 @@ function CourseSection({
     <section>
       <h2 className="mb-3 text-sm font-semibold">{title}</h2>
       <div className="space-y-3">
-        {rows.map(({ course, progressPercent, completedAt }) => (
+        {rows.map(({ course, progressPercent, completedAt, certificateNo }) => (
           <div
             key={course.id}
             className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-center"
@@ -149,13 +150,24 @@ function CourseSection({
               </div>
             </div>
 
-            <Link
-              href={`/lms/${course.slug}`}
-              className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              <PlayCircle className="h-4 w-4" />
-              {completedAt ? "Revisit" : progressPercent > 0 ? "Continue" : "Start"}
-            </Link>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              {certificateNo && (
+                <Link
+                  href={`/lms/certificate/${certificateNo}`}
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
+                >
+                  <Award className="h-4 w-4 text-primary" />
+                  Certificate
+                </Link>
+              )}
+              <Link
+                href={`/lms/${course.slug}`}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                <PlayCircle className="h-4 w-4" />
+                {completedAt ? "Revisit" : progressPercent > 0 ? "Continue" : "Start"}
+              </Link>
+            </div>
           </div>
         ))}
       </div>
