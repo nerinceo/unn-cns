@@ -117,6 +117,15 @@ const MIRRORED = [
   // numbers HUB charges — a divergence here misquotes a seller's payout.
   { path: "lib/stripe/config.ts", mode: "exact", uhn: true, skipCns: true },
   { path: "lib/stripe/money.ts", mode: "exact", uhn: true, skipCns: true },
+  // Razorpay (rupee sales, 0077). HUB takes the payments; UHN's admin issues
+  // refunds and links seller accounts, so it needs the same client, the same
+  // Route calls and — above all — the same refund/reversal arithmetic. A drift
+  // in refunds.ts would claw back a different amount depending on which app
+  // pressed the button.
+  { path: "lib/razorpay/client.ts", mode: "exact", uhn: true, skipCns: true },
+  { path: "lib/razorpay/route.ts", mode: "exact", uhn: true, skipCns: true },
+  { path: "lib/razorpay/transfers.ts", mode: "exact", uhn: true, skipCns: true },
+  { path: "lib/razorpay/refunds.ts", mode: "exact", uhn: true, skipCns: true },
   { path: "components/ui/button.tsx", mode: "exact" },
   { path: "components/ui/input.tsx", mode: "exact", uhn: true },
   // Not uhn: UHN's badge is a strict SUPERSET (semantic variants plus a `dot`
