@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Lock } from "lucide-react";
 import { getStudySubjects } from "@/lib/cns/study";
+import { canOpenSemester, getBankAccess } from "@/lib/cns/qbank-access";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
 import { BankHeader } from "@/components/question-bank/BankHeader";
 
@@ -25,7 +26,7 @@ export default async function DescriptivePage({
   const institution = await getInstitutionBySlug(slug);
   if (!institution) notFound();
 
-  const subjects = await getStudySubjects(institution.id);
+  const [subjects, access] = await Promise.all([getStudySubjects(institution.id), getBankAccess(slug)]);
   const total = subjects.reduce((n, s) => n + s.count, 0);
   const base = `/question-bank/${institution.slug}`;
 
@@ -60,7 +61,24 @@ export default async function DescriptivePage({
               {year ? `Year ${year}` : "General"}
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {byYear.get(year)!.map((s) => (
+              {byYear.get(year)!.map((s) =>
+                !canOpenSemester(access, s.semester) ? (
+                  // Paid access (0080): a subject from a semester the member
+                  // doesn't hold is listed, never linked.
+                  <a
+                    key={s.id}
+                    href={access.buyUrl ?? "/question-bank"}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border bg-card p-5 text-muted-foreground transition-colors hover:border-primary/40"
+                  >
+                    <div className="min-w-0">
+                      <h3 className="truncate font-medium text-foreground/80">{s.name}</h3>
+                      <p className="mt-0.5 text-sm">
+                        {s.semester ? `Semester ${s.semester} · ` : ""}not in your access
+                      </p>
+                    </div>
+                    <Lock className="h-4 w-4 shrink-0" />
+                  </a>
+                ) : (
                 <Link
                   key={s.id}
                   href={`${base}/descriptive/${s.id}`}
@@ -74,7 +92,8 @@ export default async function DescriptivePage({
                   </div>
                   <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
                 </Link>
-              ))}
+                ),
+              )}
             </div>
           </section>
         ))

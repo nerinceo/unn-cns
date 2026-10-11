@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { getStudySubject, getStudyQuestions, getStudyTypes } from "@/lib/cns/study";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
+import { canOpenSemester, getBankAccess } from "@/lib/cns/qbank-access";
 import { StudyCard } from "@/components/question-bank/StudyCard";
 
 export const dynamic = "force-dynamic";
@@ -22,17 +23,23 @@ export default async function DescriptiveSubjectPage({
   const institution = await getInstitutionBySlug(slug);
   if (!institution) notFound();
 
-  const [subject, types, { questions, total, pageSize }] = await Promise.all([
-    getStudySubject(subjectId),
-    getStudyTypes(subjectId),
-    getStudyQuestions({ subjectId, type, page }),
-  ]);
+  const subject = await getStudySubject(subjectId);
   if (!subject) notFound();
 
   // The subject must actually belong to the university in the URL. Without
   // this, /question-bank/kuhs/descriptive/<an-rguhs-subject> would render RGUHS
   // content under someone else's breadcrumb once a second university exists.
   if (subject.institution_id !== institution.id) notFound();
+
+  // Paid access (0080): the subject's semester must be one the buyer holds —
+  // checked BEFORE the questions are fetched.
+  if (!canOpenSemester(await getBankAccess(slug), subject.semester))
+    redirect(`/question-bank/${slug}/descriptive?locked=1`);
+
+  const [types, { questions, total, pageSize }] = await Promise.all([
+    getStudyTypes(subjectId),
+    getStudyQuestions({ subjectId, type, page }),
+  ]);
 
   const base = `/question-bank/${institution.slug}`;
 

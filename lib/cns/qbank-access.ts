@@ -1,0 +1,86 @@
+import "server-only";
+import { cache } from "react";
+import { redirect } from "next/navigation";
+import { createClient, getCurrentUserProfile } from "@/lib/supabase/server";
+import { hubListing } from "@/lib/hub";
+
+/**
+ * Who may open a university question bank (0080).
+ *
+ * Banks are sold in the HUB Store — the whole bank or one semester — and a
+ * paid order writes a qbank_access row (revoked again by any refund). This
+ * reads the caller's own rows through RLS. Platform staff see everything, so
+ * they can check content without buying it.
+ *
+ * EVERY page that loads questions calls requireSemester() / canOpenSemester()
+ * BEFORE fetching them: whatever a page renders ships to the browser in the
+ * RSC payload, so hiding it in the UI would not be a gate.
+ */
+export interface BankAccess {
+  /** Whole bank (or staff). */
+  all: boolean;
+  semesters: Set<number>;
+  /** Latest end of any active access, for display. */
+  expiresAt: string | null;
+  /** Where to buy it, when it is on sale. */
+  buyUrl: string | null;
+}
+
+const NONE: BankAccess = { all: false, semesters: new Set(), expiresAt: null, buyUrl: null };
+
+/**
+ * `course` narrows to one course's access (a CNS course key, e.g.
+ * 'bsc-nursing') — pass it wherever the URL names a course, so Semester 3 of
+ * one course never opens Semester 3 of another. Without it, any course counts.
+ */
+export const getBankAccess = cache(async (institution: string, course?: string): Promise<BankAccess> => {
+  const profile = await getCurrentUserProfile();
+  const supabase = await createClient();
+
+  let productQuery = supabase.from("qbank_products").select("listing_id").eq("institution", institution).eq("active", true);
+  if (course) productQuery = productQuery.eq("course", course);
+  const { data: product } = await productQuery.limit(1).maybeSingle();
+  const buyUrl = product?.listing_id ? hubListing(product.listing_id) : null;
+
+  if (!profile) return { ...NONE, buyUrl };
+  if (["platform_admin", "platform_moderator"].includes((profile as { role?: string }).role ?? ""))
+    return { all: true, semesters: new Set(), expiresAt: null, buyUrl };
+
+  let accessQuery = supabase
+    .from("qbank_access")
+    .select("semester, expires_at")
+    .eq("user_id", profile.id)
+    .eq("institution", institution)
+    .eq("status", "active")
+    .gt("expires_at", new Date().toISOString());
+  if (course) accessQuery = accessQuery.eq("course", course);
+  const { data: rows } = await accessQuery;
+  const live = rows ?? [];
+  return {
+    all: live.some((r) => r.semester == null),
+    semesters: new Set(live.filter((r) => r.semester != null).map((r) => r.semester as number)),
+    expiresAt: live.length ? live.map((r) => r.expires_at as string).sort()[live.length - 1] : null,
+    buyUrl,
+  };
+});
+
+export function canOpenSemester(a: BankAccess, semester: number | null | undefined): boolean {
+  if (a.all) return true;
+  return semester != null && a.semesters.has(semester);
+}
+
+export function hasAnyAccess(a: BankAccess): boolean {
+  return a.all || a.semesters.size > 0;
+}
+
+/** Bounce to the semester picker (which offers the purchase) unless this semester is open. */
+export async function requireSemester(institution: string, course: string, semester: number) {
+  const a = await getBankAccess(institution, course);
+  if (!canOpenSemester(a, semester)) redirect(`/question-bank/${institution}/${course}?locked=${semester}`);
+  return a;
+}
+
+/** "31 Dec 2029" in Indian time. */
+export function accessDateLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
+}

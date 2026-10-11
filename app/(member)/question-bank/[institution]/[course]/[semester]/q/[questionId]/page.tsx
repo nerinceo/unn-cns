@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
+import { requireSemester } from "@/lib/cns/qbank-access";
 import { getBankQuestion, getTopicIndex } from "@/lib/cns/nursing-bank";
 import { getStudySubject } from "@/lib/cns/study";
 import { questionTone } from "@/components/question-bank/question-tone";
@@ -49,6 +50,10 @@ export default async function BankQuestionPage({
   const semesterNumber = Number(semesterParam);
   const semester = SEMESTERS.find((s) => s.number === semesterNumber);
   if (!course || !course.available || !semester) notFound();
+
+  // Paid access (0080) — before the question is fetched. The URL's semester
+  // is trustworthy here: a question from another semester 404s below.
+  await requireSemester(slug, courseKey, semesterNumber);
 
   const institution = await getInstitutionBySlug(slug);
   if (!institution) notFound();

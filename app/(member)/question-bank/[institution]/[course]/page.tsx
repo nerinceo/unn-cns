@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, BookOpen, Check, FileText } from "lucide-react";
+import { ArrowRight, BookOpen, Check, FileText, Lock } from "lucide-react";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
+import { accessDateLabel, canOpenSemester, getBankAccess } from "@/lib/cns/qbank-access";
 import { getBankRollup, tallyBySemester } from "@/lib/cns/nursing-bank";
 import {
   COURSES,
@@ -51,10 +52,13 @@ export async function generateMetadata({
  */
 export default async function CourseSemesterPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ institution: string; course: string }>;
+  searchParams: Promise<{ locked?: string }>;
 }) {
   const { institution: slug, course: courseKey } = await params;
+  const { locked } = await searchParams;
 
   const course = COURSES.find((c) => c.key === courseKey);
   if (!course || !course.available) notFound();
@@ -62,8 +66,9 @@ export default async function CourseSemesterPage({
   const institution = await getInstitutionBySlug(slug);
   if (!institution) notFound();
 
-  const rollup = await getBankRollup(institution.id);
+  const [rollup, access] = await Promise.all([getBankRollup(institution.id), getBankAccess(slug, courseKey)]);
   const counts = tallyBySemester(rollup);
+  const lockedSemester = Number(locked) || null;
 
   const base = `/question-bank/${slug}/${courseKey}`;
 
@@ -93,6 +98,33 @@ export default async function CourseSemesterPage({
         </div>
       </header>
 
+      {/* Paid access (0080): what this member holds, and a way to add more. */}
+      {!access.all || lockedSemester ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4">
+          <p className="text-[14px] text-foreground">
+            {lockedSemester && !access.semesters.has(lockedSemester) && !access.all
+              ? `Semester ${lockedSemester} isn't in your access yet. `
+              : ""}
+            {access.all
+              ? "You have every semester."
+              : `You have Semester${access.semesters.size > 1 ? "s" : ""} ${Array.from(access.semesters).sort((a, b) => a - b).join(", ")}.`}
+            {access.expiresAt && (
+              <span className="text-muted-foreground"> Access until {accessDateLabel(access.expiresAt)}.</span>
+            )}
+          </p>
+          {!access.all && access.buyUrl && (
+            <a
+              href={access.buyUrl}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Buy more semesters or the whole bank
+            </a>
+          )}
+        </div>
+      ) : access.expiresAt ? (
+        <p className="text-[14px] text-muted-foreground">Access until {accessDateLabel(access.expiresAt)}.</p>
+      ) : null}
+
       <section>
         <h2 className="text-xl font-semibold">{SEMESTER_PICKER_COPY.heading}</h2>
         <p className="mt-2 max-w-3xl text-muted-foreground">{SEMESTER_PICKER_COPY.subtitle}</p>
@@ -102,6 +134,41 @@ export default async function CourseSemesterPage({
         {SEMESTERS.map((sem) => {
           const total = counts.get(sem.number) ?? 0;
           const band = YEAR_BANDS[Math.ceil(sem.number / 2) - 1] ?? YEAR_BANDS[0];
+
+          // Not in this member's access: a neutral card that goes to the Store.
+          if (!canOpenSemester(access, sem.number)) {
+            return (
+              <a
+                key={sem.number}
+                href={access.buyUrl ?? "/question-bank"}
+                className="relative flex flex-col overflow-hidden rounded-2xl border border-dashed border-border bg-card transition-colors hover:border-primary/40"
+              >
+                <span aria-hidden className="h-1.5 w-full bg-slate-200 dark:bg-slate-700" />
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="flex items-start gap-3">
+                    <span
+                      aria-hidden
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-lg font-bold tabular-nums text-muted-foreground ring-1 ring-inset ring-border"
+                    >
+                      {sem.number}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-[16px] font-bold leading-snug text-foreground/80">{sem.name}</h3>
+                      <span className="mt-1 inline-flex items-center gap-1 text-[12px] font-bold uppercase tracking-wide text-muted-foreground">
+                        <Lock className="h-3 w-3" />
+                        Not in your access
+                      </span>
+                    </div>
+                  </div>
+                  <p className="mt-3 flex-1 text-[14px] leading-relaxed text-muted-foreground">{sem.description}</p>
+                  <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-[14px] font-bold text-primary">
+                    <span className="tabular-nums text-muted-foreground">{questionCountLabel(total)}</span>
+                    <span>Buy</span>
+                  </div>
+                </div>
+              </a>
+            );
+          }
 
           return (
             <Link

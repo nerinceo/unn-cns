@@ -1,3 +1,9 @@
+-- !! SUPERSEDED READ POLICIES (2026-10-11): the "cns study read" /
+-- !! "cns questions readable" / "cns options readable" policies below were
+-- !! OPEN to every signed-in member. HUB migrations 0081 + 0082
+-- !! (unn-platform/supabase/migrations) replaced them with paid-access rules.
+-- !! Re-running this file REOPENS the paywall — re-run 0082 afterwards.
+
 -- ===========================================================================
 -- CNS — Question Bank (multi-university).
 --

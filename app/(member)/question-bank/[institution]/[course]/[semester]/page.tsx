@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { FilterSelect } from "@/components/question-bank/FilterSelect";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
+import { requireSemester } from "@/lib/cns/qbank-access";
 import {
   getBankRollup,
   getSemesterQuestions,
@@ -72,6 +73,9 @@ export default async function SemesterQuestionsPage({
   const semesterNumber = Number(semesterParam);
   const semester = SEMESTERS.find((s) => s.number === semesterNumber);
   if (!semester) notFound();
+
+  // Paid access (0080) — checked before a single question is fetched.
+  await requireSemester(slug, courseKey, semesterNumber);
 
   const institution = await getInstitutionBySlug(slug);
   if (!institution) notFound();

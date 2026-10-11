@@ -2,34 +2,39 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Lock, X } from "lucide-react";
+import { Lock, ShoppingBag, X } from "lucide-react";
 
 /**
- * TEMPORARY GATE (2026-10-08): the Question Bank is moving behind paid access.
+ * Paid access (0080). Universities stay visible in the directory; opening one
+ * the member holds no part of shows this popup instead of navigating. When
+ * that bank is on sale in the HUB Store the popup links straight to it.
  *
- * Universities stay visible in the directory, but opening one shows this popup
- * instead of navigating. The server half is
- * app/(member)/question-bank/[institution]/layout.tsx, which bounces every deep
- * link back here with `?locked=1` — so `initialOpen` shows the popup straight
- * away rather than leaving the visitor wondering why they landed on the list.
+ * The server half is app/(member)/question-bank/[institution]/layout.tsx,
+ * which bounces deep links back here with `?locked=<bank>` — so `initialOpen`
+ * shows the popup straight away rather than leaving the visitor wondering why
+ * they landed on the list.
  */
-const GateContext = createContext<() => void>(() => {});
+const GateContext = createContext<(bankKey: string) => void>(() => {});
 
 export function QuestionBankPaidGate({
   initialOpen,
+  buyUrls,
   children,
 }: {
-  initialOpen: boolean;
+  /** The bank to open the popup for on arrival, if any. */
+  initialOpen: string | null;
+  /** Store listing per bank key, for banks on sale. */
+  buyUrls: Record<string, string>;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(initialOpen);
+  const [open, setOpen] = useState<string | null>(initialOpen);
   const router = useRouter();
   const pathname = usePathname();
   const closeRef = useRef<HTMLButtonElement>(null);
 
   const close = useCallback(() => {
-    setOpen(false);
-    // Drop ?locked=1 so a refresh doesn't reopen the popup.
+    setOpen(null);
+    // Drop ?locked= so a refresh doesn't reopen the popup.
     if (initialOpen) router.replace(pathname, { scroll: false });
   }, [initialOpen, pathname, router]);
 
@@ -41,8 +46,10 @@ export function QuestionBankPaidGate({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close]);
 
+  const buyUrl = open ? buyUrls[open] : undefined;
+
   return (
-    <GateContext.Provider value={() => setOpen(true)}>
+    <GateContext.Provider value={(key) => setOpen(key)}>
       {children}
 
       {open && (
@@ -73,20 +80,33 @@ export function QuestionBankPaidGate({
               This question bank is a paid listing
             </h2>
             <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
-              University question banks, with answers and model answers, are moving to paid
-              access. Purchasing opens here soon. Until then, you can browse every university
-              in the directory.
+              {buyUrl
+                ? "Buy the whole bank, or just the semester you need. Questions, answers and model answers open the moment payment clears, and stay open until you graduate."
+                : "University question banks, with answers and model answers, are moving to paid access. Purchasing opens here soon. Until then, you can browse every university in the directory."}
             </p>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-end gap-2">
               <button
                 ref={closeRef}
                 type="button"
                 onClick={close}
-                className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                className={
+                  buyUrl
+                    ? "rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted"
+                    : "rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                }
               >
                 Back to universities
               </button>
+              {buyUrl && (
+                <a
+                  href={buyUrl}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  Buy access
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -97,15 +117,17 @@ export function QuestionBankPaidGate({
 
 /** A bank card that opens the paid-access popup instead of the bank. */
 export function PaidBankTrigger({
+  bankKey,
   className,
   children,
 }: {
+  bankKey: string;
   className?: string;
   children: React.ReactNode;
 }) {
   const openGate = useContext(GateContext);
   return (
-    <button type="button" onClick={openGate} className={`${className ?? ""} text-left`}>
+    <button type="button" onClick={() => openGate(bankKey)} className={`${className ?? ""} text-left`}>
       {children}
     </button>
   );

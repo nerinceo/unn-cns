@@ -1,17 +1,25 @@
 import { redirect } from "next/navigation";
+import { getBankAccess, hasAnyAccess } from "@/lib/cns/qbank-access";
 
 /**
- * TEMPORARY GATE (2026-10-08): the Question Bank is moving behind paid access.
+ * Paid access (0080). University question banks are sold in the HUB Store —
+ * the whole bank or one semester. Anyone holding no part of this university's
+ * bank is sent back to the directory, which opens the paid-access popup with a
+ * link to buy it.
  *
- * The directory at /question-bank stays browsable — every university is still
- * listed — but nothing below it renders. Gating here, in the layout, covers
- * every route under a university (course, semester, descriptive, single
- * question) and every deep link, since a layout runs before any of its pages.
- * The directory reads `?locked=1` and opens the paid-access popup.
- *
- * To reopen the bank, delete this file and restore the Link cards in
- * app/(member)/question-bank/page.tsx (see QuestionBankPaidGate).
+ * This is the outer door only. A buyer of Semester 3 gets past it, so every
+ * page that loads questions also checks the semester itself (requireSemester /
+ * canOpenSemester in lib/cns/qbank-access.ts) before fetching anything.
  */
-export default function QuestionBankInstitutionGate() {
-  redirect("/question-bank?locked=1");
+export default async function QuestionBankInstitutionGate({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ institution: string }>;
+}) {
+  const { institution } = await params;
+  const access = await getBankAccess(institution);
+  if (!hasAnyAccess(access)) redirect(`/question-bank?locked=${encodeURIComponent(institution)}`);
+  return <>{children}</>;
 }

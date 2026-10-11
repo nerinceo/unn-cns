@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { ClipboardList, GraduationCap, ArrowRight, MapPin, Clock, Lock } from "lucide-react";
 import { getInstitutions } from "@/lib/cns/question-bank";
+import { getBankAccess, hasAnyAccess } from "@/lib/cns/qbank-access";
 import {
   PaidBankTrigger,
   QuestionBankPaidGate,
@@ -59,8 +61,21 @@ export default async function QuestionBankPage({
   const live = new Set(institutions.map((i) => i.slug));
   const isOpen = (key: string) => live.size === 0 || live.has(key);
 
+  // Paid access (0080): which open banks this member holds, and where each is
+  // sold. Only open banks are looked up — today that is one.
+  const openKeys = BANK_DIRECTORY.flatMap((g) => g.banks.map((b) => b.key)).filter(isOpen);
+  const accessByBank = new Map(
+    await Promise.all(openKeys.map(async (k) => [k, await getBankAccess(k)] as const)),
+  );
+  const buyUrls: Record<string, string> = {};
+  for (const [k, a] of Array.from(accessByBank)) if (a.buyUrl) buyUrls[k] = a.buyUrl;
+  const holds = (key: string) => {
+    const a = accessByBank.get(key);
+    return !!a && hasAnyAccess(a);
+  };
+
   return (
-    <QuestionBankPaidGate initialOpen={searchParams.locked === "1"}>
+    <QuestionBankPaidGate initialOpen={searchParams.locked ?? null} buyUrls={buyUrls}>
     <div className="space-y-10">
       <header className="rounded-2xl border border-border bg-gradient-to-br from-primary/[0.08] via-card to-card p-6 sm:p-8">
         <div className="flex items-center gap-3">
@@ -138,10 +153,14 @@ export default async function QuestionBankPage({
 
                     {open ? (
                       <span className="mt-5 inline-flex items-center justify-between gap-1.5 border-t border-border pt-4 text-[14px] font-bold text-primary">
-                        <span className="inline-flex items-center gap-1.5">
-                          <Lock className="h-4 w-4" />
-                          Paid access
-                        </span>
+                        {holds(bank.key) ? (
+                          <span>Open your bank</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Lock className="h-4 w-4" />
+                            Paid access
+                          </span>
+                        )}
                         <ArrowRight className="h-4 w-4 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
                       </span>
                     ) : (
@@ -159,12 +178,20 @@ export default async function QuestionBankPage({
                 </>
               );
 
-              // TEMPORARY GATE (2026-10-08): open banks show the paid-access
-              // popup instead of linking to /question-bank/${bank.key}. To
-              // reopen, put the Link back and delete [institution]/layout.tsx.
+              // Paid access (0080): a bank the member holds links in; any other
+              // open bank shows the paid-access popup (with Buy when on sale).
+              const cardClass =
+                "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-primary/40";
+              if (open && holds(bank.key))
+                return (
+                  <Link key={bank.key} href={`/question-bank/${bank.key}`} className={cardClass}>
+                    {body}
+                  </Link>
+                );
               return open ? (
                 <PaidBankTrigger
                   key={bank.key}
+                  bankKey={bank.key}
                   className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-primary/40"
                 >
                   {body}
