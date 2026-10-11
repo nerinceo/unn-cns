@@ -7,10 +7,10 @@ import { hubListing } from "@/lib/hub";
 /**
  * Who may open a university question bank (0080).
  *
- * Banks are sold in the HUB Store — the whole bank or one semester — and a
- * paid order writes a qbank_access row (revoked again by any refund). This
- * reads the caller's own rows through RLS. Platform staff see everything, so
- * they can check content without buying it.
+ * Banks are sold in the HUB Store — the whole bank or any semesters — and a
+ * paid order writes qbank_access rows (revoked again by any refund). This
+ * reads the caller's own rows through RLS. Staff get no bypass here: they see
+ * what they bought, exactly as a member does.
  *
  * EVERY page that loads questions calls requireSemester() / canOpenSemester()
  * BEFORE fetching them: whatever a page renders ships to the browser in the
@@ -42,9 +42,10 @@ export const getBankAccess = cache(async (institution: string, course?: string):
   const { data: product } = await productQuery.limit(1).maybeSingle();
   const buyUrl = product?.listing_id ? hubListing(product.listing_id) : null;
 
+  // NO staff bypass (Naveen, 2026-10-11): an admin sees exactly what they
+  // bought, like any member — "I bought Semester 4 and can open everything"
+  // made the paywall look broken. Staff check content in UHN /admin/cns.
   if (!profile) return { ...NONE, buyUrl };
-  if (["platform_admin", "platform_moderator"].includes((profile as { role?: string }).role ?? ""))
-    return { all: true, semesters: new Set(), expiresAt: null, buyUrl };
 
   let accessQuery = supabase
     .from("qbank_access")
