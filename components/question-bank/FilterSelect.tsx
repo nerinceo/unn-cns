@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Layers, Tags } from "lucide-react";
+import { Check, ChevronDown, Hash, Layers, ListTree, Tags } from "lucide-react";
 
 /**
  * Icons are resolved here, not passed in. A Lucide icon is a function
  * component, and a Server Component cannot serialize one across the boundary
  * into a Client Component — it fails at render, not at typecheck.
  */
-const ICONS = { subject: Layers, type: Tags } as const;
+const ICONS = { subject: Layers, type: Tags, marks: Hash, topic: ListTree } as const;
 
 export type FilterOption = {
   /** Exact visible label. Never reworded — these come from the copy module. */
@@ -37,6 +37,7 @@ export function FilterSelect({
   allHref,
   options,
   widthClass = "w-72",
+  noun,
 }: {
   variant: keyof typeof ICONS;
   /** The "show everything" option, e.g. "All Subjects". */
@@ -44,6 +45,12 @@ export function FilterSelect({
   allHref: string;
   options: FilterOption[];
   widthClass?: string;
+  /**
+   * Multi-select (2026-10-13): each option's href toggles it, several can be
+   * active, and the button reads "3 subjects". The panel stays open while
+   * picking — a click is a navigation that keeps this component mounted.
+   */
+  noun?: string;
 }) {
   const Icon = ICONS[variant];
   const [open, setOpen] = useState(false);
@@ -65,8 +72,10 @@ export function FilterSelect({
     };
   }, [open]);
 
-  const selected = options.find((o) => o.active);
-  const isFiltered = Boolean(selected);
+  const active = options.filter((o) => o.active);
+  const isFiltered = active.length > 0;
+  const buttonLabel =
+    active.length === 0 ? allLabel : active.length === 1 || !noun ? active[0].label : `${active.length} ${noun}`;
 
   return (
     <div ref={root} className="relative">
@@ -82,7 +91,7 @@ export function FilterSelect({
         }`}
       >
         <Icon className={`h-4 w-4 shrink-0 ${isFiltered ? "text-primary" : "text-slate-500 dark:text-slate-400"}`} />
-        <span className="min-w-0 flex-1 truncate">{selected ? selected.label : allLabel}</span>
+        <span className="min-w-0 flex-1 truncate">{buttonLabel}</span>
         <ChevronDown
           className={`h-4 w-4 shrink-0 text-slate-500 transition-transform dark:text-slate-400 ${open ? "rotate-180" : ""}`}
         />
@@ -91,6 +100,7 @@ export function FilterSelect({
       {open && (
         <div
           role="listbox"
+          aria-multiselectable={noun ? true : undefined}
           className={`absolute left-0 z-30 mt-2 max-h-80 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-1.5 shadow-[0_12px_32px_rgba(16,24,40,0.14)] ${widthClass}`}
         >
           <Row href={allHref} label={allLabel} active={!isFiltered} />
@@ -118,6 +128,7 @@ function Row({
   return (
     <Link
       href={href}
+      scroll={false}
       role="option"
       aria-selected={active}
       className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-[14px] transition-colors ${

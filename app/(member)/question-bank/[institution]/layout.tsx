@@ -1,15 +1,16 @@
 import { redirect } from "next/navigation";
-import { getBankAccess, hasAnyAccess } from "@/lib/cns/qbank-access";
+import { canSample, getBankAccess, hasAnyAccess } from "@/lib/cns/qbank-access";
 
 /**
  * Paid access (0080). University question banks are sold in the HUB Store —
- * the whole bank or one semester. Anyone holding no part of this university's
- * bank is sent back to the directory, which opens the paid-access popup with a
- * link to buy it.
+ * the whole bank or any semesters. A bank that is on sale lets everyone in to
+ * browse its free samples (10 per semester, 2026-10-13); one that isn't sends
+ * anyone holding no part of it back to the directory, which opens the
+ * paid-access popup.
  *
- * This is the outer door only. A buyer of Semester 3 gets past it, so every
- * page that loads questions also checks the semester itself (requireSemester /
- * canOpenSemester in lib/cns/qbank-access.ts) before fetching anything.
+ * This is the outer door only. Every page that loads questions also decides
+ * full vs sample itself (semesterMode / requireSemester / canOpenSemester in
+ * lib/cns/qbank-access.ts) before fetching anything.
  */
 export default async function QuestionBankInstitutionGate({
   children,
@@ -20,6 +21,6 @@ export default async function QuestionBankInstitutionGate({
 }) {
   const { institution } = await params;
   const access = await getBankAccess(institution);
-  if (!hasAnyAccess(access)) redirect(`/question-bank?locked=${encodeURIComponent(institution)}`);
+  if (!hasAnyAccess(access) && !canSample(access)) redirect(`/question-bank?locked=${encodeURIComponent(institution)}`);
   return <>{children}</>;
 }

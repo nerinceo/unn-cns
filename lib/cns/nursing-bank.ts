@@ -5,6 +5,9 @@ import { bankSource } from "@/lib/cns/bank-source";
 import {
   contentBankQuestion,
   contentBankRollup,
+  contentBrowseQuestions,
+  contentSemesterMarks,
+  contentSemesterSample,
   contentSemesterQuestions,
   contentSemesterTypes,
   contentTopicIndex,
@@ -260,6 +263,77 @@ export async function getSemesterQuestions(opts: {
     page,
     pageSize: PAGE,
   };
+}
+
+/** The filters on a semester's list; each can hold several values (empty = all). */
+export type BankFilters = {
+  subjects: string[];
+  types: string[];
+  marks: number[];
+  topics: string[];
+  search?: string;
+};
+
+/**
+ * One semester's questions under multi-select filters (2026-10-13). An empty
+ * `subjects` means every subject of the semester — never the institution.
+ */
+export async function browseSemesterQuestions(opts: {
+  institutionId: string;
+  subjectIds: string[];
+  filters: BankFilters;
+  page?: number;
+}): Promise<{ questions: BankQuestion[]; total: number; page: number; pageSize: number }> {
+  const f = opts.filters;
+  const scope = f.subjects.length ? f.subjects.filter((s) => opts.subjectIds.includes(s)) : opts.subjectIds;
+  if (bankSource() === "content")
+    return contentBrowseQuestions({ subjectIds: scope, types: f.types, marks: f.marks, topics: f.topics, search: f.search, page: opts.page });
+
+  const supabase = await createClient();
+  const page = Math.max(0, opts.page ?? 0);
+  if (scope.length === 0) return { questions: [], total: 0, page, pageSize: PAGE };
+  let query = supabase
+    .from("cns_study_questions")
+    .select(QUESTION_COLS, { count: "exact" })
+    .eq("status", "published")
+    .in("subject_id", scope);
+  if (f.types.length) query = query.in("source_question_type", f.types);
+  if (f.marks.length) query = query.in("marks", f.marks);
+  if (f.topics.length) query = query.in("topic_id", f.topics);
+  if (f.search) {
+    const term = f.search.replace(/[%,()]/g, " ").trim();
+    if (term) query = query.or(`stem.ilike.%${term}%,model_answer.ilike.%${term}%`);
+  }
+  const { data, count } = await query.order("id", { ascending: true }).range(page * PAGE, page * PAGE + PAGE - 1);
+  return { questions: (data ?? []) as unknown as BankQuestion[], total: count ?? 0, page, pageSize: PAGE };
+}
+
+/** Marks values across a semester, for the marks filter. */
+export async function getSemesterMarks(subjectIds: string[]): Promise<{ marks: number; count: number }[]> {
+  if (bankSource() === "content") return contentSemesterMarks(subjectIds);
+  if (subjectIds.length === 0) return [];
+  const supabase = await createClient();
+  const rows = await selectAll(supabase, (from, to) =>
+    supabase.from("cns_study_questions").select("marks").eq("status", "published").in("subject_id", subjectIds).range(from, to)
+  );
+  const counts = new Map<number, number>();
+  for (const r of rows) if (r.marks != null) counts.set(Number(r.marks), (counts.get(Number(r.marks)) ?? 0) + 1);
+  return Array.from(counts.entries())
+    .map(([marks, count]) => ({ marks, count }))
+    .sort((a, b) => a.marks - b.marks);
+}
+
+/** How many free questions a locked semester shows (Naveen, 2026-10-13). */
+export const SAMPLE_SIZE = 10;
+
+/**
+ * The free samples for a semester the member hasn't bought: the same 10 for
+ * everyone, mixed across types. The legacy tables are behind RLS that a
+ * non-buyer can't pass, so there are no samples in legacy mode.
+ */
+export async function getSemesterSample(subjectIds: string[]): Promise<BankQuestion[]> {
+  if (bankSource() !== "content") return [];
+  return contentSemesterSample([...subjectIds].sort(), SAMPLE_SIZE);
 }
 
 /** One question for the full-page view. */

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   Award,
   BookOpenCheck,
@@ -11,8 +11,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
-import { requireSemester } from "@/lib/cns/qbank-access";
-import { getBankQuestion, getTopicIndex } from "@/lib/cns/nursing-bank";
+import { semesterMode } from "@/lib/cns/qbank-access";
+import { getBankQuestion, getBankRollup, getSemesterSample, getTopicIndex, subjectsInSemester } from "@/lib/cns/nursing-bank";
 import { getStudySubject } from "@/lib/cns/study";
 import { questionTone } from "@/components/question-bank/question-tone";
 import {
@@ -52,11 +52,19 @@ export default async function BankQuestionPage({
   if (!course || !course.available || !semester) notFound();
 
   // Paid access (0080) — before the question is fetched. The URL's semester
-  // is trustworthy here: a question from another semester 404s below.
-  await requireSemester(slug, courseKey, semesterNumber);
+  // is trustworthy here: a question from another semester 404s below. A
+  // semester not bought opens only its free samples (2026-10-13); any other
+  // question in it goes back to the sample list.
+  const { mode } = await semesterMode(slug, courseKey, semesterNumber);
 
   const institution = await getInstitutionBySlug(slug);
   if (!institution) notFound();
+
+  if (mode === "sample") {
+    const subjectIds = subjectsInSemester(await getBankRollup(institution.id), semesterNumber).map((s) => s.id);
+    const samples = await getSemesterSample(subjectIds);
+    if (!samples.some((s) => s.id === questionId)) redirect(`/question-bank/${slug}/${courseKey}/${semesterNumber}`);
+  }
 
   const q = await getBankQuestion(questionId);
   if (!q) notFound();

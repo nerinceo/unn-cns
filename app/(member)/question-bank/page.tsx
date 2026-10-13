@@ -155,6 +155,8 @@ export default async function QuestionBankPage({
                       <span className="mt-5 inline-flex items-center justify-between gap-1.5 border-t border-border pt-4 text-[14px] font-bold text-primary">
                         {holds(bank.key) ? (
                           <span>Open your bank</span>
+                        ) : buyUrls[bank.key] ? (
+                          <span>Free samples · Buy access</span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5">
                             <Lock className="h-4 w-4" />
@@ -178,11 +180,12 @@ export default async function QuestionBankPage({
                 </>
               );
 
-              // Paid access (0080): a bank the member holds links in; any other
-              // open bank shows the paid-access popup (with Buy when on sale).
+              // Paid access (0080): a bank the member holds — or one on sale, whose
+              // 10 free questions per semester anyone may read (2026-10-13) — links
+              // in; any other open bank shows the paid-access popup.
               const cardClass =
                 "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-primary/40";
-              if (open && holds(bank.key))
+              if (open && (holds(bank.key) || buyUrls[bank.key]))
                 return (
                   <Link key={bank.key} href={`/question-bank/${bank.key}`} className={cardClass}>
                     {body}

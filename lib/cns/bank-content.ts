@@ -250,6 +250,57 @@ export async function contentSemesterQuestions(opts: {
   return { questions: rows.map(toBankQuestion), total, page, pageSize: PAGE };
 }
 
+/**
+ * Several values per filter (2026-10-13): subjects, types, marks and topics,
+ * through qbank_browse (supabase/content/0001_qbank_filters_samples.sql).
+ */
+export async function contentBrowseQuestions(opts: {
+  subjectIds: string[];
+  types: string[];
+  marks: number[];
+  topics: string[];
+  search?: string;
+  page?: number;
+}): Promise<{ questions: BankQuestion[]; total: number; page: number; pageSize: number }> {
+  const page = Math.max(0, opts.page ?? 0);
+  if (opts.subjectIds.length === 0) return { questions: [], total: 0, page, pageSize: PAGE };
+  const base = {
+    p_subject_ids: opts.subjectIds,
+    p_types: opts.types.length ? opts.types : null,
+    p_marks: opts.marks.length ? opts.marks : null,
+    p_topics: opts.topics.length ? opts.topics : null,
+    p_search: opts.search?.trim() || null,
+    p_limit: PAGE,
+  };
+  const rows = await rpc<RpcQuestion>("qbank_browse", { ...base, p_offset: page * PAGE });
+  let total = Number(rows[0]?.total_count ?? 0);
+  if (rows.length === 0 && page > 0) {
+    const first = await rpc<RpcQuestion>("qbank_browse", { ...base, p_offset: 0, p_limit: 1 });
+    total = Number(first[0]?.total_count ?? 0);
+  }
+  return { questions: rows.map(toBankQuestion), total, page, pageSize: PAGE };
+}
+
+export async function contentSemesterMarks(subjectIds: string[]): Promise<{ marks: number; count: number }[]> {
+  if (subjectIds.length === 0) return [];
+  const rows = await rpc<{ marks: number; count: number }>("qbank_marks", { p_subject_ids: subjectIds });
+  return rows.map((r) => ({ marks: Number(r.marks), count: Number(r.count) }));
+}
+
+/**
+ * The fixed free samples for one semester (mixed types, same for everyone).
+ * Shared across users, so cached like the subject list.
+ */
+export const contentSemesterSample = unstable_cache(
+  async (subjectIds: string[], n: number): Promise<BankQuestion[]> => {
+    if (subjectIds.length === 0) return [];
+    const rows = await rpc<RpcQuestion>("qbank_sample", { p_subject_ids: subjectIds, p_n: n });
+    return rows.map(toBankQuestion);
+  },
+  ["qbank-sample"],
+  { revalidate: 600, tags: ["qbank"] }
+);
+
 export async function contentBankQuestion(id: string): Promise<BankQuestion | null> {
   const qid = await resolveQuestionId(id);
   if (qid == null) return null;

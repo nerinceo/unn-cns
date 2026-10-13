@@ -74,6 +74,23 @@ export function hasAnyAccess(a: BankAccess): boolean {
   return a.all || a.semesters.size > 0;
 }
 
+/**
+ * Free samples (Naveen, 2026-10-13): a semester the member hasn't bought opens
+ * in sample mode — 10 fixed questions with answers and a way to buy — when the
+ * bank is on sale. A bank that isn't on sale stays closed.
+ */
+export function canSample(a: BankAccess): boolean {
+  return a.buyUrl != null;
+}
+
+/** "full" = bought, "sample" = the free 10, never a redirect. Pages fetch accordingly. */
+export async function semesterMode(institution: string, course: string, semester: number) {
+  const a = await getBankAccess(institution, course);
+  if (canOpenSemester(a, semester)) return { access: a, mode: "full" as const };
+  if (canSample(a)) return { access: a, mode: "sample" as const };
+  redirect(`/question-bank/${institution}/${course}?locked=${semester}`);
+}
+
 /** Bounce to the semester picker (which offers the purchase) unless this semester is open. */
 export async function requireSemester(institution: string, course: string, semester: number) {
   const a = await getBankAccess(institution, course);

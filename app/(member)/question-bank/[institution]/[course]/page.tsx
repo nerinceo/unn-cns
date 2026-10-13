@@ -107,7 +107,9 @@ export default async function CourseSemesterPage({
               : ""}
             {access.all
               ? "You have every semester."
-              : `You have Semester${access.semesters.size > 1 ? "s" : ""} ${Array.from(access.semesters).sort((a, b) => a - b).join(", ")}.`}
+              : access.semesters.size === 0
+                ? "Open any semester to read 10 free questions with answers."
+                : `You have Semester${access.semesters.size > 1 ? "s" : ""} ${Array.from(access.semesters).sort((a, b) => a - b).join(", ")}. Other semesters show 10 free questions.`}
             {access.expiresAt && (
               <span className="text-muted-foreground"> Access until {accessDateLabel(access.expiresAt)}.</span>
             )}
@@ -135,12 +137,13 @@ export default async function CourseSemesterPage({
           const total = counts.get(sem.number) ?? 0;
           const band = YEAR_BANDS[Math.ceil(sem.number / 2) - 1] ?? YEAR_BANDS[0];
 
-          // Not in this member's access: a neutral card that goes to the Store.
+          // Not in this member's access: a neutral card. On sale, it opens the
+          // semester's 10 free questions (2026-10-13); otherwise the Store.
           if (!canOpenSemester(access, sem.number)) {
             return (
               <a
                 key={sem.number}
-                href={access.buyUrl ?? "/question-bank"}
+                href={access.buyUrl ? `${base}/${sem.number}` : "/question-bank"}
                 className="relative flex flex-col overflow-hidden rounded-2xl border border-dashed border-border bg-card transition-colors hover:border-primary/40"
               >
                 <span aria-hidden className="h-1.5 w-full bg-slate-200 dark:bg-slate-700" />
@@ -163,7 +166,7 @@ export default async function CourseSemesterPage({
                   <p className="mt-3 flex-1 text-[14px] leading-relaxed text-muted-foreground">{sem.description}</p>
                   <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-[14px] font-bold text-primary">
                     <span className="tabular-nums text-muted-foreground">{questionCountLabel(total)}</span>
-                    <span>Buy</span>
+                    <span>{access.buyUrl ? "10 free questions" : "Buy"}</span>
                   </div>
                 </div>
               </a>

@@ -4,19 +4,25 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Lock,
   Search,
   SearchX,
   SlidersHorizontal,
+  Sparkles,
 } from "lucide-react";
 import { FilterSelect } from "@/components/question-bank/FilterSelect";
 import { getInstitutionBySlug } from "@/lib/cns/question-bank";
-import { requireSemester } from "@/lib/cns/qbank-access";
+import { semesterMode } from "@/lib/cns/qbank-access";
 import {
+  SAMPLE_SIZE,
+  browseSemesterQuestions,
   getBankRollup,
-  getSemesterQuestions,
+  getSemesterMarks,
+  getSemesterSample,
   getSemesterTypes,
   getTopicIndex,
   subjectsInSemester,
+  type TopicLabel,
 } from "@/lib/cns/nursing-bank";
 import { NursingBankCard } from "@/components/question-bank/NursingBankCard";
 import {
@@ -62,7 +68,7 @@ export default async function SemesterQuestionsPage({
   searchParams,
 }: {
   params: Promise<{ institution: string; course: string; semester: string }>;
-  searchParams: Promise<{ subject?: string; type?: string; q?: string; page?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { institution: slug, course: courseKey, semester: semesterParam } = await params;
   const sp = await searchParams;
@@ -74,8 +80,10 @@ export default async function SemesterQuestionsPage({
   const semester = SEMESTERS.find((s) => s.number === semesterNumber);
   if (!semester) notFound();
 
-  // Paid access (0080) — checked before a single question is fetched.
-  await requireSemester(slug, courseKey, semesterNumber);
+  // Paid access (0080) — decided before a single question is fetched: the
+  // whole semester if bought, otherwise its 10 free samples (2026-10-13).
+  const { access, mode } = await semesterMode(slug, courseKey, semesterNumber);
+  const sample = mode === "sample";
 
   const institution = await getInstitutionBySlug(slug);
   if (!institution) notFound();
@@ -83,38 +91,70 @@ export default async function SemesterQuestionsPage({
   const rollup = await getBankRollup(institution.id);
   const subjects = subjectsInSemester(rollup, semesterNumber);
   const subjectIds = subjects.map((s) => s.id);
+  const semesterTotal = subjects.reduce((n, s) => n + s.total, 0);
 
-  // A subject filter from another semester would silently widen the view.
-  const selectedSubject = sp.subject && subjectIds.includes(sp.subject) ? sp.subject : undefined;
-  const selectedType = sp.type || undefined;
-  const search = sp.q?.trim() || undefined;
-  const page = Number(sp.page ?? 0) || 0;
+  // Every filter takes several values (?subject=a&subject=b). Values from
+  // another semester would silently widen the view, so they are dropped.
+  const many = (k: string) => {
+    const v = sp[k];
+    return (Array.isArray(v) ? v : v ? [v] : []).filter(Boolean);
+  };
+  const selectedSubjects = many("subject").filter((s) => subjectIds.includes(s));
+  const selectedTypes = many("type");
+  const selectedMarks = many("marks").map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  // Topics belong to the chosen subjects (every subject's would be hundreds),
+  // so the topic filter appears once a subject is picked.
+  const subjectTopics = !sample && selectedSubjects.length ? await getTopicIndex(selectedSubjects) : new Map<string, TopicLabel>();
+  const selectedTopics = many("topic").filter((t) => subjectTopics.has(t));
+  const qParam = sp.q;
+  const search = (Array.isArray(qParam) ? qParam[0] : qParam)?.trim() || undefined;
+  const pageParam = sp.page;
+  const page = sample ? 0 : Number(Array.isArray(pageParam) ? pageParam[0] : pageParam ?? 0) || 0;
 
-  const [types, { questions, total, pageSize }, topicIdx] = await Promise.all([
-    getSemesterTypes(subjectIds),
-    getSemesterQuestions({
-      institutionId: institution.id,
-      subjectIds,
-      subjectId: selectedSubject,
-      type: selectedType,
-      search,
-      page,
-    }),
+  const [types, marks, listing, topicIdx] = await Promise.all([
+    sample ? Promise.resolve([]) : getSemesterTypes(subjectIds),
+    sample ? Promise.resolve([]) : getSemesterMarks(subjectIds),
+    sample
+      ? getSemesterSample(subjectIds).then((questions) => ({ questions, total: questions.length, page: 0, pageSize: SAMPLE_SIZE }))
+      : browseSemesterQuestions({
+          institutionId: institution.id,
+          subjectIds,
+          filters: { subjects: selectedSubjects, types: selectedTypes, marks: selectedMarks, topics: selectedTopics, search },
+          page,
+        }),
     getTopicIndex(subjectIds),
   ]);
+  const { questions, total, pageSize } = listing;
 
   const subjectName = new Map(subjects.map((s) => [s.id, s.name]));
 
   const base = `/question-bank/${slug}/${courseKey}/${semesterNumber}`;
-  const href = (patch: Record<string, string | number | undefined>) => {
+  type Current = { subject: string[]; type: string[]; marks: string[]; topic: string[]; q?: string; page?: number };
+  const current: Current = {
+    subject: selectedSubjects,
+    type: selectedTypes,
+    marks: selectedMarks.map(String),
+    topic: selectedTopics,
+    q: search,
+  };
+  const href = (patch: Partial<Current>) => {
+    const next = { ...current, page: undefined, ...patch };
     const p = new URLSearchParams();
-    const merged = { subject: selectedSubject, type: selectedType, q: search, ...patch };
-    for (const [k, v] of Object.entries(merged)) {
-      if (v !== undefined && v !== "") p.set(k, String(v));
-    }
+    for (const k of ["subject", "type", "marks", "topic"] as const) for (const v of next[k]) p.append(k, v);
+    if (next.q) p.set("q", next.q);
+    if (next.page) p.set("page", String(next.page));
     const s = p.toString();
     return s ? `${base}?${s}` : base;
   };
+  /** The same filters with `value` switched on or off — and topics cleared when subjects change. */
+  const toggle = (k: "subject" | "type" | "marks" | "topic", value: string) => {
+    const list = current[k].includes(value) ? current[k].filter((v) => v !== value) : [...current[k], value];
+    return href(k === "subject" ? { subject: list, topic: [] } : { [k]: list });
+  };
+
+  const topicOptions = Array.from(subjectTopics.entries())
+    .map(([key, t]) => ({ key, label: t.unitName ? `${t.unitName} · ${t.name}` : t.name }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   const shown = Math.min((page + 1) * pageSize, total);
   const pages = Math.ceil(total / pageSize);
@@ -146,12 +186,39 @@ export default async function SemesterQuestionsPage({
         </div>
       </header>
 
-      {/* NOT overflow-hidden, despite the rounded corners.
-          FilterSelect opens an absolutely-positioned panel, and `overflow`
-          clips absolutely-positioned descendants — so the dropdowns opened
-          into a clipped region and appeared to do nothing at all. The tinted
-          header rounds its own top corners instead, which is all the clipping
-          was doing here. */}
+      {/* Free samples (2026-10-13): what this is, and the way to the rest. */}
+      {sample && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-primary/30 bg-primary/[0.05] p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-[15px] font-bold text-foreground">
+                Free sample · {questions.length} of {semesterTotal.toLocaleString("en-IN")} questions in Semester {semesterNumber}
+              </p>
+              <p className="mt-0.5 text-[14px] text-muted-foreground">
+                Answers included. Buy this semester or the whole bank to read every question, with filters and search.
+              </p>
+            </div>
+          </div>
+          {access.buyUrl && (
+            <a
+              href={access.buyUrl}
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              <Lock className="h-4 w-4" /> Buy Semester {semesterNumber} or the whole bank
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Filters and search are for buyers; a sample shows its fixed 10 only.
+          NOT overflow-hidden, despite the rounded corners: FilterSelect opens
+          an absolutely-positioned panel, and `overflow` clips absolutely-
+          positioned descendants — the dropdowns would open into a clipped
+          region and appear to do nothing. */}
+      {!sample && (
       <section className="rounded-xl border border-border bg-card">
         <div className="flex items-center gap-2 rounded-t-xl border-b border-border bg-primary/[0.06] px-5 py-3">
           <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -160,19 +227,23 @@ export default async function SemesterQuestionsPage({
           <h2 className="text-[14px] font-bold uppercase tracking-wide text-primary">
             {QUESTION_LIST_COPY.filterHeading}
           </h2>
+          {(selectedSubjects.length + selectedTypes.length + selectedMarks.length + selectedTopics.length > 0 || search) && (
+            <Link href={base} scroll={false} className="ml-auto text-[13px] font-semibold text-primary hover:underline">
+              Clear all
+            </Link>
+          )}
         </div>
         <div className="p-5 pt-0">
 
-        {/* Search and both filters on one line. The source filtered on subject
-            and type too; as dropdowns rather than rails, because eleven types
-            and eight subjects as chips pushed the first question below three
-            rows of wrapping. Search submits on Enter, and the icon button
-            borrows the placeholder for its accessible name rather than
-            introducing a word the source does not have. */}
-        <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-center">
+        {/* Search, then four filters that each take several values
+            (2026-10-13): tick Anatomy + Physiology, MCQ + Short Essay, 5 + 10
+            marks. Search submits on Enter and keeps every ticked filter. */}
+        <div className="mt-3 flex flex-col gap-2">
           <form action={base} method="get" className="relative min-w-0 flex-1">
-            {selectedSubject && <input type="hidden" name="subject" value={selectedSubject} />}
-            {selectedType && <input type="hidden" name="type" value={selectedType} />}
+            {selectedSubjects.map((v) => <input key={`s${v}`} type="hidden" name="subject" value={v} />)}
+            {selectedTypes.map((v) => <input key={`t${v}`} type="hidden" name="type" value={v} />)}
+            {selectedMarks.map((v) => <input key={`m${v}`} type="hidden" name="marks" value={v} />)}
+            {selectedTopics.map((v) => <input key={`p${v}`} type="hidden" name="topic" value={v} />)}
             <input
               type="text"
               name="q"
@@ -189,42 +260,79 @@ export default async function SemesterQuestionsPage({
             </button>
           </form>
 
-          <FilterSelect
-            variant="subject"
-            allLabel={QUESTION_LIST_COPY.allSubjects}
-            allHref={href({ subject: undefined, page: undefined })}
-            widthClass="w-[19rem]"
-            options={subjects.map((s) => ({
-              label: subjectOptionLabel(s.name, s.total),
-              href: href({ subject: s.id, page: undefined }),
-              active: selectedSubject === s.id,
-            }))}
-          />
-          {types.length > 1 && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <FilterSelect
-              variant="type"
-              allLabel={QUESTION_LIST_COPY.allTypes}
-              allHref={href({ type: undefined, page: undefined })}
-              options={types.map((t) => ({
-                label: t.type,
-                count: t.count,
-                href: href({ type: t.type, page: undefined }),
-                active: selectedType === t.type,
+              variant="subject"
+              noun="subjects"
+              allLabel={QUESTION_LIST_COPY.allSubjects}
+              allHref={href({ subject: [], topic: [] })}
+              widthClass="w-[19rem]"
+              options={subjects.map((s) => ({
+                label: subjectOptionLabel(s.name, s.total),
+                href: toggle("subject", s.id),
+                active: selectedSubjects.includes(s.id),
               }))}
             />
-          )}
+            {types.length > 1 && (
+              <FilterSelect
+                variant="type"
+                noun="types"
+                allLabel={QUESTION_LIST_COPY.allTypes}
+                allHref={href({ type: [] })}
+                options={types.map((t) => ({
+                  label: t.type,
+                  count: t.count,
+                  href: toggle("type", t.type),
+                  active: selectedTypes.includes(t.type),
+                }))}
+              />
+            )}
+            {marks.length > 1 && (
+              <FilterSelect
+                variant="marks"
+                noun="marks values"
+                allLabel="All marks"
+                allHref={href({ marks: [] })}
+                widthClass="w-56"
+                options={marks.map((m) => ({
+                  label: `${m.marks} mark${m.marks === 1 ? "" : "s"}`,
+                  count: m.count,
+                  href: toggle("marks", String(m.marks)),
+                  active: selectedMarks.includes(m.marks),
+                }))}
+              />
+            )}
+            {topicOptions.length > 0 && (
+              <FilterSelect
+                variant="topic"
+                noun="topics"
+                allLabel="All topics"
+                allHref={href({ topic: [] })}
+                widthClass="w-[22rem]"
+                options={topicOptions.map((t) => ({
+                  label: t.label,
+                  href: toggle("topic", t.key),
+                  active: selectedTopics.includes(t.key),
+                }))}
+              />
+            )}
           </div>
+          {selectedSubjects.length === 0 && (
+            <p className="text-[12.5px] text-muted-foreground">Pick a subject to filter by its units and topics.</p>
+          )}
+        </div>
         </div>
       </section>
+      )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      {!sample && <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-[14px] font-semibold text-slate-700 dark:text-slate-300">
           {total > 0 ? showingLabel(shown, total) : QUESTION_LIST_COPY.exhausted}
         </span>
         <span className="rounded-full bg-primary px-3 py-1 text-[13px] font-bold tabular-nums text-primary-foreground">
           {countPillLabel(total)}
         </span>
-      </div>
+      </div>}
 
       {questions.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
