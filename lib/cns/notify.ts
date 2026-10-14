@@ -229,6 +229,7 @@ function renderEmail(name: string | null, c: EmailContent, href: string | null):
       You are receiving this because of activity on your Nerusalem account.
       Manage what reaches you in your <a href="${SITE}/profile" style="color:#6b7280;">profile settings</a>.
     </p>
+    <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#9ca3af;">&copy; 2026 Nerusalem Inc. All rights reserved.</p>
   </div>
 </div>`;
 }
