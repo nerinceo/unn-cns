@@ -212,6 +212,11 @@ export default async function QuestionBankPage({
           </div>
         </section>
       ))}
+      {/* Wording mirrors HUB lib/qbank/pricing.ts QBANK_NOT_AFFILIATED (legal review, 2026-10-14). */}
+      <p className="text-center text-xs text-muted-foreground">
+        Question banks are prepared by Nerusalem. Not affiliated with, endorsed by or sponsored by any university, including
+        RGUHS; a university&apos;s name only shows which syllabus a bank follows.
+      </p>
     </div>
     </QuestionBankPaidGate>
   );
