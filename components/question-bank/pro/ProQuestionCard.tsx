@@ -132,7 +132,7 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
         {/* Previous Years: how often it was set, as a highlighted panel on the
             right. The count is the number of sittings listed beside it. */}
         {!!q.timesAsked && (
-          <aside className="hidden w-48 shrink-0 self-start rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 sm:block dark:border-amber-400/25 dark:bg-amber-500/10">
+          <aside className="hidden w-56 shrink-0 self-start rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 sm:block dark:border-amber-400/25 dark:bg-amber-500/10">
             <AskedPanel times={q.timesAsked} sittings={q.sittings ?? []} />
           </aside>
         )}
@@ -172,12 +172,11 @@ function AskedPanel({ times, sittings }: { times: number; sittings: string[] }) 
       <p className="flex items-center gap-1.5 text-[13px] font-bold text-amber-900 dark:text-amber-200" title={`Asked ${times} ${times === 1 ? "time" : "times"} in RGUHS exams`}>
         <History className="h-3.5 w-3.5 shrink-0" />
         Asked <span className="tabular-nums">{times}×</span>
-        <span className="font-medium text-amber-800/80 dark:text-amber-300/80">in RGUHS exams</span>
       </p>
       {sittings.length > 0 && (
         <ul className="mt-1.5 flex flex-wrap gap-1">
           {sittings.map((s) => (
-            <li key={s} className="rounded bg-white px-1.5 text-[11.5px] font-semibold leading-5 tabular-nums text-amber-900 ring-1 ring-inset ring-amber-300 dark:bg-amber-950/40 dark:text-amber-100 dark:ring-amber-400/30">
+            <li key={s} className="rounded bg-white px-1 text-[11px] font-semibold leading-[18px] tabular-nums text-amber-900 ring-1 ring-inset ring-amber-300 dark:bg-amber-950/40 dark:text-amber-100 dark:ring-amber-400/30">
               {s}
             </li>
           ))}
