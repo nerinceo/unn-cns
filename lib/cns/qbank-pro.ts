@@ -34,6 +34,26 @@ async function call<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
+/**
+ * The bank's content never changes between imports, and a read's result
+ * depends only on its arguments — the gate has already decided WHICH
+ * arguments a member may use (sample caps included). So content reads are
+ * kept in Next's data cache, shared by every member, and the paywall still
+ * runs on every request. Anything carrying a member id is never cached.
+ *
+ * Bump CONTENT_VERSION after re-importing qbank2: every key below includes it,
+ * so the next deploy reads fresh content (the data cache outlives deploys).
+ */
+const CONTENT_VERSION = "2026-10-15";
+const cachedCall = unstable_cache(
+  async (fn: string, argsJson: string) => call<unknown>(fn, JSON.parse(argsJson) as Record<string, unknown>),
+  ["qbank2-content", CONTENT_VERSION],
+  { revalidate: 86_400, tags: ["qbank2"] },
+);
+function contentRead<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+  return cachedCall(fn, JSON.stringify(args)) as Promise<T>;
+}
+
 // ---------------------------------------------------------------------------
 // Access
 
@@ -84,7 +104,8 @@ export async function gatedRead<T>(ctx: ProContext, fn: string, args: Record<str
 
 /** One of the 12 read functions, exactly as the source served it (see qbank2_rpc). */
 export function proRead(fn: string, args: Record<string, unknown>): Promise<unknown> {
-  return call("qbank2_rpc", { p_fn: fn, p_args: args });
+  // A member-specific read (Previous Years' read / unread filter) goes live.
+  return args.p_user ? call("qbank2_rpc", { p_fn: fn, p_args: args }) : contentRead("qbank2_rpc", { p_fn: fn, p_args: args });
 }
 
 /** semester + max score of a mock (written) or viva exam; null when there is none. */
@@ -180,7 +201,7 @@ export function getMnemonics(
   semester: number,
   f: { subject?: string; type?: string; q?: string; limit: number; offset: number },
 ) {
-  return call<Listing<Mnemonic> & { subjects: string[]; types: string[] }>("qbank2_mnemonics", {
+  return contentRead<Listing<Mnemonic> & { subjects: string[]; types: string[] }>("qbank2_mnemonics", {
     p_semester: semester,
     p_subject: f.subject ?? null,
     p_type: f.type ?? null,
@@ -209,7 +230,7 @@ export function getNotes(
   semester: number,
   f: { subject?: string; unit?: string; type?: string; q?: string; limit: number; offset: number },
 ) {
-  return call<Listing<RevisionNote> & { subjects: string[]; types: string[]; units: { code: string; name: string; subject: string }[] }>(
+  return contentRead<Listing<RevisionNote> & { subjects: string[]; types: string[]; units: { code: string; name: string; subject: string }[] }>(
     "qbank2_notes",
     {
       p_semester: semester,
@@ -248,7 +269,7 @@ export interface SosDeck {
 
 /** deck: "semester-1" … "semester-8" or "general". */
 export function getSos(deck: string, f: { category?: string; paper?: string; q?: string; limit: number; offset: number }) {
-  return call<
+  return contentRead<
     Listing<SosCard> & { deck: SosDeck | null; category_counts: Record<string, number>; papers: { code: string; name: string }[] }
   >("qbank2_sos", {
     p_deck: deck,
@@ -281,7 +302,7 @@ export const getTapletPapers = unstable_cache(
 );
 
 export function getTapletPaper(qp: string, limit: number) {
-  return call<{ paper: (TapletPaper & { semester: number }) | null; tasks: TapletTask[] }>("qbank2_taplet_paper", {
+  return contentRead<{ paper: (TapletPaper & { semester: number }) | null; tasks: TapletTask[] }>("qbank2_taplet_paper", {
     p_qp: qp,
     p_limit: limit,
   });
