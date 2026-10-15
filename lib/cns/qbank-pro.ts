@@ -353,8 +353,8 @@ export function parseYears(v: string | undefined, offered: number[]): number[] {
 }
 
 // ---------------------------------------------------------------------------
-// Saved items, and where the member left off (0006). The done flag and the
-// qbank2_progress RPC still exist in CONTENT but are no longer shown
+// Saved items, and where the member left off (0006, 0009). The done column
+// still exists in member_marks but nothing reads or shows it
 // (Naveen, 2026-10-15: progress figures would overwhelm students).
 
 export type MarkKind = "q" | "mnemonic" | "note" | "sos";
