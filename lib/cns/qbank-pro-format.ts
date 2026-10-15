@@ -69,7 +69,8 @@ function formatPlain(input: string): string {
     .replace(/([.;:])\s+(?=\d{1,2}[.)]\s+[A-Za-z])/g, "$1\n")
     .replace(/([a-zA-Z)])\s+(?=\d{1,2}[.)]\s+[A-Z])/g, "$1\n")
     .replace(/([^\n])\s+(?=[•●]\s+)/g, "$1\n");
-  for (const hd of HEADINGS) raw = raw.replace(new RegExp(`([^\\n])\\s+(${hd})\\s*:`, "gi"), "$1\n$2:");
+  // Not after a bullet marker: "- Causes: …" is a list item, not a heading.
+  for (const hd of HEADINGS) raw = raw.replace(new RegExp(`([^\\n•●*-])\\s+(${hd})\\s*:`, "gi"), "$1\n$2:");
 
   let html = "";
   let list = "";
@@ -131,6 +132,14 @@ export function formatAnswer(value: unknown): string | null {
     const text = textOf(raw);
     if (!/[;:.]\s+\d{1,2}[.)]\s+[A-Za-z]/.test(text) && /<(strong|b|em|i)\b/i.test(raw)) return clean(raw);
     raw = textOf(raw.replace(/<br\s*\/?>/gi, "\n").replace(/<\/?(p|div|h1|h2|h3|h4)\b[^>]*>/gi, "\n"));
+  }
+  // Fenced blocks (```…```, mostly ASCII diagrams) keep their spacing as <pre>.
+  if (raw.includes("```")) {
+    const html = raw
+      .split(/```[A-Za-z]*\n?/)
+      .map((part, i) => (part.trim() === "" ? "" : i % 2 ? `<pre>${esc(part.replace(/\n+$/, ""))}</pre>` : formatPlain(part)))
+      .join("");
+    return clean(html) || null;
   }
   return clean(formatPlain(raw)) || null;
 }

@@ -202,7 +202,7 @@ function AnswerSection({ icon: Icon, label, html }: { icon: typeof Target; label
 export function AnswerHtml({ html }: { html: string }) {
   return (
     <div
-      className="qb-answer mt-1.5 max-w-[78ch] text-[16px] font-medium leading-[1.7] text-slate-800 dark:text-slate-200 [&_.qb-heading]:mt-3 [&_.qb-heading]:font-bold [&_.qb-heading]:text-primary dark:[&_.qb-heading]:text-blue-300 [&_li]:mt-1 [&_ol]:mt-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_p+p]:mt-2 [&_p]:mt-1 [&_strong]:font-bold [&_strong]:text-foreground [&_table]:mt-2 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-6"
+      className="qb-answer mt-1.5 max-w-[78ch] text-[16px] font-medium leading-[1.7] text-slate-800 dark:text-slate-200 [&_.qb-heading]:mt-3 [&_.qb-heading]:font-bold [&_.qb-heading]:text-primary dark:[&_.qb-heading]:text-blue-300 [&_li]:mt-1 [&_ol]:mt-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_p+p]:mt-2 [&_p]:mt-1 [&_strong]:font-bold [&_strong]:text-foreground [&_table]:mt-2 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-6 [&_pre]:mt-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-border [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-[13px] [&_pre]:font-normal [&_pre]:leading-snug"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

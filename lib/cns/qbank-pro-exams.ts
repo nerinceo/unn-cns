@@ -40,6 +40,20 @@ export interface VivaQuestion {
   official_subject_name: string | null;
 }
 
+/**
+ * MCQ options as [letter, text], without the "B. " some source rows repeat
+ * inside the text ("B. B. Validity"). Stripped only when at least two options
+ * carry their own letter, so a real answer such as "C. difficile" survives.
+ */
+export function mcqOptions(o: { option_a?: string | null; option_b?: string | null; option_c?: string | null; option_d?: string | null }): [string, string][] {
+  const pairs = ([["A", o.option_a], ["B", o.option_b], ["C", o.option_c], ["D", o.option_d]] as [string, string | null | undefined][]).filter(
+    (p): p is [string, string] => p[1] != null && String(p[1]).trim() !== "",
+  );
+  const prefix = (l: string) => new RegExp(`^\\s*\\(?${l}[.)]\\s+`, "i");
+  const strip = pairs.filter(([l, t]) => prefix(l).test(t)).length >= 2;
+  return pairs.map(([l, t]) => [l, strip ? t.replace(prefix(l), "") : t]);
+}
+
 const text = (v: unknown) => (v == null ? null : String(v));
 
 /** Only what the runner shows, never question_id (see /api/qbank-pro). */

@@ -2,6 +2,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 import { contentClient } from "@/lib/cns/bank-source";
+import { mcqOptions } from "@/lib/cns/qbank-pro-exams";
 import { getBankAccess, type BankAccess } from "@/lib/cns/qbank-access";
 import { getCurrentUser, getCurrentUserProfile } from "@/lib/supabase/server";
 import { bankIsReachable, decide, openSemesters, semesterModeOf, type ProMode } from "@/lib/cns/qbank-pro-gate";
@@ -133,9 +134,7 @@ export interface ProQuestionRow {
 
 /** The lettered options that have text, as [letter, text]. */
 export function questionOptions(x: Pick<ProQuestionRow, "option_a" | "option_b" | "option_c" | "option_d">): [string, string][] {
-  return ([["A", x.option_a], ["B", x.option_b], ["C", x.option_c], ["D", x.option_d]] as [string, string | null][]).filter(
-    (o): o is [string, string] => o[1] != null && String(o[1]).trim() !== "",
-  );
+  return mcqOptions(x);
 }
 
 // ---------------------------------------------------------------------------
@@ -299,8 +298,8 @@ export function tapletSubject(title: string): string {
 /** Repeat patterns over the last 4 exam years with full data — the source's "repeated" lens. */
 export const REPEAT_PATTERNS = [
   { value: "all4", label: "In all 4 years" },
-  { value: "three4", label: "In 3 of the last 4 years" },
-  { value: "two4", label: "In 2 of the last 4 years" },
+  { value: "three4", label: "At least 3 of the last 4 years" },
+  { value: "two4", label: "At least 2 of the last 4 years" },
   { value: "any4", label: "In any of the last 4 years" },
   { value: "often", label: "Asked in 5+ different years" },
 ] as const;

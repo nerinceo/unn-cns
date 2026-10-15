@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Clock, KeyRound, Lock, Play, Send } from "lucide-react";
 import { AnswerHtml } from "@/components/question-bank/pro/ProQuestionCard";
-import type { PaperQuestion, VivaQuestion } from "@/lib/cns/qbank-pro-exams";
+import { mcqOptions, type PaperQuestion, type VivaQuestion } from "@/lib/cns/qbank-pro-exams";
 
 /**
  * Question Bank Pro mock exams (nerusalem.in mock-exams.html, flow per Naveen
@@ -134,11 +134,11 @@ function TopBar({
     <div className="sticky top-16 z-20 -mx-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10">
       <div className="flex items-center gap-3">
         <Link href={backHref} className="inline-flex h-10 shrink-0 items-center gap-1 rounded-lg border border-border px-3 text-[14px] font-semibold text-slate-700 hover:border-primary hover:text-primary dark:text-slate-300">
-          <ChevronLeft className="h-4 w-4" /> Back
+          <ChevronLeft className="h-4 w-4" /> <span className="sr-only sm:not-sr-only">Back</span>
         </Link>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[16px] font-bold text-foreground">{title}</p>
-          <p className="truncate text-[13px] text-muted-foreground">{subtitle}</p>
+          <p className="line-clamp-2 text-[15px] font-bold leading-snug text-foreground sm:truncate sm:text-[16px]">{title}</p>
+          <p className="hidden truncate text-[13px] text-muted-foreground sm:block">{subtitle}</p>
         </div>
         {right}
       </div>
@@ -168,7 +168,7 @@ function KeyList({ rows }: { rows: KeyRow[] }) {
     <ol className="space-y-4">
       {rows.map((r) => {
         const correct = r.correct_option ? String(r.correct_option).toUpperCase() : null;
-        const chosen = correct ? (r as unknown as Record<string, string | null>)[`option_${correct.toLowerCase()}`] : null;
+        const chosen = correct ? (mcqOptions(r).find(([l]) => l === correct.toUpperCase())?.[1] ?? null) : null;
         const points = String(r.key_points ?? "")
           .split("|")
           .map((p) => p.trim())
@@ -294,7 +294,7 @@ export function WrittenExamRunner({
                 <h2 className="border-b border-border pb-2 text-[17px] font-bold text-primary">{s.name}</h2>
                 <ol className="mt-3 space-y-4">
                   {s.items.map((q) => {
-                    const options = ([["A", q.option_a], ["B", q.option_b], ["C", q.option_c], ["D", q.option_d]] as const).filter(([, v]) => v);
+                    const options = mcqOptions(q);
                     return (
                       <li key={q.question_order} className="flex gap-3">
                         <span className="w-7 shrink-0 text-[16px] font-bold tabular-nums text-primary">{q.question_order}.</span>
