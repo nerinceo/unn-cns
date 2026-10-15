@@ -122,10 +122,68 @@ function formatPlain(input: string): string {
   return html;
 }
 
+// Markdown pipe tables (134 answers; cells may hold <strong>): a header row
+// with a "|---|---|" rule under it, then rows. Outer pipes are optional, and a
+// row left open (leading "|" but no closing one) continues on the next lines —
+// a cell written over several lines, kept as line breaks.
+const TABLE_RULE = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
+const CELL_BREAK = " ";
+function tableHtml(head: string, rows: string[]): string {
+  const cells = (r: string) => r.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+  const cell = (tag: "th" | "td", c: string) =>
+    `<${tag}>${c
+      .split(CELL_BREAK)
+      .map((p) => (/<[a-z]/i.test(p) ? p : inline(p)))
+      .join("<br>")}</${tag}>`;
+  return (
+    `<table><thead><tr>${cells(head).map((c) => cell("th", c)).join("")}</tr></thead>` +
+    `<tbody>${rows.map((r) => `<tr>${cells(r).map((c) => cell("td", c)).join("")}</tr>`).join("")}</tbody></table>`
+  );
+}
+function splitTables(raw: string): string | null {
+  const lines = raw.replace(/\r\n?/g, "\n").split("\n");
+  const startsAt = (i: number) => lines[i].includes("|") && !TABLE_RULE.test(lines[i]) && TABLE_RULE.test(lines[i + 1] ?? "");
+  if (!lines.some((_, i) => startsAt(i))) return null;
+  const out: string[] = [];
+  let text: string[] = [];
+  const flushText = () => {
+    const t = text.join("\n").trim();
+    if (t) out.push(formatAnswer(t) ?? "");
+    text = [];
+  };
+  for (let i = 0; i < lines.length; i++) {
+    if (!startsAt(i)) {
+      text.push(lines[i]);
+      continue;
+    }
+    flushText();
+    const head = lines[i];
+    const rows: string[] = [];
+    let j = i + 2;
+    for (; j < lines.length; j++) {
+      const l = lines[j].trim();
+      const last = rows.length ? rows[rows.length - 1].trim() : "";
+      const open = last.startsWith("|") && !last.endsWith("|");
+      if (TABLE_RULE.test(l)) continue;
+      if (open && l && !l.startsWith("|")) rows[rows.length - 1] += CELL_BREAK + l;
+      else if (l.includes("|")) rows.push(l);
+      else break;
+    }
+    out.push(tableHtml(head, rows));
+    i = j - 1;
+  }
+  flushText();
+  return clean(out.join("")) || null;
+}
+
 /** An answer, rationale or exam tip as safe HTML; null when there is nothing to show. */
 export function formatAnswer(value: unknown): string | null {
   if (value == null || String(value).trim() === "") return null;
   let raw = typeof value === "object" ? JSON.stringify(value, null, 2) : String(value).trim();
+  if (raw.includes("|")) {
+    const withTables = splitTables(/&lt;\/?[a-z][^&]*&gt;/i.test(raw) ? decode(raw) : raw);
+    if (withTables) return withTables;
+  }
   if (/&lt;\/?[a-z][^&]*&gt;/i.test(raw)) raw = decode(raw);
   if (/<\/?[a-z][^>]*>/i.test(raw)) {
     if (/<(ol|ul|table|h2|h3|h4)\b/i.test(raw)) return clean(raw);

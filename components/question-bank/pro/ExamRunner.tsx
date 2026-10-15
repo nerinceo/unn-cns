@@ -150,11 +150,12 @@ function Timer({ seconds, done }: { seconds: number; done: boolean }) {
   return (
     <span
       className={`inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-[15px] font-bold tabular-nums ${
-        done ? "bg-danger-soft text-danger" : seconds <= 300 ? "bg-warning-soft text-warning" : "bg-brand-50 text-primary"
+        done ? (seconds <= 0 ? "bg-danger-soft text-danger" : "bg-muted text-slate-600 dark:text-slate-300") : seconds <= 300 ? "bg-warning-soft text-warning" : "bg-brand-50 text-primary"
       }`}
     >
       <Clock className="h-4 w-4" />
-      {done ? "Time up" : clock(seconds)}
+      {/* Submitted early is not "Time up" (go-live check, 2026-10-15). */}
+      {done ? (seconds <= 0 ? "Time up" : "Submitted") : clock(seconds)}
     </span>
   );
 }
