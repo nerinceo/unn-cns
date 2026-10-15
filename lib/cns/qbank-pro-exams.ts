@@ -40,6 +40,33 @@ export interface VivaQuestion {
   official_subject_name: string | null;
 }
 
+const text = (v: unknown) => (v == null ? null : String(v));
+
+/** Only what the runner shows, never question_id (see /api/qbank-pro). */
+export function toPaperQuestion(r: Record<string, unknown>): PaperQuestion {
+  return {
+    question_order: Number(r.question_order),
+    section_name: text(r.section_name),
+    marks: Number(r.marks),
+    is_choice: r.is_choice === true,
+    choice_group: text(r.choice_group),
+    question: String(r.question ?? ""),
+    option_a: text(r.option_a),
+    option_b: text(r.option_b),
+    option_c: text(r.option_c),
+    option_d: text(r.option_d),
+  };
+}
+
+export function toVivaQuestion(r: Record<string, unknown>): VivaQuestion {
+  return {
+    question_order: Number(r.question_order),
+    question: String(r.question ?? ""),
+    official_unit_name: text(r.official_unit_name),
+    official_subject_name: text(r.official_subject_name),
+  };
+}
+
 const VIVA_GROUPS: Record<string, string> = {
   VIVA_NF: "Nursing Foundation I & II",
   VIVA_AHN1: "Adult Health Nursing I",

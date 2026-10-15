@@ -206,7 +206,7 @@ export default async function ProPreviousPage({
                 tipHtml: formatAnswer(x.exam_tip),
                 timesAsked: Number(x.times_asked) || null,
                 sittings: x.sittings ?? [],
-                mark: marksById[String(x.id)] ?? { saved: false, done: false },
+                mark: sample ? undefined : (marksById[String(x.id)] ?? { saved: false }),
               }}
             />
           ))}

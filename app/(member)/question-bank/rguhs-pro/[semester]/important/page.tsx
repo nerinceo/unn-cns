@@ -225,7 +225,7 @@ export default async function ProImportantPage({
                   tipHtml: formatAnswer(x.exam_tip),
                   priority: PRIORITIES.find((p) => p.value === x.importance_level)?.label ?? null,
                   source: SOURCES.find((s) => s.value === x.source_group)?.label ?? null,
-                  mark: marksById[String(x.id)] ?? { saved: false, done: false },
+                  mark: sample ? undefined : (marksById[String(x.id)] ?? { saved: false }),
                 }}
               />
             );

@@ -116,7 +116,7 @@ export default async function ProMnemonicsPage({
                 <p className="mt-2 text-[15px] leading-relaxed">{m.meaning}</p>
               </details>
               <div className="border-t border-black/10 bg-white/70 px-5 py-2.5 dark:bg-black/10">
-                <MarkButtons kind="mnemonic" item={m.id} saved={marksById[String(m.id)]?.saved} compact />
+                {!sample && <MarkButtons kind="mnemonic" item={m.id} saved={marksById[String(m.id)]?.saved} compact />}
               </div>
             </article>
           ))}

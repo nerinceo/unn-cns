@@ -69,7 +69,7 @@ export async function SosDeckView({
       <ProHeader
         eyebrow={eyebrow}
         title={title}
-        subtitle="Exam coming soon? Simple exam tips, subject revision cards, answer-writing help and exam-hall advice. Save a card, and mark it when you finish."
+        subtitle="Exam coming soon? Simple exam tips, subject revision cards, answer-writing help and exam-hall advice. Save the cards you want to come back to."
         icon={<LifeBuoy className="h-6 w-6" />}
       />
 
@@ -178,7 +178,7 @@ export async function SosDeckView({
                       </div>
                     )}
                     <div className="mt-auto pt-4">
-                      <MarkButtons kind="sos" item={c._id} saved={marksById[String(c._id)]?.saved} compact />
+                      {!sample && <MarkButtons kind="sos" item={c._id} saved={marksById[String(c._id)]?.saved} compact />}
                     </div>
                   </div>
                 </article>

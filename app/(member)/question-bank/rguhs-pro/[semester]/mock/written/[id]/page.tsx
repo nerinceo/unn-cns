@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Lock } from "lucide-react";
 import { PRO_HOME, gatedRead, getAttempt, parseSemester, recordResume, requireProBank, requireSemesterMode } from "@/lib/cns/qbank-pro";
-import type { PaperQuestion, WrittenExam } from "@/lib/cns/qbank-pro-exams";
+import { toPaperQuestion, type PaperQuestion, type WrittenExam } from "@/lib/cns/qbank-pro-exams";
 import { PRO_NAME, ProBack } from "@/components/question-bank/pro/ProChrome";
 import { WrittenExamRunner } from "@/components/question-bank/pro/ExamRunner";
 
@@ -53,7 +53,7 @@ export default async function ProWrittenExamPage({ params }: { params: { semeste
       mockNumber={exam.mock_number}
       totalMarks={exam.total_marks}
       minutes={exam.duration_minutes}
-      questions={paper}
+      questions={paper.map((r) => toPaperQuestion(r as unknown as Record<string, unknown>))}
       backHref={back}
       submitted={!!attempt}
     />

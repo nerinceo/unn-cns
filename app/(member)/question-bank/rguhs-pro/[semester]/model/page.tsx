@@ -192,7 +192,7 @@ export default async function ProModelPage({
                   answerHtml: formatAnswer(x.answer_formatted || x.answer),
                   rationaleHtml: formatAnswer(x.rationale),
                   tipHtml: formatAnswer(x.exam_tip),
-                  mark: marksById[String(x.id)] ?? { saved: false, done: false },
+                  mark: sample ? undefined : (marksById[String(x.id)] ?? { saved: false }),
                 }}
               />
             );

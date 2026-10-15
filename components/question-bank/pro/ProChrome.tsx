@@ -216,5 +216,6 @@ export function param(sp: Record<string, string | string[] | undefined>, k: stri
 
 export function pageParam(sp: Record<string, string | string[] | undefined>): number {
   const n = Number(param(sp, "page"));
-  return Number.isInteger(n) && n > 1 ? n : 1;
+  // Bounded: offsets are Postgres integers, and no list here reaches 2,000 pages.
+  return Number.isInteger(n) && n > 1 ? Math.min(n, 2000) : 1;
 }

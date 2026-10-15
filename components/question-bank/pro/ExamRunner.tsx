@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Clock, KeyRound, Lock, Play, Send } from "lucide-react";
 import { AnswerHtml } from "@/components/question-bank/pro/ProQuestionCard";
@@ -10,7 +10,7 @@ import type { PaperQuestion, VivaQuestion } from "@/lib/cns/qbank-pro-exams";
  * Question Bank Pro mock exams (nerusalem.in mock-exams.html, flow per Naveen
  * 2026-10-14): read the paper, Start, then Submit — or let the timer reach
  * zero — and the answer key opens. Students evaluate themselves against it;
- * nothing is scored or recorded (Naveen, 2026-10-15).
+ * there is no score (Naveen, 2026-10-15). Only the submission is recorded.
  *
  * The timer's end time is kept in this browser, so a reload carries on the
  * same exam. The submission lives on the server, which is also
@@ -96,8 +96,14 @@ function useExam(kind: Kind, examId: number, minutes: number, initiallySubmitted
   }, [phase]);
 
   const remaining = endAt ? Math.ceil((endAt - now) / 1000) : minutes * 60;
+  // Time up submits ONCE. If that fails the error shows and Submit stays for a
+  // manual retry, rather than re-posting every render.
+  const autoSubmitted = useRef(false);
   useEffect(() => {
-    if (phase === "running" && endAt && remaining <= 0 && !busy) void submit();
+    if (phase === "running" && endAt && remaining <= 0 && !busy && !autoSubmitted.current) {
+      autoSubmitted.current = true;
+      void submit();
+    }
   }, [phase, endAt, remaining, busy, submit]);
 
   const start = () => {

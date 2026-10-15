@@ -3,7 +3,7 @@ import { Bookmark, ChevronDown, SearchX } from "lucide-react";
 import { FilterSelect } from "@/components/question-bank/FilterSelect";
 import {
   PRO_HOME,
-  getMarked,
+  getSaved,
   getResume,
   parseSemester,
   questionOptions,
@@ -45,7 +45,7 @@ export default async function ProSavedPage({ searchParams }: { searchParams: Rec
 
   const [resume, list] = await Promise.all([
     getResume(ctx),
-    ctx.userId ? getMarked(ctx, kind, "saved", semester, PAGE_SIZE, (page - 1) * PAGE_SIZE) : Promise.resolve({ total: 0, rows: [] }),
+    ctx.userId ? getSaved(ctx, kind, semester, PAGE_SIZE, (page - 1) * PAGE_SIZE) : Promise.resolve({ total: 0, rows: [] }),
   ]);
   const last = resume[0];
   const mark = { saved: true };

@@ -7,13 +7,13 @@ import {
   getAttempt,
   getExamInfo,
   getSampleExams,
-  itemSemester,
+  itemSemesters,
   proRead,
-  saveAttemptScore,
-  setMark,
+  setSaved,
   submitAttempt,
 } from "@/lib/cns/qbank-pro";
-import { decide, generalModeOf, semesterModeOf } from "@/lib/cns/qbank-pro-gate";
+import { decide, maySave } from "@/lib/cns/qbank-pro-gate";
+import { toPaperQuestion, toVivaQuestion } from "@/lib/cns/qbank-pro-exams";
 import { formatAnswer } from "@/lib/cns/qbank-pro-format";
 
 /**
@@ -23,7 +23,7 @@ import { formatAnswer } from "@/lib/cns/qbank-pro-format";
  *
  *   POST /api/qbank-pro   { fn, args }
  *
- * Also Save (fn "qb2_mark") on any question or hacks card.
+ * Also Save (fn "qb2_mark") on a question or hacks card of a bought semester.
  *
  * Same gate as the server-rendered pages (lib/cns/qbank-pro-gate): the exam's
  * semester must be bought, or the exam must be that semester's free sample;
@@ -36,7 +36,6 @@ const ALLOWED = new Set([
   "get_mock_exam_answer_key",
   "get_viva_exam_questions",
   "get_viva_exam_answer_key",
-  "qb2_attempt",
   "qb2_submit",
   "qb2_mark",
 ]);
@@ -48,9 +47,9 @@ function fail(status: number, message: string) {
 export async function POST(req: NextRequest) {
   // JSON only, and from this site: a cross-site form can neither set this
   // content type without a preflight nor forge the Origin.
-  if (!(req.headers.get("content-type") ?? "").includes("application/json")) return fail(415, "Expected JSON");
-  const origin = req.headers.get("origin");
-  if (origin && origin !== req.nextUrl.origin) return fail(403, "Cross-site request refused");
+  if ((req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase() !== "application/json") return fail(415, "Expected JSON");
+  // Browsers send Origin on every POST, same-site included; a request without it is not one of our pages.
+  if (req.headers.get("origin") !== req.nextUrl.origin) return fail(403, "Cross-site request refused");
 
   const profile = await getCurrentUserProfile();
   if ((profile as { account_status?: string | null } | null)?.account_status === "suspended") {
@@ -76,25 +75,21 @@ export async function POST(req: NextRequest) {
     return fail(400, "Invalid request");
   }
 
-  // Save on a question or a hacks card (p_done is still accepted, no longer sent). Allowed on what
-  // the member can open — its semester bought, or offered as a sample.
+  // Save / unsave a question or a hacks card. Only in a semester the member
+  // has BOUGHT, never on a free sample: /saved shows full answers, so a
+  // sample-mode save would open the whole bank (pre-launch audit 2026-10-15).
   if (fn === "qb2_mark") {
     const kind = args.p_kind;
     const item = Number(args.p_item);
-    const flag = (v: unknown) => (v === true ? true : v === false ? false : null);
     if ((kind !== "q" && kind !== "mnemonic" && kind !== "note" && kind !== "sos") || !Number.isSafeInteger(item) || item <= 0) {
       return fail(400, "Unknown item.");
     }
-    const saved = flag(args.p_saved);
-    const done = flag(args.p_done);
-    if (saved === null && done === null) return fail(400, "Nothing to change.");
+    if (typeof args.p_saved !== "boolean") return fail(400, "Nothing to change.");
     try {
-      const semester = await itemSemester(kind, item);
-      if (semester === undefined) return fail(404, "Item not found.");
-      const access = await getBankAccess(PRO.institution, PRO.course);
-      const mode = semester == null ? generalModeOf(access) : semesterModeOf(access, semester);
-      if (mode === "closed") return fail(403, "This item is not open to your account.");
-      return NextResponse.json(await setMark(user.id, kind, item, saved, done));
+      const [semesters, access] = await Promise.all([itemSemesters(kind, item), getBankAccess(PRO.institution, PRO.course)]);
+      if (!semesters) return fail(404, "Item not found.");
+      if (!maySave(access, semesters)) return fail(403, "Buy this semester to save items.");
+      return NextResponse.json(await setSaved(user.id, kind, item, args.p_saved));
     } catch (e) {
       console.error("[qbank-pro] mark", e instanceof Error ? e.message : e);
       return fail(500, "Could not save. Please try again.");
@@ -108,17 +103,12 @@ export async function POST(req: NextRequest) {
       sampleExams: getSampleExams,
       hasSubmitted: async (kind: "written" | "viva", id: number) => (await getAttempt(user.id, kind, id)) != null,
     };
-    // The member's own attempt: gated like submitting (same exam rules), read-only.
-    const decision = await decide(fn === "qb2_attempt" ? "qb2_submit" : fn, args, deps);
+    const decision = await decide(fn, args, deps);
     if ("deny" in decision) return fail(decision.deny, decision.message);
     if ("empty" in decision) return NextResponse.json([]);
     if ("submit" in decision) {
       const { kind, id } = decision.submit;
-      return NextResponse.json(fn === "qb2_attempt" ? await getAttempt(user.id, kind, id) : await submitAttempt(user.id, kind, id));
-    }
-    if ("score" in decision) {
-      const s = decision.score;
-      return NextResponse.json(await saveAttemptScore(user.id, s.kind, s.id, s.score));
+      return NextResponse.json(await submitAttempt(user.id, kind, id));
     }
     const data = await proRead(decision.read, decision.args);
     // Answer keys leave as sanitised HTML, formatted exactly as the question
@@ -126,12 +116,24 @@ export async function POST(req: NextRequest) {
     if ((fn === "get_mock_exam_answer_key" || fn === "get_viva_exam_answer_key") && Array.isArray(data)) {
       return NextResponse.json(
         data.map((r: Record<string, unknown>) => ({
-          ...r,
+          question_order: r.question_order,
+          question: r.question,
+          marks: r.marks,
+          correct_option: r.correct_option,
+          option_a: r.option_a,
+          option_b: r.option_b,
+          option_c: r.option_c,
+          option_d: r.option_d,
+          key_points: r.key_points,
           answer_html: formatAnswer(r.answer),
           rationale_html: formatAnswer(r.rationale),
         })),
       );
     }
+    // Papers leave without question ids: an id is what Save takes, and a saved
+    // question shows its answer on /saved, so the key must wait for Submit.
+    if (fn === "get_written_exam_paper" && Array.isArray(data)) return NextResponse.json(data.map(toPaperQuestion));
+    if (fn === "get_viva_exam_questions" && Array.isArray(data)) return NextResponse.json(data.map(toVivaQuestion));
     return NextResponse.json(data);
   } catch (e) {
     console.error("[qbank-pro]", fn, e instanceof Error ? e.message : e);

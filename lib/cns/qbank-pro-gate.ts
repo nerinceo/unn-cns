@@ -28,6 +28,23 @@ export function generalModeOf(a: ProAccess): ProMode {
   return a.buyUrl != null ? "sample" : "closed";
 }
 
+/**
+ * Semesters whose saved items the member may see and change: bought ones only,
+ * never samples (pre-launch audit 2026-10-15 — Save on a sample semester let a
+ * free account read any answer through /saved). 0 stands for the general SOS
+ * deck. Re-derived on every read, so a lapsed purchase hides what it saved.
+ */
+export function openSemesters(a: ProAccess): number[] {
+  const out = Array.from({ length: 8 }, (_, i) => i + 1).filter((s) => semesterModeOf(a, s) === "full");
+  return generalModeOf(a) === "full" ? [0, ...out] : out;
+}
+
+/** May the member Save an item listed in these semesters? (one bought is enough) */
+export function maySave(a: ProAccess, semesters: number[]): boolean {
+  const open = openSemesters(a);
+  return semesters.some((s) => open.includes(s));
+}
+
 export function bankIsReachable(a: ProAccess): boolean {
   return a.all || a.semesters.size > 0 || a.buyUrl != null;
 }
@@ -93,8 +110,7 @@ export type Decision =
   | { deny: number; message: string }
   | { empty: true }
   | { read: string; args: Record<string, unknown> }
-  | { submit: { kind: Kind; id: number } }
-  | { score: { kind: Kind; id: number; score: number } };
+  | { submit: { kind: Kind; id: number } };
 
 const deny = (status: number, message: string): Decision => ({ deny: status, message });
 
@@ -114,7 +130,7 @@ export async function decide(fn: string, args: Record<string, unknown>, d: GateD
   if (CATALOG_READS.has(fn)) return { read: fn, args: {} };
 
   const exam = EXAM_READS[fn];
-  if (!exam && fn !== "qb2_submit" && fn !== "qb2_save_score") return deny(404, "Not found");
+  if (!exam && fn !== "qb2_submit") return deny(404, "Not found");
 
   const kind: Kind | null = exam ? exam.kind : args.p_kind === "viva" ? "viva" : args.p_kind === "written" ? "written" : null;
   const id = examIdOf(exam ? args[exam.arg] : args.p_exam_id);
@@ -131,14 +147,6 @@ export async function decide(fn: string, args: Record<string, unknown>, d: GateD
   }
 
   if (fn === "qb2_submit") return { submit: { kind, id } };
-  if (fn === "qb2_save_score") {
-    const score = Number(args.p_score);
-    if (args.p_score === null || args.p_score === "" || !Number.isFinite(score) || score < 0 || score > Number(info.max_score)) {
-      return deny(400, `Enter a score between 0 and ${info.max_score}.`);
-    }
-    if (!(await d.hasSubmitted(kind, id))) return deny(409, "Submit the exam before saving a score.");
-    return { score: { kind, id, score } };
-  }
   // The answer key opens only once the server holds the submission.
   if (exam.key && !(await d.hasSubmitted(kind, id))) return deny(403, "Submit the exam to unlock the answer key.");
   return { read: fn, args: { [exam.arg]: id } };

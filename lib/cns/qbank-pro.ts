@@ -3,8 +3,8 @@ import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 import { contentClient } from "@/lib/cns/bank-source";
 import { getBankAccess, type BankAccess } from "@/lib/cns/qbank-access";
-import { getCurrentUser } from "@/lib/supabase/server";
-import { bankIsReachable, decide, semesterModeOf, type ProMode } from "@/lib/cns/qbank-pro-gate";
+import { getCurrentUser, getCurrentUserProfile } from "@/lib/supabase/server";
+import { bankIsReachable, decide, openSemesters, semesterModeOf, type ProMode } from "@/lib/cns/qbank-pro-gate";
 
 /**
  * Question Bank Pro (Naveen, 2026-10-14): the nerusalem.in bank — every
@@ -43,7 +43,8 @@ export interface ProContext {
 
 /** The member's Pro access; leaves for the paid-access panel when the bank is neither held nor on sale. */
 export async function requireProBank(): Promise<ProContext> {
-  const [access, user] = await Promise.all([getBankAccess(PRO.institution, PRO.course), getCurrentUser()]);
+  const [access, user, profile] = await Promise.all([getBankAccess(PRO.institution, PRO.course), getCurrentUser(), getCurrentUserProfile()]);
+  if ((profile as { account_status?: string | null } | null)?.account_status === "suspended") redirect("/question-bank");
   if (!bankIsReachable(access)) redirect(`/question-bank?locked=${PRO.institution}`);
   return { access, userId: user?.id ?? null };
 }
@@ -395,25 +396,25 @@ export async function recordResume(ctx: ProContext, semester: number, path: stri
   }
 }
 
-export function getMarked(ctx: ProContext, kind: MarkKind, status: "saved" | "done", semester: number | null, limit: number, offset: number) {
-  return call<{ total: number; rows: Record<string, unknown>[] }>("qbank2_marked", {
+/** The member's saved items of one kind, only from semesters they can open now. */
+export function getSaved(ctx: ProContext, kind: MarkKind, semester: number | null, limit: number, offset: number) {
+  return call<{ total: number; rows: Record<string, unknown>[] }>("qbank2_saved", {
     p_user: ctx.userId,
     p_kind: kind,
-    p_status: status,
+    p_open: openSemesters(ctx.access),
     p_semester: semester,
     p_limit: limit,
     p_offset: offset,
   });
 }
 
-/** Which semester an item belongs to (null = the general SOS deck); undefined when there is no such item. */
-export async function itemSemester(kind: MarkKind, item: number): Promise<number | null | undefined> {
-  const rows = await call<{ found: boolean; semester: number | null }[]>("qbank2_item_semester", { p_kind: kind, p_item: item });
-  return rows?.[0]?.found ? rows[0].semester : undefined;
+/** Every semester an item is listed in (0 = the general SOS deck); null when there is no such item. */
+export async function itemSemesters(kind: MarkKind, item: number): Promise<number[] | null> {
+  return call<number[] | null>("qbank2_item_semesters", { p_kind: kind, p_item: item });
 }
 
-export async function setMark(userId: string, kind: MarkKind, item: number, saved: boolean | null, done: boolean | null) {
-  return call<{ saved: boolean; done: boolean }>("qbank2_mark_set", { p_user: userId, p_kind: kind, p_item: item, p_saved: saved, p_done: done });
+export async function setSaved(userId: string, kind: MarkKind, item: number, saved: boolean) {
+  return call<{ saved: boolean }>("qbank2_mark_set", { p_user: userId, p_kind: kind, p_item: item, p_saved: saved, p_done: null });
 }
 
 // ---------------------------------------------------------------------------
@@ -421,7 +422,6 @@ export async function setMark(userId: string, kind: MarkKind, item: number, save
 
 export interface Attempt {
   submitted_at: string;
-  self_score: number | null;
   max_score: number;
 }
 
@@ -435,17 +435,3 @@ export async function submitAttempt(userId: string, kind: "written" | "viva", ex
   return rows[0];
 }
 
-export async function saveAttemptScore(
-  userId: string,
-  kind: "written" | "viva",
-  examId: number,
-  score: number,
-): Promise<Attempt> {
-  const rows = await call<Attempt[]>("qbank2_attempt_score", {
-    p_user: userId,
-    p_kind: kind,
-    p_exam_id: examId,
-    p_score: score,
-  });
-  return rows[0];
-}
