@@ -2,14 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Hash, Layers, ListTree, Tags } from "lucide-react";
+import { BookOpen, Check, ChevronDown, FileText, Flame, Hash, Layers, LayoutGrid, ListTree, Tags } from "lucide-react";
 
 /**
  * Icons are resolved here, not passed in. A Lucide icon is a function
  * component, and a Server Component cannot serialize one across the boundary
  * into a Client Component — it fails at render, not at typecheck.
  */
-const ICONS = { subject: Layers, type: Tags, marks: Hash, topic: ListTree } as const;
+const ICONS = {
+  subject: Layers,
+  type: Tags,
+  marks: Hash,
+  topic: ListTree,
+  // Question Bank Pro's filters (additive).
+  unit: ListTree,
+  priority: Flame,
+  source: BookOpen,
+  category: LayoutGrid,
+  paper: FileText,
+} as const;
 
 export type FilterOption = {
   /** Exact visible label. Never reworded — these come from the copy module. */
