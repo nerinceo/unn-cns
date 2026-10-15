@@ -64,8 +64,20 @@ export default async function ProPreviousPage({
   if (!semester) notFound();
   const ctx = await requireProBank();
   const sample = requireSemesterMode(ctx, semester) === "sample";
-  const subjects = (await gatedRead<Subject[]>(ctx, "get_previous_question_subjects", { p_semester: semester })) ?? [];
-  const chosen = subjects.find((s) => s.subject_code === param(searchParams, "subject"));
+  // One card per subject NAME, as on the source page: a few questions sit
+  // under a stray code (SEM1_ANP) that shares its name with a real subject, and
+  // the source queried all of a name's codes together.
+  const rows0 = (await gatedRead<Subject[]>(ctx, "get_previous_question_subjects", { p_semester: semester })) ?? [];
+  const subjects: { key: string; name: string; codes: string[]; count: number }[] = [];
+  for (const r of rows0) {
+    const g = subjects.find((x) => x.name === r.subject_name);
+    if (g) {
+      g.codes.push(r.subject_code);
+      g.count += Number(r.question_count);
+    } else subjects.push({ key: r.subject_code, name: r.subject_name, codes: [r.subject_code], count: Number(r.question_count) });
+  }
+  const wanted = param(searchParams, "subject");
+  const chosen = subjects.find((s) => s.codes.includes(wanted ?? ""));
   const base = `${PRO_HOME}/${semester}/previous`;
 
   if (!chosen) {
@@ -86,14 +98,14 @@ export default async function ProPreviousPage({
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {subjects.map((s) => (
             <Link
-              key={s.subject_code}
-              href={`${base}?subject=${encodeURIComponent(s.subject_code)}`}
+              key={s.key}
+              href={`${base}?subject=${encodeURIComponent(s.key)}`}
               className="group flex flex-col rounded-2xl border border-border bg-card p-5 shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-card-hover"
             >
-              <h3 className="text-[17px] font-bold leading-snug group-hover:text-primary">{s.subject_name}</h3>
+              <h3 className="text-[17px] font-bold leading-snug group-hover:text-primary">{s.name}</h3>
               <p className="mt-2 inline-flex items-center gap-1.5 text-[14px] font-semibold text-muted-foreground">
                 <History className="h-4 w-4 text-primary" />
-                {Number(s.question_count).toLocaleString("en-IN")} previous years’ solved questions
+                {s.count.toLocaleString("en-IN")} previous years’ solved questions
               </p>
               <span className="mt-4 inline-flex items-center gap-1 border-t border-border pt-3 text-[14px] font-bold text-primary">
                 Open <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -111,23 +123,23 @@ export default async function ProPreviousPage({
   const rows =
     (await gatedRead<Row[]>(ctx, "get_previous_questions_page", {
       p_semester: semester,
-      p_subject_codes: [chosen.subject_code],
+      p_subject_codes: chosen.codes,
       p_search: q ?? "",
       p_offset: (page - 1) * PAGE_SIZE,
       p_limit: PAGE_SIZE,
     })) ?? [];
   const total = rows.length ? Number(rows[0].total_count) : 0;
-  const href = linkBuilder(base, { subject: chosen.subject_code, q });
+  const href = linkBuilder(base, { subject: chosen.key, q });
 
   return (
     <div className="space-y-5">
       <ProBack href={base} label="Subjects" />
-      <ProHeader eyebrow={`Semester ${semester} · Previous Years`} title={chosen.subject_name} subtitle="Most frequently asked questions first, with the years they were asked." />
+      <ProHeader eyebrow={`Semester ${semester} · Previous Years`} title={chosen.name} subtitle="Most frequently asked questions first, with the years they were asked." />
 
       {sample ? (
-        <ProSampleNotice semester={semester} shown={rows.length} total={Number(chosen.question_count)} noun="questions in this subject" buyUrl={ctx.access.buyUrl} />
+        <ProSampleNotice semester={semester} shown={rows.length} total={chosen.count} noun="questions in this subject" buyUrl={ctx.access.buyUrl} />
       ) : (
-        <ProSearch action={base} keep={{ subject: chosen.subject_code }} value={q} placeholder="Search questions" />
+        <ProSearch action={base} keep={{ subject: chosen.key }} value={q} placeholder="Search questions" />
       )}
 
       {!sample && <ProCountBar from={total ? (page - 1) * PAGE_SIZE + 1 : 0} to={(page - 1) * PAGE_SIZE + rows.length} total={total} noun="questions" />}
