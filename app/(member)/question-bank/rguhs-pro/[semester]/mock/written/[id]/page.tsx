@@ -53,11 +53,9 @@ export default async function ProWrittenExamPage({ params }: { params: { semeste
       mockNumber={exam.mock_number}
       totalMarks={exam.total_marks}
       minutes={exam.duration_minutes}
-      instructions={exam.instructions}
       questions={paper}
       backHref={back}
       submitted={!!attempt}
-      savedScore={attempt?.self_score != null ? Number(attempt.self_score) : null}
     />
   );
 }

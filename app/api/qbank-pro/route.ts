@@ -18,7 +18,8 @@ import { formatAnswer } from "@/lib/cns/qbank-pro-format";
 
 /**
  * Question Bank Pro — what the mock and viva exam runners call from the
- * browser: the paper, the answer key, submitting, and the self score.
+ * browser: the paper, the answer key, and submitting. There is no score —
+ * students evaluate themselves against the revealed key.
  *
  *   POST /api/qbank-pro   { fn, args }
  *
@@ -37,7 +38,6 @@ const ALLOWED = new Set([
   "get_viva_exam_answer_key",
   "qb2_attempt",
   "qb2_submit",
-  "qb2_save_score",
   "qb2_mark",
 ]);
 

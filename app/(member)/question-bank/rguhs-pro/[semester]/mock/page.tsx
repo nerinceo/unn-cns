@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: { semester: string 
 /**
  * Mock Exams (nerusalem.in mock-exams.html): written papers and oral vivas
  * for the semester. Each runs on its own page: read the paper, Start, Submit
- * (or let the timer end), then the answer key and a self score.
+ * (or let the timer end), then the answer key to evaluate yourself against.
  */
 export default async function ProMockPage({
   params,

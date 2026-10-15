@@ -54,11 +54,9 @@ export default async function ProVivaExamPage({ params }: { params: { semester: 
       title={title}
       vivaNumber={exam.viva_number}
       minutes={exam.duration_minutes}
-      totalQuestions={exam.total_questions}
       questions={questions}
       backHref={back}
       submitted={!!attempt}
-      savedScore={attempt?.self_score != null ? Number(attempt.self_score) : null}
     />
   );
 }

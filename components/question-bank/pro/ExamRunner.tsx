@@ -2,18 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ChevronLeft, ChevronRight, Clock, KeyRound, Lock, Play, Send } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, KeyRound, Lock, Play, Send } from "lucide-react";
 import { AnswerHtml } from "@/components/question-bank/pro/ProQuestionCard";
 import type { PaperQuestion, VivaQuestion } from "@/lib/cns/qbank-pro-exams";
 
 /**
  * Question Bank Pro mock exams (nerusalem.in mock-exams.html, flow per Naveen
  * 2026-10-14): read the paper, Start, then Submit — or let the timer reach
- * zero — and the answer key opens for self-evaluation; the self score is
- * saved to the account.
+ * zero — and the answer key opens. Students evaluate themselves against it;
+ * nothing is scored or recorded (Naveen, 2026-10-15).
  *
  * The timer's end time is kept in this browser, so a reload carries on the
- * same exam. The submission and the score live on the server, which is also
+ * same exam. The submission lives on the server, which is also
  * what unlocks the key: /api/qbank-pro refuses it until the attempt exists.
  */
 
@@ -46,7 +46,7 @@ async function api<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 const clock = (s: number) => `${String(Math.floor(Math.max(0, s) / 60)).padStart(2, "0")}:${String(Math.max(0, s) % 60).padStart(2, "0")}`;
 
 /** Start → timer → submit, and the key afterwards. Shared by both runners. */
-function useExam(kind: Kind, examId: number, minutes: number, initiallySubmitted: boolean, initialScore: number | null) {
+function useExam(kind: Kind, examId: number, minutes: number, initiallySubmitted: boolean) {
   const storeKey = `qbank-pro:${kind}:${examId}`;
   const [phase, setPhase] = useState<"ready" | "running" | "done">(initiallySubmitted ? "done" : "ready");
   const [endAt, setEndAt] = useState<number | null>(null);
@@ -54,7 +54,6 @@ function useExam(kind: Kind, examId: number, minutes: number, initiallySubmitted
   const [key, setKey] = useState<KeyRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState<number | null>(initialScore);
 
   const submit = useCallback(async () => {
     setBusy(true);
@@ -111,17 +110,7 @@ function useExam(kind: Kind, examId: number, minutes: number, initiallySubmitted
     setPhase("running");
   };
 
-  const saveScore = async (score: number) => {
-    setError(null);
-    try {
-      await api("qb2_save_score", { p_kind: kind, p_exam_id: examId, p_score: score });
-      setSaved(score);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-
-  return { phase, remaining, key, error, busy, saved, start, submit, saveScore };
+  return { phase, remaining, key, error, busy, start, submit };
 }
 
 function TopBar({
@@ -166,45 +155,6 @@ function Timer({ seconds, done }: { seconds: number; done: boolean }) {
 
 function Instructions({ children }: { children: React.ReactNode }) {
   return <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-[14px] leading-relaxed text-amber-900 dark:border-amber-400/25 dark:bg-amber-500/10 dark:text-amber-200/90">{children}</div>;
-}
-
-function ScoreBox({ total, saved, onSave }: { total: number; saved: number | null; onSave: (n: number) => void }) {
-  const [value, setValue] = useState(saved != null ? String(saved) : "");
-  const n = Number(value);
-  const valid = value !== "" && Number.isFinite(n) && n >= 0 && n <= total;
-  return (
-    <section className="rounded-xl border border-border bg-card p-5">
-      <h3 className="text-[16px] font-bold">My self score</h3>
-      <p className="mt-1 text-[14px] text-muted-foreground">Compare your answers with the key above, then record your score.</p>
-      <form
-        className="mt-3 flex flex-wrap items-center gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (valid) onSave(n);
-        }}
-      >
-        <input
-          type="number"
-          min={0}
-          max={total}
-          step="0.5"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          aria-label="Score"
-          className="h-11 w-28 rounded-lg border border-border bg-background px-3 text-[15px] font-semibold tabular-nums outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-        />
-        <span className="text-[15px] font-semibold text-slate-600 dark:text-slate-400">/ {total}</span>
-        <button type="submit" disabled={!valid} className="h-11 rounded-lg bg-primary px-5 text-[14px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50">
-          Save score
-        </button>
-        {saved != null && (
-          <span className="inline-flex items-center gap-1 text-[14px] font-semibold text-success">
-            <CheckCircle2 className="h-4 w-4" /> Saved: {saved} / {total}
-          </span>
-        )}
-      </form>
-    </section>
-  );
 }
 
 function KeyList({ rows }: { rows: KeyRow[] }) {
@@ -270,11 +220,9 @@ export function WrittenExamRunner({
   mockNumber,
   totalMarks,
   minutes,
-  instructions,
   questions,
   backHref,
   submitted,
-  savedScore,
 }: {
   examId: number;
   title: string;
@@ -282,13 +230,11 @@ export function WrittenExamRunner({
   mockNumber: number;
   totalMarks: number;
   minutes: number;
-  instructions: string | null;
   questions: PaperQuestion[];
   backHref: string;
   submitted: boolean;
-  savedScore: number | null;
 }) {
-  const x = useExam("written", examId, minutes, submitted, savedScore);
+  const x = useExam("written", examId, minutes, submitted);
   const sections = useMemo(() => {
     const out: { name: string; items: PaperQuestion[] }[] = [];
     for (const q of questions) {
@@ -333,9 +279,8 @@ export function WrittenExamRunner({
           <Instructions>
             <strong className="font-bold">Mock exam · self-evaluation.</strong> Read the paper before starting — the timer does not begin when you open it.
             Press <strong>Start Exam</strong> when ready; the answer key unlocks when you press <strong>Submit</strong> or the timer reaches zero.
-            Write your answers separately, then score yourself against the key.
+            Write your answers separately, then compare them with the model answers.
           </Instructions>
-          {instructions && <p className="rounded-xl border border-border bg-muted px-4 py-3 text-[14px] leading-relaxed text-slate-700 dark:text-slate-300">{instructions}</p>}
 
           <section className="space-y-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
             {sections.map((s) => (
@@ -403,11 +348,10 @@ export function WrittenExamRunner({
           <div className="flex items-start gap-3 rounded-2xl border border-success/30 bg-success-soft p-5">
             <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-success" />
             <p className="text-[14px] text-foreground">
-              <strong className="font-bold">Answer key unlocked.</strong> Compare your written answers with the model answers below and enter your self score.
+              <strong className="font-bold">Answer key unlocked.</strong> Compare your written answers with the model answers below.
             </p>
           </div>
           {x.key ? <KeyList rows={x.key} /> : !x.error && <p className="text-[14px] text-muted-foreground">Loading the answer key…</p>}
-          {x.key && <ScoreBox total={totalMarks} saved={x.saved} onSave={(n) => void x.saveScore(n)} />}
         </>
       )}
     </div>
@@ -419,23 +363,19 @@ export function VivaExamRunner({
   title,
   vivaNumber,
   minutes,
-  totalQuestions,
   questions,
   backHref,
   submitted,
-  savedScore,
 }: {
   examId: number;
   title: string;
   vivaNumber: number;
   minutes: number;
-  totalQuestions: number;
   questions: VivaQuestion[];
   backHref: string;
   submitted: boolean;
-  savedScore: number | null;
 }) {
-  const x = useExam("viva", examId, minutes, submitted, savedScore);
+  const x = useExam("viva", examId, minutes, submitted);
   const [i, setI] = useState(0);
   const q = questions[i];
 
@@ -523,11 +463,10 @@ export function VivaExamRunner({
           <div className="flex items-start gap-3 rounded-2xl border border-success/30 bg-success-soft p-5">
             <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-success" />
             <p className="text-[14px] text-foreground">
-              <strong className="font-bold">Viva answer key unlocked.</strong> Review each model answer and key point, then record your self score.
+              <strong className="font-bold">Viva answer key unlocked.</strong> Compare your answers with each model answer and key point.
             </p>
           </div>
           {x.key ? <KeyList rows={x.key} /> : !x.error && <p className="text-[14px] text-muted-foreground">Loading the answer key…</p>}
-          {x.key && <ScoreBox total={totalQuestions} saved={x.saved} onSave={(n) => void x.saveScore(n)} />}
         </>
       )}
     </div>
