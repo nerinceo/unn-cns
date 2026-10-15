@@ -26,8 +26,9 @@ import { PRO_BASE, classifyPage, isPagePath, renderProPage } from "@/lib/cns/qba
 /**
  * Question Bank Pro — every page and every data call, behind one gate.
  *
- *   GET  /question-bank/rguhs-pro/<page>.html           a copied nerusalem.in page
- *   POST /question-bank/rguhs-pro/_data/rest/v1/rpc/<fn> what the page's Supabase
+ *   GET  /question-bank/rguhs-pro/view/<page>.html           a copied nerusalem.in page,
+ *        restyled to CNS and shown inside the CNS shell's frame
+ *   POST /question-bank/rguhs-pro/view/_data/rest/v1/rpc/<fn> what the page's Supabase
  *        client calls (the path PostgREST would have), answered from qbank2
  *
  * Paid content leaves this handler only after the member's qbank_access rows
@@ -64,6 +65,20 @@ async function accountGate(): Promise<{ userId: string } | { redirect: string } 
 
 const lockedUrl = (req: NextRequest) => new URL(`/question-bank?locked=${PRO.institution}`, req.url);
 
+/**
+ * These pages render inside the CNS shell's frame (app/(member)/question-bank/
+ * rguhs-pro). Leaving the bank — to the paid-access panel, or to end a session
+ * — must replace the whole window, not load the CNS app inside its own frame.
+ */
+function leaveFrame(url: URL | string) {
+  // JSON-encoded, then "<" escaped, so the URL can never close the script tag.
+  const target = JSON.stringify(String(url)).replace(/</g, "\\u003c");
+  return new NextResponse(
+    `<!doctype html><meta charset="utf-8"><script>window.top.location.replace(${target});</script>`,
+    { headers: PRIVATE_HTML },
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Pages
 
@@ -78,11 +93,11 @@ export async function GET(req: NextRequest, { params }: Params) {
   if (!isPagePath(path)) return new NextResponse("Not found", { status: 404 });
 
   const gate = await accountGate();
-  if (gate && "redirect" in gate) return NextResponse.redirect(gate.redirect);
+  if (gate && "redirect" in gate) return leaveFrame(gate.redirect);
 
   const access = await getBankAccess(PRO.institution, PRO.course);
   // Not bought and not on sale: the bank list shows the paid-access panel.
-  if (!bankIsReachable(access)) return NextResponse.redirect(lockedUrl(req));
+  if (!bankIsReachable(access)) return leaveFrame(lockedUrl(req));
 
   const page = await getProPage(path);
   if (!page) return new NextResponse("Not found", { status: 404 });
@@ -100,7 +115,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     semester = page.taplet_semester;
     mode = semester ? semesterModeOf(access, semester) : "closed";
   }
-  if (mode === "closed") return NextResponse.redirect(lockedUrl(req));
+  if (mode === "closed") return leaveFrame(lockedUrl(req));
 
   // Navigation and data pages for an unbought semester say so up front; the
   // data itself is capped by POST below.

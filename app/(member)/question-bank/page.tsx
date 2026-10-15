@@ -191,13 +191,7 @@ export default async function QuestionBankPage({
               const cardClass =
                 "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-primary/40";
               if (open && (holds(bank.key) || buyUrls[bank.key]))
-                // A standalone bank is a route handler serving plain HTML, not a
-                // React page: a full navigation, not a client-side one.
-                return STANDALONE_BANKS.has(bank.key) ? (
-                  <a key={bank.key} href={`/question-bank/${bank.key}`} className={cardClass}>
-                    {body}
-                  </a>
-                ) : (
+                return (
                   <Link key={bank.key} href={`/question-bank/${bank.key}`} className={cardClass}>
                     {body}
                   </Link>

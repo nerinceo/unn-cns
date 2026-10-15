@@ -42,9 +42,9 @@ export const DIRECTORY_COPY = {
 
 /**
  * Banks served by their own route rather than the [institution] pages, so they
- * have no cns_institutions row: Question Bank Pro (app/question-bank/rguhs-pro,
- * 2026-10-14) is the nerusalem.in site served as-is. Open by definition; the
- * route itself checks purchases.
+ * have no cns_institutions row: Question Bank Pro (app/(member)/question-bank/
+ * rguhs-pro, 2026-10-14) is the nerusalem.in bank in its own structure, styled
+ * as CNS. Open by definition; its routes check purchases.
  */
 export const STANDALONE_BANKS: ReadonlySet<string> = new Set(["rguhs-pro"]);
 

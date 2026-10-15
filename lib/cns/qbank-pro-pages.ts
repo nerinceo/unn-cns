@@ -26,7 +26,10 @@
  * Pure functions, no imports: unit-testable without Next.
  */
 
-export const PRO_BASE = "/question-bank/rguhs-pro";
+/** The CNS page members see; it frames the copied pages served from PRO_BASE. */
+export const PRO_HOME = "/question-bank/rguhs-pro";
+/** Where the copied pages themselves are served (inside the CNS shell's frame). */
+export const PRO_BASE = "/question-bank/rguhs-pro/view";
 export const PRO_DATA = `${PRO_BASE}/_data`;
 
 const SOURCE_REF = "pfbqgmicdmthhqorlwib";
@@ -224,6 +227,173 @@ const MOCK_HELPERS = `<script>
   };
 })();
 </script>`;
+
+// ---------------------------------------------------------------------------
+// 5. The CNS look (Naveen, 2026-10-15: "match the UI as RGUHS — colours,
+//    fonts; format and structure stay the same; only cosmetic changes").
+//
+// Every colour, corner and shadow in a CSS declaration — <style> blocks,
+// style="" attributes and the inline styles the page scripts build — is mapped
+// onto the CNS tokens (tailwind.config.ts). Layout, spacing and markup are
+// untouched. Kept as they are: the per-subject pastel palettes (mnemonic and
+// taplet cards are colour-coded by subject, as RGUHS's cards are by year) and
+// the brand navy, which is already CNS primary.
+
+const CNS = {
+  primary: "#0a2463",
+  brand50: "#f2f5fc",
+  brand100: "#e3eaf8",
+  brand600: "#2f4b9c",
+  foreground: "#14161a",
+  muted: "#f3f5f8",
+  mutedFg: "#475467",
+  border: "#d9dee6",
+  success: "#047857",
+  successSoft: "#ecfdf5",
+  warning: "#b45309",
+  warningSoft: "#fffbeb",
+  danger: "#b91c1c",
+  dangerSoft: "#fef2f2",
+  shadowCard: "0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.04)",
+  shadowFloat: "0 4px 8px rgba(16,24,40,.04),0 14px 32px -8px rgba(16,24,40,.12)",
+} as const;
+
+function hsl(hex: string): { h: number; s: number; l: number; a: string } | null {
+  let x = hex.slice(1);
+  if (x.length === 3) x = x.split("").map((c) => c + c).join("");
+  if (x.length !== 6 && x.length !== 8) return null;
+  const r = parseInt(x.slice(0, 2), 16) / 255, g = parseInt(x.slice(2, 4), 16) / 255, b = parseInt(x.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  let h = 0;
+  if (d) h = max === r ? 60 * (((g - b) / d) % 6) : max === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+  return { h: (h + 360) % 360, s, l, a: x.length === 8 ? x.slice(6) : "" };
+}
+
+type Role = "text" | "fill" | "line";
+function roleOf(prop: string): Role {
+  if (/^(color|caret-color|fill|stroke|text-decoration-color)$/.test(prop)) return "text";
+  if (/border|outline|line|divider|rule/.test(prop)) return "line";
+  return "fill"; // background, shadows, and custom properties (the pages use their vars as surfaces)
+}
+
+/** One colour, in one role, as CNS would draw it. */
+function cnsColour(hex: string, prop: string, keep: ReadonlySet<string>): string {
+  const lower = hex.toLowerCase();
+  if (keep.has(lower.slice(0, 7))) return hex;
+  const c = hsl(lower);
+  if (!c) return hex;
+  const role = roleOf(prop);
+  const withAlpha = (v: string) => (c.a ? v + c.a : v);
+  // Brand navy is already CNS primary; maroon becomes it, as on RGUHS.
+  if (lower.startsWith("#0a2463")) return hex;
+  if (lower.startsWith("#8b0000")) return withAlpha(CNS.primary);
+  if (c.l >= 0.97) return hex; // white and near-white surfaces
+  const neutral = c.s < 0.14 || (c.h >= 200 && c.h <= 235 && c.s < 0.45 && c.l > 0.55); // greys and blue-greys
+  // Light text is text written for a dark surface (the SOS cards): it stays
+  // light — a pale tint keeps its colour, a pale grey becomes CNS light slate.
+  if (role === "text" && c.l >= 0.62) return neutral ? withAlpha("#d0d5dd") : hex;
+  if (neutral || (c.h >= 200 && c.h <= 235 && c.l < 0.3)) {
+    if (c.l < 0.3) return withAlpha(role === "text" ? CNS.foreground : CNS.primary); // ink; no black surfaces
+    if (c.l < 0.62) return withAlpha(role === "fill" ? CNS.brand600 : CNS.mutedFg);
+    if (c.l < 0.9) return withAlpha(role === "text" ? CNS.mutedFg : CNS.border);
+    return withAlpha(role === "line" ? CNS.border : c.h >= 200 && c.h <= 235 ? CNS.brand50 : CNS.muted);
+  }
+  const red = c.h >= 340 || c.h < 12, green = c.h >= 95 && c.h < 175, amber = c.h >= 25 && c.h < 55;
+  const soft = c.l > 0.85;
+  if (red) return withAlpha(soft ? (role === "line" ? "#fecaca" : CNS.dangerSoft) : CNS.danger);
+  if (green) return withAlpha(soft ? (role === "line" ? "#a7f3d0" : CNS.successSoft) : CNS.success);
+  if (amber) return withAlpha(soft ? (role === "line" ? "#fde68a" : CNS.warningSoft) : CNS.warning);
+  if (c.h >= 200 && c.h < 250) return withAlpha(soft ? CNS.brand100 : c.l < 0.35 ? CNS.primary : CNS.brand600); // blues → brand ramp
+  return hex; // other hues (teal, violet …) are subject accents
+}
+
+function cnsRadius(v: string): string {
+  return v.replace(/(\d+(?:\.\d+)?)px/g, (m, n) => {
+    const px = Number(n);
+    if (px >= 40) return m; // pills
+    if (px >= 14) return "12px";
+    if (px >= 9) return "8px";
+    return m;
+  });
+}
+
+function cnsShadow(v: string): string {
+  if (/^\s*none\s*$/.test(v) || /(^|,)\s*(inset\s+)?0\s+0\s+0\s/.test(v)) return v; // none, focus rings
+  const blurs = Array.from(v.matchAll(/-?\d+(?:\.\d+)?px\s+-?\d+(?:\.\d+)?px\s+(\d+(?:\.\d+)?)px/g)).map((m) => Number(m[1]));
+  return Math.max(0, ...blurs) >= 40 ? CNS.shadowFloat : CNS.shadowCard;
+}
+
+/** Colours that encode a subject (inline card palettes) — never recoloured. */
+function subjectPalette(html: string): Set<string> {
+  const keep = new Set<string>();
+  for (const m of Array.from(html.matchAll(/--card-(?:bg|ink|line)\s*:\s*(#[0-9a-fA-F]{6})/g))) keep.add(m[1].toLowerCase());
+  for (const m of Array.from(html.matchAll(/\b(?:bg|ink|line|tone|accent|color)\s*:\s*['"](#[0-9a-fA-F]{6})['"]/g))) keep.add(m[1].toLowerCase());
+  return keep;
+}
+
+/**
+ * Contrast guard. Recolouring by value cannot know what each colour ends up
+ * sitting on (the SOS cards put the same red on white and on navy). After each
+ * render this checks every visible run of text against the background behind
+ * it and, below WCAG AA (4.5:1, or 3:1 for large text), sets the nearest CNS
+ * colour that passes: light on dark surfaces, dark on light ones.
+ */
+const CONTRAST_GUARD = `<script>
+(function () {
+  function rgb(c) { var m = /rgba?\\(([^)]+)\\)/.exec(c || ""); if (!m) return null; var p = m[1].split(",").map(Number); return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }; }
+  function lum(c) { function f(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); } return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); }
+  function bg(el) { for (var e = el; e; e = e.parentElement) { var c = rgb(getComputedStyle(e).backgroundColor); if (c && c.a > 0.5) return c; } return { r: 255, g: 255, b: 255, a: 1 }; }
+  function reddish(c) { return c.r > 150 && c.r > c.g * 1.6 && c.r > c.b * 1.4; }
+  function fix() {
+    var all = document.body ? document.body.getElementsByTagName("*") : [];
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i], text = false;
+      for (var n = el.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && n.nodeValue.trim()) { text = true; break; }
+      if (!text || !el.offsetParent) continue;
+      var cs = getComputedStyle(el), fg = rgb(cs.color); if (!fg) continue;
+      var b = bg(el), l1 = lum(fg), l2 = lum(b), ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+      var size = parseFloat(cs.fontSize), large = size >= 18.66 || (size >= 14 && Number(cs.fontWeight) >= 700);
+      if (ratio >= (large ? 3 : 4.5)) continue;
+      var dark = l2 < 0.25;
+      el.style.setProperty("color", dark ? (reddish(fg) ? "#fecaca" : "#ffffff") : (reddish(fg) ? "#b91c1c" : "#475467"), "important");
+    }
+  }
+  var t = null;
+  function soon() { clearTimeout(t); t = setTimeout(fix, 120); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", soon); else soon();
+  window.addEventListener("load", soon);
+  new MutationObserver(soon).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>`;
+
+const FONT_LINK =
+  '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
+  '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">';
+
+export function themeProPage(html: string, page: string): string {
+  // Data the page renders from is content, not styling: leave it byte-exact.
+  const masked: string[] = [];
+  const mask = (s: string) => `\u0000${masked.push(s) - 1}\u0000`;
+  let out = html
+    .replace(/<script[^>]*id="sosData"[^>]*>[\s\S]*?<\/script>/g, mask)
+    .replace(/const\s+(?:NOTES|tasks)\s*=\s*\[[\s\S]*?\];\s*\n/g, mask);
+  const keep = subjectPalette(out);
+
+  // Every `prop: value` declaration, wherever it is written.
+  out = out.replace(/([a-z-]+)(\s*:\s*)([^;{}"`<>]*)/gi, (m, prop: string, sep: string, value: string) => {
+    const p = prop.toLowerCase();
+    if (p === "border-radius" || /^border-(top|bottom)-(left|right)-radius$/.test(p)) return prop + sep + cnsRadius(value);
+    if (p === "box-shadow") return prop + sep + cnsShadow(value);
+    if (!value.includes("#") || p === "content" || p === "href" || p === "src") return m;
+    return prop + sep + value.replace(/#[0-9a-fA-F]{8}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g, (hex) => cnsColour(hex, p, keep));
+  });
+
+  out = out.replace(/\u0000(\d+)\u0000/g, (_, i) => masked[Number(i)]);
+  // Links out of the bank leave the frame rather than loading inside it.
+  out = out.replace(/<a\b(?![^>]*\btarget=)([^>]*\bhref="https?:\/\/[^"]+")/g, '<a target="_blank" rel="noopener"$1');
+  return injectHead(out, FONT_LINK + "\n" + CONTRAST_GUARD, page);
+}
 
 // ---------------------------------------------------------------------------
 // 4. Pagination (Naveen, 2026-10-15: "instead of load more buttons need
@@ -497,7 +667,7 @@ function truncateSos(html: string, keep: number, page: string): string {
 function sampleBanner(semester: number | null, buyUrl: string | null): string {
   const what = semester ? `Semester ${semester}` : "this bank";
   const link = buyUrl
-    ? ` <a href="${buyUrl.replace(/"/g, "&quot;")}" style="color:#fff;font-weight:800;text-decoration:underline">Buy full access</a>`
+    ? ` <a target="_top" href="${buyUrl.replace(/"/g, "&quot;")}" style="color:#fff;font-weight:800;text-decoration:underline">Buy full access</a>`
     : "";
   return `<div role="status" style="position:sticky;top:0;z-index:9999;background:#8B0000;color:#fff;font:600 14px/1.45 Inter,Arial,sans-serif;text-align:center;padding:10px 16px">Free sample of ${what} — you are seeing a preview.${link}</div>`;
 }
@@ -536,5 +706,5 @@ export function renderProPage(html: string, o: RenderOptions): string {
   } else if (o.banner) {
     out = insertAfterBodyTag(out, sampleBanner(o.banner.semester, o.banner.buyUrl), o.path);
   }
-  return out;
+  return themeProPage(out, o.path);
 }

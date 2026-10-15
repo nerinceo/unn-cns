@@ -81,6 +81,16 @@ const nextConfig = {
           },
         ],
       },
+      // Question Bank Pro's pages are shown inside the CNS shell, in a frame
+      // (app/(member)/question-bank/rguhs-pro). Same-origin only — still no
+      // other site may frame them. A later rule with the same key wins.
+      {
+        source: "/question-bank/rguhs-pro/view/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+        ],
+      },
     ];
   },
 };
