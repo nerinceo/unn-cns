@@ -332,7 +332,9 @@ export function filterYears(picked: number[], scheme: Scheme | undefined, offere
   if (!scheme) return picked.length ? picked : null;
   const era = offered.filter((y) => (scheme === "new" ? y >= NEW_SCHEME_FROM : y < NEW_SCHEME_FROM));
   const years = picked.length ? picked.filter((y) => era.includes(y)) : era;
-  return years.length ? years : [0];
+  // Nothing in this era: a year no question has. Must be 4 digits — qbank2_rpc
+  // drops anything else, which would silently remove the filter altogether.
+  return years.length ? years : [1000];
 }
 
 export const getYearOptions = unstable_cache(
