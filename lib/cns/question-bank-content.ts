@@ -40,6 +40,14 @@ export const DIRECTORY_COPY = {
   comingSoonCta: "Partner colleges",
 } as const;
 
+/**
+ * Banks served by their own route rather than the [institution] pages, so they
+ * have no cns_institutions row: Question Bank Pro (app/question-bank/rguhs-pro,
+ * 2026-10-14) is the nerusalem.in site served as-is. Open by definition; the
+ * route itself checks purchases.
+ */
+export const STANDALONE_BANKS: ReadonlySet<string> = new Set(["rguhs-pro"]);
+
 export type BankEntry = {
   key: string;
   name: string;
@@ -63,6 +71,13 @@ export const BANK_DIRECTORY: { country: string; banks: BankEntry[] }[] = [
         name: "RGUHS Question Bank",
         location: "India / Karnataka",
         description: "Rajiv Gandhi University of Health Sciences nursing question bank.",
+      },
+      {
+        key: "rguhs-pro",
+        name: "RGUHS B.Sc Nursing Question Bank Pro",
+        location: "India / Karnataka",
+        description:
+          "All 8 semesters with previous years' solved questions, most important questions, mock and viva exams, exam hacks and practice taplets.",
       },
       {
         key: "kuhs",

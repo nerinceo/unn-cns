@@ -11,6 +11,7 @@ import {
   BANK_DIRECTORY,
   BANK_IDENTITY,
   DIRECTORY_COPY,
+  STANDALONE_BANKS,
 } from "@/lib/cns/question-bank-content";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +60,7 @@ export default async function QuestionBankPage({
   // Soon" because of a transient error.
   const institutions = await getInstitutions();
   const live = new Set(institutions.map((i) => i.slug));
-  const isOpen = (key: string) => live.size === 0 || live.has(key);
+  const isOpen = (key: string) => STANDALONE_BANKS.has(key) || live.size === 0 || live.has(key);
 
   // Paid access (0080): which open banks this member holds, and where each is
   // sold. Only open banks are looked up — today that is one.
@@ -109,7 +110,11 @@ export default async function QuestionBankPage({
               India left one or two dead cells and squeezed the cards narrow.
               At three, four of the seven groups fill their row exactly. */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {group.banks.map((bank) => {
+            {group.banks
+              // A standalone bank appears once it is on sale (or held), so
+              // shipping its route changes nothing until the listing goes live.
+              .filter((bank) => !STANDALONE_BANKS.has(bank.key) || holds(bank.key) || !!buyUrls[bank.key])
+              .map((bank) => {
               const tone = REGION[group.country] ?? REGION_FALLBACK;
               const open = isOpen(bank.key);
 
@@ -186,7 +191,13 @@ export default async function QuestionBankPage({
               const cardClass =
                 "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-primary/40";
               if (open && (holds(bank.key) || buyUrls[bank.key]))
-                return (
+                // A standalone bank is a route handler serving plain HTML, not a
+                // React page: a full navigation, not a client-side one.
+                return STANDALONE_BANKS.has(bank.key) ? (
+                  <a key={bank.key} href={`/question-bank/${bank.key}`} className={cardClass}>
+                    {body}
+                  </a>
+                ) : (
                   <Link key={bank.key} href={`/question-bank/${bank.key}`} className={cardClass}>
                     {body}
                   </Link>

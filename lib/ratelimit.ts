@@ -65,6 +65,9 @@ const RULES = {
   // Reporting is cheap to abuse and expensive to moderate.
   report: { tokens: 10, window: "1 h" as const, message: "Too many reports in a short time. Please try again later." },
   upload: { tokens: 20, window: "1 h" as const, message: "Too many uploads. Please try again shortly." },
+  // Question Bank Pro reads: filters and search fire a request each, so a
+  // studying member makes a few hundred an hour; a scraper makes thousands.
+  qbank: { tokens: 400, window: "10 m" as const, message: "Too many requests in a short time. Please wait a moment and try again." },
 };
 
 export type LimitKind = keyof typeof RULES;
