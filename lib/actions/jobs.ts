@@ -662,7 +662,7 @@ async function applyToJobImpl(
   // then scored by the knockout rules as a real answer.
   const badNumber = (questions ?? []).find((q) => {
     const a = answered.get(q.id as string);
-    return q.question_type === "number" && a && !/^d+(.d+)?$/.test(a.trim());
+    return q.question_type === "number" && a && !/^\d+(\.\d+)?$/.test(a.trim());
   });
   if (badNumber) {
     return { error: `Please enter a number of 0 or more for: ${badNumber.question}` };

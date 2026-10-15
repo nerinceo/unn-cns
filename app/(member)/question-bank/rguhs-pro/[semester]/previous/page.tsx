@@ -169,6 +169,29 @@ export default async function ProPreviousPage({
       ...(readFilter ? { p_user: ctx.userId, p_read: readFilter } : {}),
     })) ?? [];
   const total = rows.length ? Number(rows[0].total_count) : 0;
+  // Read / Unread counts follow the other filters (search, scheme, years,
+  // repeat), so each chip equals what choosing it lists. The bar stays the
+  // whole subject's progress.
+  const filtered = !!q || (queryYears?.length ?? 0) > 0 || !!pattern;
+  const countOf = async (read: "read" | "unread") => {
+    const r = await gatedRead<Row[]>(ctx, "get_previous_questions_page", {
+      p_semester: semester,
+      p_subject_codes: chosen.codes,
+      p_search: q ?? "",
+      p_offset: 0,
+      p_limit: 1,
+      p_years: queryYears,
+      p_pattern: pattern ?? null,
+      p_user: ctx.userId,
+      p_read: read,
+    });
+    return r?.length ? Number(r[0].total_count) : 0;
+  };
+  const readCounts = readState
+    ? filtered
+      ? await Promise.all([countOf("unread"), countOf("read")]).then(([unread, read]) => ({ unread, read }))
+      : { unread: Math.max(0, readState.total - readState.read), read: readState.read }
+    : null;
   const href = linkBuilder(base, { subject: chosen.key, q, years: years.length ? years.join(",") : undefined, repeat: pattern, scheme, read: readFilter });
   const [marksById] = await Promise.all([
     getMarks(ctx, "q", rows.map((r) => r.id)),
@@ -195,8 +218,8 @@ export default async function ProPreviousPage({
                 allHref={href({ read: undefined })}
                 widthClass="w-60"
                 options={[
-                  { label: "Unread", count: Math.max(0, readState.total - readState.read), href: href({ read: "unread" }), active: readFilter === "unread" },
-                  { label: "Read", count: readState.read, href: href({ read: "read" }), active: readFilter === "read" },
+                  { label: "Unread", count: readCounts?.unread ?? 0, href: href({ read: "unread" }), active: readFilter === "unread" },
+                  { label: "Read", count: readCounts?.read ?? 0, href: href({ read: "read" }), active: readFilter === "read" },
                 ]}
               />
             )}
