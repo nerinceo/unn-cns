@@ -111,7 +111,7 @@ export function ReadProgress({ read, total }: { read: number; total: number }) {
           <CheckCircle2 className="h-4 w-4 text-success" /> Your reading progress
         </span>
         <span className="font-semibold tabular-nums text-slate-600 dark:text-slate-300">
-          {pct}% · {read.toLocaleString("en-IN")} read
+          {read > 0 && pct === 0 ? "<1" : pct}% · {read.toLocaleString("en-IN")} read
         </span>
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Reading progress">
