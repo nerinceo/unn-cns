@@ -23,7 +23,6 @@ import { formatAnswer } from "@/lib/cns/qbank-pro-format";
 import {
   PRO_NAME,
   ProBack,
-  ProCountBar,
   ProFooter,
   ProHeader,
   ProPager,
@@ -123,7 +122,7 @@ export default async function ProPreviousPage({
               <h3 className="text-[17px] font-bold leading-snug group-hover:text-primary">{s.name}</h3>
               <p className="mt-2 inline-flex items-center gap-1.5 text-[14px] font-semibold text-muted-foreground">
                 <History className="h-4 w-4 text-primary" />
-                {s.count.toLocaleString("en-IN")} previous years’ solved questions
+                Previous years’ solved questions
               </p>
               <span className="mt-4 inline-flex items-center gap-1 border-t border-border pt-3 text-[14px] font-bold text-primary">
                 Open <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -168,7 +167,7 @@ export default async function ProPreviousPage({
       <ProHeader eyebrow={`Semester ${semester} · Previous Years`} title={chosen.name} subtitle="Most frequently asked questions first, with the years they were asked." />
 
       {sample ? (
-        <ProSampleNotice semester={semester} shown={rows.length} total={chosen.count} noun="questions in this subject" buyUrl={ctx.access.buyUrl} />
+        <ProSampleNotice semester={semester} shown={rows.length} noun="questions in this subject" buyUrl={ctx.access.buyUrl} />
       ) : (
         <div className="flex flex-col gap-2">
           <ProSearch action={base} keep={{ subject: chosen.key, years: years.length ? years.join(",") : undefined, repeat: pattern, scheme }} value={q} placeholder="Search questions" />
@@ -183,7 +182,6 @@ export default async function ProPreviousPage({
         </div>
       )}
 
-      {!sample && <ProCountBar from={total ? (page - 1) * PAGE_SIZE + 1 : 0} to={(page - 1) * PAGE_SIZE + rows.length} total={total} noun="questions" />}
 
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">

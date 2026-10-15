@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, BookOpenCheck, Brain, ClipboardCheck, FileQuestion, History, Puzzle, Star } from "lucide-react";
+import { ArrowRight, Brain, ClipboardCheck, FileQuestion, History, Puzzle, Star } from "lucide-react";
 import { PRO_HOME, getProOverview, getResume, parseSemester, requireProBank, requireSemesterMode, resumeWhen } from "@/lib/cns/qbank-pro";
 import { ContinueCard } from "@/components/question-bank/pro/Progress";
 import { PRO_NAME, ProBack, ProFooter } from "@/components/question-bank/pro/ProChrome";
@@ -34,7 +34,6 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
       title: "Model Questions & Answers",
       body: "Practice model questions by subject and unit with complete answers.",
       count: c?.model ?? 0,
-      noun: "questions",
     },
     {
       href: `${base}/previous`,
@@ -42,7 +41,6 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
       title: "Previous Years’ Solved Questions",
       body: "Study previous years’ RGUHS university questions with clear solved answers, explanations and available exam tips.",
       count: c?.previous ?? 0,
-      noun: "questions",
     },
     {
       href: `${base}/important`,
@@ -50,7 +48,6 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
       title: "Most Important Questions & Answers",
       body: "Focus on the highest-priority questions for revision.",
       count: c?.important ?? 0,
-      noun: "questions",
     },
     {
       href: `${base}/hacks`,
@@ -60,7 +57,6 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
         ? "Clinical Mnemonics, Clinical Notes and Clinical SOS for internship practice."
         : "Mnemonics, Revision Notes and Exam SOS.",
       count: (c?.mnemonics ?? 0) + (c?.notes ?? 0) + (c?.sos ?? 0),
-      noun: "cards",
     },
     {
       href: `${base}/taplets`,
@@ -68,7 +64,6 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
       title: "Practice Taplets",
       body: "Explore colourful Taplets, quick questions and interactive challenges.",
       count: c?.taplets ?? 0,
-      noun: "taplets",
     },
     {
       href: `${base}/mock`,
@@ -76,7 +71,6 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
       title: "Mock Exams",
       body: "Attempt Written Exams and Viva Exams.",
       count: (c?.written ?? 0) + (c?.viva ?? 0),
-      noun: "exams",
     },
   ].filter((s) => s.count > 0);
 
@@ -122,11 +116,7 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
               <h3 className="text-[17px] font-bold leading-snug group-hover:text-primary">{s.title}</h3>
             </div>
             <p className="mt-3 flex-1 text-[14px] leading-relaxed text-muted-foreground">{s.body}</p>
-            <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-              <span className="inline-flex items-center gap-1.5 text-[14px] font-bold tabular-nums text-foreground">
-                <BookOpenCheck className="h-4 w-4 text-primary" />
-                {s.count.toLocaleString("en-IN")} {s.noun}
-              </span>
+            <div className="mt-4 flex items-center justify-end border-t border-border pt-3">
               <span className="inline-flex items-center gap-1 text-[14px] font-bold text-primary">
                 Open <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </span>

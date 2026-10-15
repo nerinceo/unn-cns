@@ -6,7 +6,6 @@ import { MarkButtons } from "@/components/question-bank/pro/Progress";
 import {
   PRO_NAME,
   ProBack,
-  ProCountBar,
   ProFooter,
   ProHeader,
   ProPager,
@@ -72,7 +71,7 @@ export default async function ProMnemonicsPage({
       <ProHeader eyebrow={`Exam Hacks · Semester ${semester}`} title="Mnemonics" subtitle="Remember more. Revise faster. Choose a card to reveal its meaning." />
 
       {sample ? (
-        <ProSampleNotice semester={semester} shown={data.rows.length} total={data.all} noun="mnemonics" buyUrl={ctx.access.buyUrl} />
+        <ProSampleNotice semester={semester} shown={data.rows.length} noun="mnemonics" buyUrl={ctx.access.buyUrl} />
       ) : (
         <div className="flex flex-col gap-2">
           <ProSearch action={base} keep={{ subject, type }} value={q} placeholder="Search topics, sentences or keywords" />
@@ -93,7 +92,6 @@ export default async function ProMnemonicsPage({
         </div>
       )}
 
-      {!sample && <ProCountBar from={data.total ? (page - 1) * PAGE_SIZE + 1 : 0} to={(page - 1) * PAGE_SIZE + data.rows.length} total={data.total} noun="mnemonics" />}
 
       {data.rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">

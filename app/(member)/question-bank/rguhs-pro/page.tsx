@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Check, FileText, Lock } from "lucide-react";
+import { ArrowRight, BookOpen, Check, Lock } from "lucide-react";
 import { accessDateLabel, canOpenSemester } from "@/lib/cns/qbank-access";
-import { PRO_HOME, getProOverview, getResume, requireProBank, resumeWhen } from "@/lib/cns/qbank-pro";
+import { PRO_HOME, getResume, requireProBank, resumeWhen } from "@/lib/cns/qbank-pro";
 import { ContinueCard } from "@/components/question-bank/pro/Progress";
 import { PRO_NAME, ProBack, ProFooter, ProHeader } from "@/components/question-bank/pro/ProChrome";
 
@@ -24,7 +24,7 @@ const YEAR_BANDS = [
 export default async function ProSemestersPage({ searchParams }: { searchParams: { locked?: string } }) {
   const ctx = await requireProBank();
   const { access } = ctx;
-  const [overview, resume] = await Promise.all([getProOverview(), getResume(ctx)]);
+  const resume = await getResume(ctx);
   const last = resume[0];
   const lockedSemester = Number(searchParams.locked) || null;
 
@@ -69,8 +69,6 @@ export default async function ProSemestersPage({ searchParams }: { searchParams:
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => {
-          const c = overview.find((o) => o.semester === n);
-          const questions = (c?.model ?? 0) + (c?.previous ?? 0);
           const band = YEAR_BANDS[Math.ceil(n / 2) - 1];
           const open = canOpenSemester(access, n);
           return (
@@ -107,11 +105,7 @@ export default async function ProSemestersPage({ searchParams }: { searchParams:
                     )}
                   </div>
                 </div>
-                <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-                  <span className="inline-flex items-center gap-1.5 text-[14px] font-bold tabular-nums text-foreground">
-                    <FileText className={`h-4 w-4 ${open ? band.icon : "text-muted-foreground"}`} />
-                    {questions.toLocaleString("en-IN")} questions
-                  </span>
+                <div className="mt-4 flex items-center justify-end border-t border-border pt-3">
                   <span className="inline-flex items-center gap-1 text-[14px] font-bold text-primary">
                     Open <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                   </span>

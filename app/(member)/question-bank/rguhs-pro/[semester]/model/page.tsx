@@ -16,7 +16,6 @@ import { formatAnswer } from "@/lib/cns/qbank-pro-format";
 import {
   PRO_NAME,
   ProBack,
-  ProCountBar,
   ProFooter,
   ProHeader,
   ProPager,
@@ -111,7 +110,7 @@ export default async function ProModelPage({
         subtitle={`Select a subject and unit, then use the filters to find questions. Questions show ${PAGE_SIZE} to a page.`}
       />
 
-      {sample && <ProSampleNotice semester={semester} shown={rows.length} total={total} noun="questions in this subject" buyUrl={ctx.access.buyUrl} />}
+      {sample && <ProSampleNotice semester={semester} shown={rows.length} noun="questions in this subject" buyUrl={ctx.access.buyUrl} />}
 
       <section className="rounded-xl border border-border bg-card">
         <div className="flex items-center gap-2 rounded-t-xl border-b border-border bg-primary/[0.06] px-5 py-3">
@@ -167,7 +166,6 @@ export default async function ProModelPage({
         </div>
       </section>
 
-      {!sample && <ProCountBar from={total ? (page - 1) * PAGE_SIZE + 1 : 0} to={(page - 1) * PAGE_SIZE + rows.length} total={total} noun="questions" />}
 
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">

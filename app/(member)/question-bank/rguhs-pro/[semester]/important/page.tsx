@@ -24,7 +24,6 @@ import { formatAnswer } from "@/lib/cns/qbank-pro-format";
 import {
   PRO_NAME,
   ProBack,
-  ProCountBar,
   ProFooter,
   ProHeader,
   ProPager,
@@ -138,7 +137,7 @@ export default async function ProImportantPage({
       />
 
       {sample ? (
-        <ProSampleNotice semester={semester} shown={rows.length} total={total} noun="ranked questions" buyUrl={ctx.access.buyUrl} />
+        <ProSampleNotice semester={semester} shown={rows.length} noun="ranked questions" buyUrl={ctx.access.buyUrl} />
       ) : (
         <section className="rounded-xl border border-border bg-card">
           <div className="flex items-center gap-2 rounded-t-xl border-b border-border bg-primary/[0.06] px-5 py-3">
@@ -198,7 +197,6 @@ export default async function ProImportantPage({
         </section>
       )}
 
-      {!sample && <ProCountBar from={total ? (page - 1) * PAGE_SIZE + 1 : 0} to={(page - 1) * PAGE_SIZE + rows.length} total={total} noun="questions" />}
 
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">

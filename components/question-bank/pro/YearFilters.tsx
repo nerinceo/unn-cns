@@ -31,7 +31,7 @@ export function YearFilters({
         allLabel="All schemes"
         allHref={href({ scheme: undefined })}
         widthClass="w-72"
-        options={SCHEMES.map((s) => ({ label: s.label, count: options.schemes?.[s.value] ?? 0, href: href({ scheme: s.value }), active: s.value === scheme }))}
+        options={SCHEMES.map((s) => ({ label: s.label, href: href({ scheme: s.value }), active: s.value === scheme }))}
       />
       <FilterSelect
         variant="year"
@@ -39,7 +39,7 @@ export function YearFilters({
         allLabel="All exam years"
         allHref={href({ years: undefined })}
         widthClass="w-60"
-        options={options.years.map((y) => ({ label: String(y.year), count: y.count, href: toggle(y.year), active: years.includes(y.year) }))}
+        options={options.years.map((y) => ({ label: String(y.year), href: toggle(y.year), active: years.includes(y.year) }))}
       />
       <FilterSelect
         variant="repeat"
@@ -48,7 +48,6 @@ export function YearFilters({
         widthClass="w-[22rem]"
         options={REPEAT_PATTERNS.map((p) => ({
           label: p.value === "often" ? p.label : `${p.label} (${span})`,
-          count: options.patterns[p.value] ?? 0,
           href: href({ repeat: p.value }),
           active: p.value === pattern,
         }))}

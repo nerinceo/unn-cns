@@ -17,7 +17,6 @@ import { formatNoteHtml } from "@/lib/cns/qbank-pro-format";
 import {
   PRO_NAME,
   ProBack,
-  ProCountBar,
   ProFooter,
   ProHeader,
   ProPager,
@@ -91,7 +90,7 @@ export default async function ProNotesPage({
       />
 
       {sample ? (
-        <ProSampleNotice semester={semester} shown={data.rows.length} total={data.all} noun="notes" buyUrl={ctx.access.buyUrl} />
+        <ProSampleNotice semester={semester} shown={data.rows.length} noun="notes" buyUrl={ctx.access.buyUrl} />
       ) : (
         <div className="flex flex-col gap-2">
           <ProSearch action={base} keep={{ subject, unit, type }} value={q} placeholder="Search topics or keywords" />
@@ -125,7 +124,6 @@ export default async function ProNotesPage({
         </div>
       )}
 
-      {!sample && <ProCountBar from={data.total ? (page - 1) * PAGE_SIZE + 1 : 0} to={(page - 1) * PAGE_SIZE + data.rows.length} total={data.total} noun="notes" />}
 
       {data.rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">

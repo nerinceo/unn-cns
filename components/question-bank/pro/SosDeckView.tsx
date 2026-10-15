@@ -3,7 +3,6 @@ import { AlertTriangle, LifeBuoy, ListChecks, SearchX, Zap } from "lucide-react"
 import { FilterSelect } from "@/components/question-bank/FilterSelect";
 import { getMarks, getSos, recordResume, type ProContext } from "@/lib/cns/qbank-pro";
 import {
-  ProCountBar,
   ProFooter,
   ProHeader,
   ProPager,
@@ -75,7 +74,7 @@ export async function SosDeckView({
       />
 
       {sample ? (
-        <ProSampleNotice semester={sampleSemester} shown={data.rows.length} total={data.all} noun="SOS cards" buyUrl={buyUrl} />
+        <ProSampleNotice semester={sampleSemester} shown={data.rows.length} noun="SOS cards" buyUrl={buyUrl} />
       ) : (
         <>
           <nav aria-label="Categories" className="flex flex-wrap gap-2">
@@ -106,7 +105,6 @@ export async function SosDeckView({
               />
             )}
           </div>
-          <ProCountBar from={data.total ? (page - 1) * PAGE_SIZE + 1 : 0} to={(page - 1) * PAGE_SIZE + data.rows.length} total={data.total} noun="cards" />
         </>
       )}
 

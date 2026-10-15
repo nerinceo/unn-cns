@@ -27,7 +27,7 @@ export default async function ProTapletPaperPage({ params }: { params: { semeste
         title={subject}
         subtitle={`${data.paper.tasks} interactive Practice Taplets · Mixed recall, MCQs, true/false, quick-answer cards and challenges. Answer a question to complete each card.`}
       />
-      {sample && <ProSampleNotice semester={semester} shown={data.tasks.length} total={data.paper.tasks} noun="Taplets in this paper" buyUrl={ctx.access.buyUrl} />}
+      {sample && <ProSampleNotice semester={semester} shown={data.tasks.length} noun="Taplets in this paper" buyUrl={ctx.access.buyUrl} />}
       <TapletDeck tasks={data.tasks} />
       <ProFooter />
     </div>

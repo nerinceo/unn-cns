@@ -58,13 +58,11 @@ export function ProHeader({
 export function ProSampleNotice({
   semester,
   shown,
-  total,
   noun,
   buyUrl,
 }: {
   semester: number | null;
   shown: number;
-  total: number;
   noun: string;
   buyUrl: string | null;
 }) {
@@ -76,7 +74,7 @@ export function ProSampleNotice({
         </span>
         <div>
           <p className="text-[15px] font-bold text-foreground">
-            Free sample · {shown} of {total.toLocaleString("en-IN")} {noun}{semester ? ` in Semester ${semester}` : ""}
+            Free sample · {shown} {noun}{semester ? ` in Semester ${semester}` : ""}
           </p>
           <p className="mt-0.5 text-[14px] text-muted-foreground">
             {semester ? "Buy this semester or the whole bank" : "Buy any semester or the whole bank"} to open everything, with filters and search.
@@ -125,20 +123,6 @@ export function ProSearch({
         <Search className="h-4 w-4" />
       </button>
     </form>
-  );
-}
-
-/** "Showing 31–60 of 1,016" and the count pill, as on the RGUHS list. */
-export function ProCountBar({ from, to, total, noun }: { from: number; to: number; total: number; noun: string }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <span className="text-[14px] font-semibold text-slate-700 dark:text-slate-300">
-        {total > 0 ? `Showing ${from.toLocaleString("en-IN")}–${to.toLocaleString("en-IN")} of ${total.toLocaleString("en-IN")}` : `No ${noun} found`}
-      </span>
-      <span className="rounded-full bg-primary px-3 py-1 text-[13px] font-bold tabular-nums text-primary-foreground">
-        {total.toLocaleString("en-IN")} {noun}
-      </span>
-    </div>
   );
 }
 

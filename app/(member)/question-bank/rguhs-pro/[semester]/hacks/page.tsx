@@ -20,14 +20,13 @@ export default async function ProHacksPage({ params }: { params: { semester: str
   const base = `${PRO_HOME}/${semester}/hacks`;
 
   const cards = [
-    { href: `${base}/mnemonics`, icon: Brain, title: "Mnemonics", body: "Memory aids and recall cards.", count: c?.mnemonics ?? 0, noun: "mnemonics" },
+    { href: `${base}/mnemonics`, icon: Brain, title: "Mnemonics", body: "Memory aids and recall cards.", count: c?.mnemonics ?? 0 },
     {
       href: `${base}/notes`,
       icon: NotebookPen,
       title: clinical ? "Clinical Notes" : "Revision Notes",
       body: clinical ? "Practical clinical learning notes." : "Concise topic-wise revision points.",
       count: c?.notes ?? 0,
-      noun: "notes",
     },
     {
       href: `${base}/sos`,
@@ -35,7 +34,6 @@ export default async function ProHacksPage({ params }: { params: { semester: str
       title: clinical ? "Clinical SOS" : "Exam SOS",
       body: clinical ? "Quick safety and clinical practice cards." : "Exam help cards for this semester.",
       count: c?.sos ?? 0,
-      noun: "cards",
     },
   ].filter((x) => x.count > 0);
 
@@ -69,10 +67,7 @@ export default async function ProHacksPage({ params }: { params: { semester: str
                 <p className="mt-1 text-[14px] leading-relaxed text-muted-foreground">{x.body}</p>
               </div>
             </div>
-            <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-              <span className="text-[14px] font-bold tabular-nums text-foreground">
-                {x.count.toLocaleString("en-IN")} {x.noun}
-              </span>
+            <div className="mt-4 flex items-center justify-end border-t border-border pt-3">
               <span className="inline-flex items-center gap-1 text-[14px] font-bold text-primary">
                 Open <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </span>
