@@ -26,6 +26,7 @@ import {
   marksLabel,
   metaChain,
 } from "@/lib/cns/question-bank-content";
+import { InlineBold } from "@/components/question-bank/InlineBold";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Question — Central Nerusalem Space" };
@@ -217,7 +218,7 @@ function Panel({
         {heading}
       </p>
       <p className="mt-1.5 max-w-[78ch] whitespace-pre-wrap text-[16px] font-medium leading-[1.7] text-slate-800 dark:text-slate-200">
-        {body}
+        <InlineBold text={body} />
       </p>
     </div>
   );

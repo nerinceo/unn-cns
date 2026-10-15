@@ -60,7 +60,7 @@ export default async function ProSemestersPage({ searchParams }: { searchParams:
         <p className="text-[14px] text-muted-foreground">Access until {accessDateLabel(access.expiresAt)}.</p>
       ) : null}
 
-      {last && <ContinueCard href={last.path} label={last.label} when={resumeWhen(last.at)} savedHref={`${PRO_HOME}/saved`} />}
+      {last && <ContinueCard href={last.path} label={last.label} when={resumeWhen(last.at)} savedHref={access.all || access.semesters.size > 0 ? `${PRO_HOME}/saved` : undefined} />}
 
       <section className="flex items-end justify-between gap-3">
         <h2 className="text-xl font-semibold">Select Semester</h2>

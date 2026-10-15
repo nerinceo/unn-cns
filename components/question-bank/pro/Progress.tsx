@@ -122,7 +122,8 @@ export function ReadProgress({ read, total }: { read: number; total: number }) {
 }
 
 /** "Continue where you left off" — reopens the exact page the member was last on. */
-export function ContinueCard({ href, label, when, savedHref }: { href: string; label: string; when: string; savedHref: string }) {
+/** savedHref is left out for members who own nothing yet: samples have no Save. */
+export function ContinueCard({ href, label, when, savedHref }: { href: string; label: string; when: string; savedHref?: string }) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-primary/30 bg-primary/[0.05] p-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-3">
@@ -136,9 +137,11 @@ export function ContinueCard({ href, label, when, savedHref }: { href: string; l
         </div>
       </div>
       <div className="flex shrink-0 gap-2">
-        <Link href={savedHref} className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border bg-card px-4 text-[14px] font-semibold text-slate-700 hover:border-primary hover:text-primary dark:text-slate-300">
-          <Bookmark className="h-4 w-4" /> Saved
-        </Link>
+        {savedHref && (
+          <Link href={savedHref} className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border bg-card px-4 text-[14px] font-semibold text-slate-700 hover:border-primary hover:text-primary dark:text-slate-300">
+            <Bookmark className="h-4 w-4" /> Saved
+          </Link>
+        )}
         <Link href={href} className="inline-flex h-10 items-center rounded-lg bg-primary px-5 text-[14px] font-semibold text-primary-foreground hover:opacity-90">
           Continue
         </Link>

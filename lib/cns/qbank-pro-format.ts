@@ -146,5 +146,8 @@ export function formatAnswer(value: unknown): string | null {
 
 /** Revision-note fragments: their only markup is <strong> on key terms. */
 export function formatNoteHtml(html: string): string {
-  return sanitizeHtml(html, { allowedTags: ["strong", "b", "em", "i"], allowedAttributes: {} });
+  const safe = sanitizeHtml(html, { allowedTags: ["strong", "b", "em", "i"], allowedAttributes: {} });
+  // Some source notes close the key-term highlight mid-word
+  // ("<strong>Pharmacokinetics describ</strong>es", Semester 4): finish the word.
+  return safe.replace(/([A-Za-z])<\/(strong|b)>([A-Za-z]+)/g, "$1$3</$2>");
 }

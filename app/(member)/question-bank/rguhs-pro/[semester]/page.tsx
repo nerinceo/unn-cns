@@ -93,7 +93,7 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
         )}
       </header>
 
-      {here && <ContinueCard href={here.path} label={here.label} when={resumeWhen(here.at)} savedHref={`${PRO_HOME}/saved?semester=${semester}`} />}
+      {here && <ContinueCard href={here.path} label={here.label} when={resumeWhen(here.at)} savedHref={mode === "full" ? `${PRO_HOME}/saved?semester=${semester}` : undefined} />}
 
       <section className="flex items-end justify-between gap-3">
         <h2 className="text-xl font-semibold">Choose a Section</h2>
