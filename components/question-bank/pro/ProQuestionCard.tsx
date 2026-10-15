@@ -31,7 +31,8 @@ export interface ProQuestion {
   priority?: string | null;
   source?: string | null;
   timesAsked?: number | null;
-  years?: string[];
+  /** Previous Years: each exam sitting it was set in ("Apr 2014"); timesAsked is their number. */
+  sittings?: string[];
 }
 
 const PRIORITY: Record<string, string> = {
@@ -93,21 +94,10 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
             {q.question}
           </p>
 
-          {(q.source || q.timesAsked) && (
-            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-semibold text-primary dark:text-blue-300">
-              {q.source && (
-                <span className="inline-flex items-center gap-1">
-                  <BookOpenCheck className="h-3.5 w-3.5" />
-                  {q.source}
-                </span>
-              )}
-              {!!q.timesAsked && (
-                <span className="inline-flex items-center gap-1">
-                  <History className="h-3.5 w-3.5" />
-                  Asked {q.timesAsked} {q.timesAsked === 1 ? "time" : "times"}
-                  {q.years && q.years.length > 0 && <span className="font-medium text-slate-600 dark:text-slate-400"> · {q.years.join(", ")}</span>}
-                </span>
-              )}
+          {q.source && (
+            <p className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-primary dark:text-blue-300">
+              <BookOpenCheck className="h-3.5 w-3.5" />
+              {q.source}
             </p>
           )}
 
@@ -134,7 +124,21 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
             </button>
           </div>
         </div>
+
+        {/* Previous Years: how often it was set, as a highlighted panel on the
+            right. The count is the number of sittings listed beside it. */}
+        {!!q.timesAsked && (
+          <aside className="hidden w-60 shrink-0 self-start rounded-xl border border-amber-200 bg-amber-50 p-4 sm:block dark:border-amber-400/25 dark:bg-amber-500/10">
+            <AskedPanel times={q.timesAsked} sittings={q.sittings ?? []} />
+          </aside>
+        )}
       </div>
+
+      {!!q.timesAsked && (
+        <div className="mx-5 mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:hidden dark:border-amber-400/25 dark:bg-amber-500/10">
+          <AskedPanel times={q.timesAsked} sittings={q.sittings ?? []} />
+        </div>
+      )}
 
       {open && (
         <div id={`answer-${q.id}`} className="space-y-4 border-t border-border bg-background/70 px-5 py-4 sm:pl-[4.25rem]">
@@ -155,6 +159,29 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
         </div>
       )}
     </article>
+  );
+}
+
+function AskedPanel({ times, sittings }: { times: number; sittings: string[] }) {
+  return (
+    <>
+      <p className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+        <History className="h-3.5 w-3.5" />
+        Previous years
+      </p>
+      <p className="mt-1 text-[15px] font-semibold text-amber-950 dark:text-amber-100">
+        <span className="text-[26px] font-bold tabular-nums leading-none">{times}</span> {times === 1 ? "time" : "times"} in RGUHS exams
+      </p>
+      {sittings.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-1.5">
+          {sittings.map((s) => (
+            <li key={s} className="rounded-md bg-white px-2 py-0.5 text-[12.5px] font-semibold tabular-nums text-amber-900 ring-1 ring-inset ring-amber-300 dark:bg-amber-950/40 dark:text-amber-100 dark:ring-amber-400/30">
+              {s}
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
 

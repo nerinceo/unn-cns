@@ -46,6 +46,7 @@ interface Row {
   exam_tip: string | null;
   times_asked: number;
   years_asked: string[] | null;
+  sittings: string[] | null;
   total_count: number;
 }
 
@@ -166,7 +167,7 @@ export default async function ProPreviousPage({
                 rationaleHtml: formatAnswer(x.rationale),
                 tipHtml: formatAnswer(x.exam_tip),
                 timesAsked: Number(x.times_asked) || null,
-                years: x.years_asked ?? [],
+                sittings: x.sittings ?? [],
               }}
             />
           ))}
