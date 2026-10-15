@@ -1,20 +1,22 @@
 import { FilterSelect } from "@/components/question-bank/FilterSelect";
-import { REPEAT_PATTERNS, type RepeatPattern, type YearOptions } from "@/lib/cns/qbank-pro";
+import { REPEAT_PATTERNS, SCHEMES, type RepeatPattern, type Scheme, type YearOptions } from "@/lib/cns/qbank-pro";
 
 /**
  * The year filters on Previous Years and Most Important (Naveen, 2026-10-15):
- * the exam years a question appeared in (any of those picked), and how it
- * repeats over the last 4 exam years. Links, like every other filter here.
+ * the syllabus scheme (by exam year), the exam years a question appeared in
+ * (any of those picked), and how it repeats over the last 4 exam years. Links, like every other filter here.
  */
 export function YearFilters({
   options,
   years,
   pattern,
+  scheme,
   href,
 }: {
   options: YearOptions;
   years: number[];
   pattern: RepeatPattern | undefined;
+  scheme: Scheme | undefined;
   href: (patch: Record<string, string | number | undefined>) => string;
 }) {
   const span = options.window.length ? `${options.window[0]}–${options.window[options.window.length - 1]}` : "";
@@ -24,6 +26,13 @@ export function YearFilters({
   };
   return (
     <>
+      <FilterSelect
+        variant="paper"
+        allLabel="All schemes"
+        allHref={href({ scheme: undefined })}
+        widthClass="w-72"
+        options={SCHEMES.map((s) => ({ label: s.label, count: options.schemes?.[s.value] ?? 0, href: href({ scheme: s.value }), active: s.value === scheme }))}
+      />
       <FilterSelect
         variant="year"
         noun="years"

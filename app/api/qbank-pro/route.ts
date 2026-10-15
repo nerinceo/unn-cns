@@ -22,7 +22,7 @@ import { formatAnswer } from "@/lib/cns/qbank-pro-format";
  *
  *   POST /api/qbank-pro   { fn, args }
  *
- * Also Save / Mark done (fn "qb2_mark") on any question or hacks card.
+ * Also Save (fn "qb2_mark") on any question or hacks card.
  *
  * Same gate as the server-rendered pages (lib/cns/qbank-pro-gate): the exam's
  * semester must be bought, or the exam must be that semester's free sample;
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     return fail(400, "Invalid request");
   }
 
-  // Progress: Save / Mark done on a question or a hacks card. Allowed on what
+  // Save on a question or a hacks card (p_done is still accepted, no longer sent). Allowed on what
   // the member can open — its semester bought, or offered as a sample.
   if (fn === "qb2_mark") {
     const kind = args.p_kind;
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(await setMark(user.id, kind, item, saved, done));
     } catch (e) {
       console.error("[qbank-pro] mark", e instanceof Error ? e.message : e);
-      return fail(500, "Could not save your progress. Please try again.");
+      return fail(500, "Could not save. Please try again.");
     }
   }
 

@@ -35,7 +35,7 @@ export interface ProQuestion {
   /** Previous Years: each exam sitting it was set in ("Apr 2014"); timesAsked is their number. */
   sittings?: string[];
   /** This member's Save / Done on the question (progress). */
-  mark?: { saved: boolean; done: boolean };
+  mark?: { saved: boolean };
 }
 
 const PRIORITY: Record<string, string> = {
@@ -125,7 +125,7 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
               {open ? "Hide Answer" : "Show Answer"}
               <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
-            {q.mark && <MarkButtons kind="q" item={Number(q.id)} saved={q.mark.saved} done={q.mark.done} />}
+            {q.mark && <MarkButtons kind="q" item={Number(q.id)} saved={q.mark.saved} />}
           </div>
         </div>
 

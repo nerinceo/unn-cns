@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, Check, FileText, Lock } from "lucide-react";
 import { accessDateLabel, canOpenSemester } from "@/lib/cns/qbank-access";
-import { PRO_HOME, getProOverview, getProgress, getResume, requireProBank, resumeWhen } from "@/lib/cns/qbank-pro";
-import { ContinueCard, ProgressBar } from "@/components/question-bank/pro/Progress";
+import { PRO_HOME, getProOverview, getResume, requireProBank, resumeWhen } from "@/lib/cns/qbank-pro";
+import { ContinueCard } from "@/components/question-bank/pro/Progress";
 import { PRO_NAME, ProBack, ProFooter, ProHeader } from "@/components/question-bank/pro/ProChrome";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ const YEAR_BANDS = [
 export default async function ProSemestersPage({ searchParams }: { searchParams: { locked?: string } }) {
   const ctx = await requireProBank();
   const { access } = ctx;
-  const [overview, progress, resume] = await Promise.all([getProOverview(), getProgress(ctx), getResume(ctx)]);
+  const [overview, resume] = await Promise.all([getProOverview(), getResume(ctx)]);
   const last = resume[0];
   const lockedSemester = Number(searchParams.locked) || null;
 
@@ -60,7 +60,7 @@ export default async function ProSemestersPage({ searchParams }: { searchParams:
         <p className="text-[14px] text-muted-foreground">Access until {accessDateLabel(access.expiresAt)}.</p>
       ) : null}
 
-      {last && <ContinueCard href={last.path} label={last.label} when={resumeWhen(last.at)} savedHref={`${PRO_HOME}/progress`} />}
+      {last && <ContinueCard href={last.path} label={last.label} when={resumeWhen(last.at)} savedHref={`${PRO_HOME}/saved`} />}
 
       <section className="flex items-end justify-between gap-3">
         <h2 className="text-xl font-semibold">Select Semester</h2>
@@ -73,7 +73,6 @@ export default async function ProSemestersPage({ searchParams }: { searchParams:
           const questions = (c?.model ?? 0) + (c?.previous ?? 0);
           const band = YEAR_BANDS[Math.ceil(n / 2) - 1];
           const open = canOpenSemester(access, n);
-          const p = progress?.semesters.find((x) => x.semester === n);
           return (
             <Link
               key={n}
@@ -108,11 +107,6 @@ export default async function ProSemestersPage({ searchParams }: { searchParams:
                     )}
                   </div>
                 </div>
-                {open && p && (
-                  <div className="mt-3">
-                    <ProgressBar done={p.questions_done} total={p.questions_total} size="sm" />
-                  </div>
-                )}
                 <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
                   <span className="inline-flex items-center gap-1.5 text-[14px] font-bold tabular-nums text-foreground">
                     <FileText className={`h-4 w-4 ${open ? band.icon : "text-muted-foreground"}`} />

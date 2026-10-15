@@ -180,7 +180,7 @@ export async function SosDeckView({
                       </div>
                     )}
                     <div className="mt-auto pt-4">
-                      <MarkButtons kind="sos" item={c._id} saved={marksById[String(c._id)]?.saved} done={marksById[String(c._id)]?.done} compact />
+                      <MarkButtons kind="sos" item={c._id} saved={marksById[String(c._id)]?.saved} compact />
                     </div>
                   </div>
                 </article>

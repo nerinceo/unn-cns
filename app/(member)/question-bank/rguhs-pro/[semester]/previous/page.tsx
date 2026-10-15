@@ -4,9 +4,10 @@ import { ArrowRight, History, SearchX } from "lucide-react";
 import {
   PRO_HOME,
   REPEAT_PATTERNS,
+  SCHEMES,
+  filterYears,
   gatedRead,
   getMarks,
-  getProgress,
   getYearOptions,
   parseSemester,
   parseYears,
@@ -15,8 +16,8 @@ import {
   requireProBank,
   requireSemesterMode,
   type RepeatPattern,
+  type Scheme,
 } from "@/lib/cns/qbank-pro";
-import { ProgressBar } from "@/components/question-bank/pro/Progress";
 import { YearFilters } from "@/components/question-bank/pro/YearFilters";
 import { formatAnswer } from "@/lib/cns/qbank-pro-format";
 import {
@@ -93,9 +94,6 @@ export default async function ProPreviousPage({
       g.count += Number(r.question_count);
     } else subjects.push({ key: r.subject_code, name: r.subject_name, codes: [r.subject_code], count: Number(r.question_count) });
   }
-  const progress = await getProgress(ctx, semester);
-  const doneOf = (codes: string[]) =>
-    (progress?.previous_subjects ?? []).filter((p) => codes.includes(p.code)).reduce((n, p) => n + Number(p.done), 0);
   const wanted = param(searchParams, "subject");
   const chosen = subjects.find((s) => s.codes.includes(wanted ?? ""));
   const base = `${PRO_HOME}/${semester}/previous`;
@@ -127,11 +125,6 @@ export default async function ProPreviousPage({
                 <History className="h-4 w-4 text-primary" />
                 {s.count.toLocaleString("en-IN")} previous years’ solved questions
               </p>
-              {progress && (
-                <div className="mt-3">
-                  <ProgressBar done={doneOf(s.codes)} total={s.count} size="sm" />
-                </div>
-              )}
               <span className="mt-4 inline-flex items-center gap-1 border-t border-border pt-3 text-[14px] font-bold text-primary">
                 Open <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </span>
@@ -149,6 +142,9 @@ export default async function ProPreviousPage({
   const years = sample ? [] : parseYears(param(searchParams, "years"), yearOptions.years.map((y) => y.year));
   const repeatParam = param(searchParams, "repeat");
   const pattern = !sample && REPEAT_PATTERNS.some((p) => p.value === repeatParam) ? (repeatParam as RepeatPattern) : undefined;
+  const schemeParam = param(searchParams, "scheme");
+  const scheme = !sample && SCHEMES.some((x) => x.value === schemeParam) ? (schemeParam as Scheme) : undefined;
+  const queryYears = filterYears(years, scheme, yearOptions.years.map((y) => y.year));
   const rows =
     (await gatedRead<Row[]>(ctx, "get_previous_questions_page", {
       p_semester: semester,
@@ -156,11 +152,11 @@ export default async function ProPreviousPage({
       p_search: q ?? "",
       p_offset: (page - 1) * PAGE_SIZE,
       p_limit: PAGE_SIZE,
-      p_years: years.length ? years : null,
+      p_years: queryYears,
       p_pattern: pattern ?? null,
     })) ?? [];
   const total = rows.length ? Number(rows[0].total_count) : 0;
-  const href = linkBuilder(base, { subject: chosen.key, q, years: years.length ? years.join(",") : undefined, repeat: pattern });
+  const href = linkBuilder(base, { subject: chosen.key, q, years: years.length ? years.join(",") : undefined, repeat: pattern, scheme });
   const [marksById] = await Promise.all([
     getMarks(ctx, "q", rows.map((r) => r.id)),
     recordResume(ctx, semester, href({ page }), `Semester ${semester} · Previous Years · ${chosen.name}${page > 1 ? ` · page ${page}` : ""}`),
@@ -175,19 +171,17 @@ export default async function ProPreviousPage({
         <ProSampleNotice semester={semester} shown={rows.length} total={chosen.count} noun="questions in this subject" buyUrl={ctx.access.buyUrl} />
       ) : (
         <div className="flex flex-col gap-2">
-          <ProSearch action={base} keep={{ subject: chosen.key, years: years.length ? years.join(",") : undefined, repeat: pattern }} value={q} placeholder="Search questions" />
+          <ProSearch action={base} keep={{ subject: chosen.key, years: years.length ? years.join(",") : undefined, repeat: pattern, scheme }} value={q} placeholder="Search questions" />
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            <YearFilters options={yearOptions} years={years} pattern={pattern} href={href} />
-            {(years.length > 0 || pattern) && (
-              <a href={href({ years: undefined, repeat: undefined })} className="text-[13px] font-semibold text-primary hover:underline">
+            <YearFilters options={yearOptions} years={years} pattern={pattern} scheme={scheme} href={href} />
+            {(years.length > 0 || pattern || scheme) && (
+              <a href={href({ years: undefined, repeat: undefined, scheme: undefined })} className="text-[13px] font-semibold text-primary hover:underline">
                 Clear year filters
               </a>
             )}
           </div>
         </div>
       )}
-
-      {!sample && progress && <ProgressBar done={doneOf(chosen.codes)} total={chosen.count} label={`Your progress · ${chosen.name}`} />}
 
       {!sample && <ProCountBar from={total ? (page - 1) * PAGE_SIZE + 1 : 0} to={(page - 1) * PAGE_SIZE + rows.length} total={total} noun="questions" />}
 

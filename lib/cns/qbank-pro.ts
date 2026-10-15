@@ -309,6 +309,30 @@ export interface YearOptions {
   window: number[];
   years: { year: number; count: number }[];
   patterns: Record<RepeatPattern, number>;
+  schemes: Record<Scheme, number>;
+}
+
+/**
+ * RGUHS syllabus scheme, by exam year (Naveen, 2026-10-15: "after 2022 new
+ * scheme, before 2022 old scheme"). A question set in both eras is in both.
+ */
+export const NEW_SCHEME_FROM = 2022;
+export const SCHEMES = [
+  { value: "new", label: `New scheme (${NEW_SCHEME_FROM} onwards)` },
+  { value: "old", label: `Old scheme (before ${NEW_SCHEME_FROM})` },
+] as const;
+export type Scheme = (typeof SCHEMES)[number]["value"];
+
+/**
+ * The years to filter on: those picked, narrowed to the scheme's era. A
+ * scheme with no years picked is its whole era; picks outside the era match
+ * nothing (an impossible year), never everything.
+ */
+export function filterYears(picked: number[], scheme: Scheme | undefined, offered: number[]): number[] | null {
+  if (!scheme) return picked.length ? picked : null;
+  const era = offered.filter((y) => (scheme === "new" ? y >= NEW_SCHEME_FROM : y < NEW_SCHEME_FROM));
+  const years = picked.length ? picked.filter((y) => era.includes(y)) : era;
+  return years.length ? years : [0];
 }
 
 export const getYearOptions = unstable_cache(
@@ -326,7 +350,9 @@ export function parseYears(v: string | undefined, offered: number[]): number[] {
 }
 
 // ---------------------------------------------------------------------------
-// Progress: saved / done, and where the member left off (0006)
+// Saved items, and where the member left off (0006). The done flag and the
+// qbank2_progress RPC still exist in CONTENT but are no longer shown
+// (Naveen, 2026-10-15: progress figures would overwhelm students).
 
 export type MarkKind = "q" | "mnemonic" | "note" | "sos";
 export type Marks = Record<string, { saved: boolean; done: boolean }>;
@@ -335,30 +361,6 @@ export type Marks = Record<string, { saved: boolean; done: boolean }>;
 export async function getMarks(ctx: ProContext, kind: MarkKind, ids: (number | string)[]): Promise<Marks> {
   if (!ctx.userId || ids.length === 0) return {};
   return (await call<Marks>("qbank2_marks_get", { p_user: ctx.userId, p_kind: kind, p_items: ids.map(Number) })) ?? {};
-}
-
-export interface SemesterProgress {
-  semester: number;
-  model_total: number;
-  model_done: number;
-  previous_total: number;
-  previous_done: number;
-  important_total: number;
-  important_done: number;
-  hacks_total: number;
-  hacks_done: number;
-  questions_total: number;
-  questions_done: number;
-}
-export interface Progress {
-  semesters: SemesterProgress[];
-  model_subjects: { code: string; total: number; done: number }[];
-  previous_subjects: { code: string; total: number; done: number }[];
-}
-
-export async function getProgress(ctx: ProContext, semester?: number): Promise<Progress | null> {
-  if (!ctx.userId) return null;
-  return call<Progress>("qbank2_progress", { p_user: ctx.userId, p_semester: semester ?? null });
 }
 
 export interface ResumePoint {

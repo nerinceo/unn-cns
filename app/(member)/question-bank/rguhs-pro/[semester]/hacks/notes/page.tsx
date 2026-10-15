@@ -148,7 +148,7 @@ export default async function ProNotesPage({
                 <span>Semester {semester}</span>
               </div>
               <div className="mt-3">
-                <MarkButtons kind="note" item={n._id} saved={marksById[String(n._id)]?.saved} done={marksById[String(n._id)]?.done} compact />
+                <MarkButtons kind="note" item={n._id} saved={marksById[String(n._id)]?.saved} compact />
               </div>
             </article>
           ))}
