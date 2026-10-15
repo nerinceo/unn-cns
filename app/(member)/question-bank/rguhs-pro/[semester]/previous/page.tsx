@@ -8,17 +8,22 @@ import {
   filterYears,
   gatedRead,
   getMarks,
-  getYearOptions,
+  getReadState,
+  getYearFacets,
   parseSemester,
   parseYears,
   questionOptions,
   recordResume,
   requireProBank,
   requireSemesterMode,
+  sittingsIn,
+  yearsParam,
   type RepeatPattern,
   type Scheme,
 } from "@/lib/cns/qbank-pro";
 import { YearFilters } from "@/components/question-bank/pro/YearFilters";
+import { ReadProgress } from "@/components/question-bank/pro/Progress";
+import { FilterSelect } from "@/components/question-bank/FilterSelect";
 import { formatAnswer } from "@/lib/cns/qbank-pro-format";
 import {
   PRO_NAME,
@@ -137,13 +142,21 @@ export default async function ProPreviousPage({
 
   const q = sample ? undefined : param(searchParams, "q");
   const page = sample ? 1 : pageParam(searchParams);
-  const yearOptions = await getYearOptions(semester, "previous");
-  const years = sample ? [] : parseYears(param(searchParams, "years"), yearOptions.years.map((y) => y.year));
   const repeatParam = param(searchParams, "repeat");
   const pattern = !sample && REPEAT_PATTERNS.some((p) => p.value === repeatParam) ? (repeatParam as RepeatPattern) : undefined;
   const schemeParam = param(searchParams, "scheme");
   const scheme = !sample && SCHEMES.some((x) => x.value === schemeParam) ? (schemeParam as Scheme) : undefined;
-  const queryYears = filterYears(years, scheme, yearOptions.years.map((y) => y.year));
+  const rawYears = sample ? [] : yearsParam(param(searchParams, "years"));
+  // Read / unread: members who have this semester (not samples).
+  const readParam = param(searchParams, "read");
+  const readFilter = !sample && ctx.userId && (readParam === "read" || readParam === "unread") ? readParam : undefined;
+  const [yearOptions, readState] = await Promise.all([
+    getYearFacets(semester, "previous", { codes: chosen.codes, scheme, years: rawYears }),
+    sample ? Promise.resolve(null) : getReadState(ctx, semester, chosen.codes),
+  ]);
+  const offered = yearOptions.years.map((y) => y.year);
+  const years = parseYears(rawYears.join(","), offered);
+  const queryYears = filterYears(years, scheme, offered);
   const rows =
     (await gatedRead<Row[]>(ctx, "get_previous_questions_page", {
       p_semester: semester,
@@ -153,9 +166,10 @@ export default async function ProPreviousPage({
       p_limit: PAGE_SIZE,
       p_years: queryYears,
       p_pattern: pattern ?? null,
+      ...(readFilter ? { p_user: ctx.userId, p_read: readFilter } : {}),
     })) ?? [];
   const total = rows.length ? Number(rows[0].total_count) : 0;
-  const href = linkBuilder(base, { subject: chosen.key, q, years: years.length ? years.join(",") : undefined, repeat: pattern, scheme });
+  const href = linkBuilder(base, { subject: chosen.key, q, years: years.length ? years.join(",") : undefined, repeat: pattern, scheme, read: readFilter });
   const [marksById] = await Promise.all([
     getMarks(ctx, "q", rows.map((r) => r.id)),
     recordResume(ctx, semester, href({ page }), `Semester ${semester} · Previous Years · ${chosen.name}${page > 1 ? ` · page ${page}` : ""}`),
@@ -170,9 +184,22 @@ export default async function ProPreviousPage({
         <ProSampleNotice semester={semester} shown={rows.length} noun="questions in this subject" buyUrl={ctx.access.buyUrl} />
       ) : (
         <div className="flex flex-col gap-2">
-          <ProSearch action={base} keep={{ subject: chosen.key, years: years.length ? years.join(",") : undefined, repeat: pattern, scheme }} value={q} placeholder="Search questions" />
+          <ProSearch action={base} keep={{ subject: chosen.key, years: years.length ? years.join(",") : undefined, repeat: pattern, scheme, read: readFilter }} value={q} placeholder="Search questions" />
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <YearFilters options={yearOptions} years={years} pattern={pattern} scheme={scheme} href={href} />
+            {readState && (
+              <FilterSelect
+                variant="read"
+                emphasizeCounts
+                allLabel="Read & unread"
+                allHref={href({ read: undefined })}
+                widthClass="w-60"
+                options={[
+                  { label: "Unread", count: Math.max(0, readState.total - readState.read), href: href({ read: "unread" }), active: readFilter === "unread" },
+                  { label: "Read", count: readState.read, href: href({ read: "read" }), active: readFilter === "read" },
+                ]}
+              />
+            )}
             {(years.length > 0 || pattern || scheme) && (
               <a href={href({ years: undefined, repeat: undefined, scheme: undefined })} className="text-[13px] font-semibold text-primary hover:underline">
                 Clear year filters
@@ -183,10 +210,16 @@ export default async function ProPreviousPage({
       )}
 
 
+      {readState && <ReadProgress read={readState.read} total={readState.total} />}
+
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
           <SearchX className="mx-auto h-8 w-8 text-slate-400 dark:text-slate-500" />
-          <p className="mt-3 text-[16px] font-medium text-slate-700 dark:text-slate-300">No questions match. Try another search or year filter.</p>
+          <p className="mt-3 text-[16px] font-medium text-slate-700 dark:text-slate-300">
+            {readFilter === "unread" && !q && !years.length && !pattern && !scheme
+              ? "You have read every question in this subject."
+              : "No questions match. Try another search or filter."}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -204,9 +237,14 @@ export default async function ProPreviousPage({
                 answerHtml: formatAnswer(x.answer_formatted || x.answer),
                 rationaleHtml: formatAnswer(x.rationale),
                 tipHtml: formatAnswer(x.exam_tip),
-                timesAsked: Number(x.times_asked) || null,
-                sittings: x.sittings ?? [],
-                mark: sample ? undefined : (marksById[String(x.id)] ?? { saved: false }),
+                // Filtering by scheme or years shows only those sittings, and counts them.
+                ...(() => {
+                  const shown = sittingsIn(x.sittings ?? [], years.length || scheme ? queryYears : null);
+                  return { timesAsked: (years.length || scheme ? shown.length : Number(x.times_asked)) || null, sittings: shown };
+                })(),
+                mark: sample
+                  ? undefined
+                  : { saved: marksById[String(x.id)]?.saved ?? false, read: ctx.userId ? (marksById[String(x.id)]?.done ?? false) : undefined },
               }}
             />
           ))}

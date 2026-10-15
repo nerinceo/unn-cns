@@ -5,6 +5,7 @@ import { REPEAT_PATTERNS, SCHEMES, type RepeatPattern, type Scheme, type YearOpt
  * The year filters on Previous Years and Most Important (Naveen, 2026-10-15):
  * the syllabus scheme (by exam year), the exam years a question appeared in
  * (any of those picked), and how it repeats over the last 4 exam years. Links, like every other filter here.
+ * Each option shows how many questions it gives for what is on screen.
  */
 export function YearFilters({
   options,
@@ -28,26 +29,30 @@ export function YearFilters({
     <>
       <FilterSelect
         variant="paper"
+        emphasizeCounts
         allLabel="All schemes"
         allHref={href({ scheme: undefined })}
         widthClass="w-72"
-        options={SCHEMES.map((s) => ({ label: s.label, href: href({ scheme: s.value }), active: s.value === scheme }))}
+        options={SCHEMES.map((s) => ({ label: s.label, count: options.schemes?.[s.value] ?? 0, href: href({ scheme: s.value }), active: s.value === scheme }))}
       />
       <FilterSelect
         variant="year"
+        emphasizeCounts
         noun="years"
         allLabel="All exam years"
         allHref={href({ years: undefined })}
         widthClass="w-60"
-        options={options.years.map((y) => ({ label: String(y.year), href: toggle(y.year), active: years.includes(y.year) }))}
+        options={options.years.map((y) => ({ label: String(y.year), count: y.count, href: toggle(y.year), active: years.includes(y.year) }))}
       />
       <FilterSelect
         variant="repeat"
+        emphasizeCounts
         allLabel="Any repeat pattern"
         allHref={href({ repeat: undefined })}
         widthClass="w-[22rem]"
         options={REPEAT_PATTERNS.map((p) => ({
           label: p.value === "often" ? p.label : `${p.label} (${span})`,
+          count: options.patterns[p.value] ?? 0,
           href: href({ repeat: p.value }),
           active: p.value === pattern,
         }))}

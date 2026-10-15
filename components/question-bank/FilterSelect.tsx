@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { BookOpen, CalendarDays, Check, ChevronDown, FileText, Flame, Hash, Layers, LayoutGrid, ListTree, Repeat, Tags } from "lucide-react";
+import { BookOpen, CalendarDays, Check, ChevronDown, FileText, Flame, Hash, Layers, LayoutGrid, ListTree, Repeat, Tags, CheckCircle2 } from "lucide-react";
 
 /**
  * Icons are resolved here, not passed in. A Lucide icon is a function
@@ -22,6 +22,7 @@ const ICONS = {
   paper: FileText,
   year: CalendarDays,
   repeat: Repeat,
+  read: CheckCircle2,
 } as const;
 
 export type FilterOption = {
@@ -51,6 +52,7 @@ export function FilterSelect({
   options,
   widthClass = "w-72",
   noun,
+  emphasizeCounts = false,
 }: {
   variant: keyof typeof ICONS;
   /** The "show everything" option, e.g. "All Subjects". */
@@ -64,6 +66,11 @@ export function FilterSelect({
    * picking — a click is a navigation that keeps this component mounted.
    */
   noun?: string;
+  /**
+   * Question Bank Pro (2026-10-15): counts as clear chips, and a multi-select
+   * names up to three picks ("2024, 2023") instead of "2 years".
+   */
+  emphasizeCounts?: boolean;
 }) {
   const Icon = ICONS[variant];
   const [open, setOpen] = useState(false);
@@ -88,7 +95,13 @@ export function FilterSelect({
   const active = options.filter((o) => o.active);
   const isFiltered = active.length > 0;
   const buttonLabel =
-    active.length === 0 ? allLabel : active.length === 1 || !noun ? active[0].label : `${active.length} ${noun}`;
+    active.length === 0
+      ? allLabel
+      : active.length === 1 || !noun
+        ? active[0].label
+        : emphasizeCounts && active.length <= 3
+          ? active.map((o) => o.label).join(", ")
+          : `${active.length} ${noun}`;
 
   return (
     <div ref={root} className="relative">
@@ -119,7 +132,7 @@ export function FilterSelect({
           <Row href={allHref} label={allLabel} active={!isFiltered} />
           <div className="my-1.5 h-px bg-border" />
           {options.map((o) => (
-            <Row key={o.href} href={o.href} label={o.label} count={o.count} active={o.active} />
+            <Row key={o.href} href={o.href} label={o.label} count={o.count} active={o.active} emphasize={emphasizeCounts} />
           ))}
         </div>
       )}
@@ -132,11 +145,13 @@ function Row({
   label,
   count,
   active,
+  emphasize = false,
 }: {
   href: string;
   label: string;
   count?: number;
   active: boolean;
+  emphasize?: boolean;
 }) {
   return (
     <Link
@@ -153,8 +168,14 @@ function Row({
       <Check className={`h-3.5 w-3.5 shrink-0 ${active ? "opacity-100" : "opacity-0"}`} />
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {count != null && (
-        <span className="shrink-0 tabular-nums text-[13px] text-slate-500 dark:text-slate-400">
-          {count}
+        <span
+          className={
+            emphasize
+              ? `shrink-0 rounded-full px-2 py-0.5 text-[12.5px] font-bold tabular-nums ${active ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`
+              : "shrink-0 tabular-nums text-[13px] text-slate-500 dark:text-slate-400"
+          }
+        >
+          {count.toLocaleString("en-IN")}
         </span>
       )}
     </Link>

@@ -337,12 +337,40 @@ export function filterYears(picked: number[], scheme: Scheme | undefined, offere
   return years.length ? years : [1000];
 }
 
-export const getYearOptions = unstable_cache(
-  async (semester: number, section: "previous" | "important"): Promise<YearOptions> =>
-    call<YearOptions>("qbank2_year_options", { p_semester: semester, p_section: section }),
-  ["qbank2-year-options"],
+/**
+ * Year filter counts for what is on screen: one subject (Previous Years: its
+ * codes; Most Important: its subject filter), the chosen scheme's years only,
+ * and repeat counts within the chosen years / scheme (content 0012).
+ */
+export const getYearFacets = unstable_cache(
+  async (
+    semester: number,
+    section: "previous" | "important",
+    f: { codes?: string[]; subject?: string; scheme?: Scheme; years?: number[] },
+  ): Promise<YearOptions> =>
+    call<YearOptions>("qbank2_year_facets", {
+      p_semester: semester,
+      p_section: section,
+      p_subject_codes: f.codes ?? null,
+      p_subject: f.subject ?? null,
+      p_scheme: f.scheme ?? null,
+      p_years: f.years?.length ? f.years : null,
+    }),
+  ["qbank2-year-facets"],
   { revalidate: 3600, tags: ["qbank2"] },
 );
+
+/** "2025,2024" from the URL as plain years; checked against what is on offer by parseYears. */
+export function yearsParam(v: string | undefined): number[] {
+  if (!v) return [];
+  return Array.from(new Set(v.split(",").map(Number).filter((n) => Number.isInteger(n) && n >= 1900 && n <= 2100)));
+}
+
+/** Only the sittings inside the years being filtered on ("Mon YYYY" labels). */
+export function sittingsIn(sittings: string[], years: number[] | null): string[] {
+  if (!years) return sittings;
+  return sittings.filter((s) => years.includes(Number(s.slice(-4))));
+}
 
 /** "2025,2024" from the URL → the years on offer, newest first. */
 export function parseYears(v: string | undefined, offered: number[]): number[] {
@@ -410,6 +438,16 @@ export function getSaved(ctx: ProContext, kind: MarkKind, semester: number | nul
 /** Every semester an item is listed in (0 = the general SOS deck); null when there is no such item. */
 export async function itemSemesters(kind: MarkKind, item: number): Promise<number[] | null> {
   return call<number[] | null>("qbank2_item_semesters", { p_kind: kind, p_item: item });
+}
+
+/** Previous Years read marks (member_marks.done) for one subject: how many of its questions are read. */
+export async function getReadState(ctx: ProContext, semester: number, codes: string[]): Promise<{ read: number; total: number } | null> {
+  if (!ctx.userId) return null;
+  return call<{ read: number; total: number }>("qbank2_read_state", { p_user: ctx.userId, p_semester: semester, p_subject_codes: codes });
+}
+
+export async function setRead(userId: string, item: number, read: boolean) {
+  return call<{ saved: boolean; done: boolean }>("qbank2_mark_set", { p_user: userId, p_kind: "q", p_item: item, p_saved: null, p_done: read });
 }
 
 export async function setSaved(userId: string, kind: MarkKind, item: number, saved: boolean) {

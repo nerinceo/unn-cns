@@ -9,6 +9,7 @@ import {
   getSampleExams,
   itemSemesters,
   proRead,
+  setRead,
   setSaved,
   submitAttempt,
 } from "@/lib/cns/qbank-pro";
@@ -84,12 +85,15 @@ export async function POST(req: NextRequest) {
     if ((kind !== "q" && kind !== "mnemonic" && kind !== "note" && kind !== "sos") || !Number.isSafeInteger(item) || item <= 0) {
       return fail(400, "Unknown item.");
     }
-    if (typeof args.p_saved !== "boolean") return fail(400, "Nothing to change.");
+    // Save (any kind), or Read (Previous Years questions only).
+    const save = typeof args.p_saved === "boolean" ? args.p_saved : null;
+    const read = kind === "q" && typeof args.p_read === "boolean" ? args.p_read : null;
+    if (save === null && read === null) return fail(400, "Nothing to change.");
     try {
       const [semesters, access] = await Promise.all([itemSemesters(kind, item), getBankAccess(PRO.institution, PRO.course)]);
       if (!semesters) return fail(404, "Item not found.");
       if (!maySave(access, semesters)) return fail(403, "Buy this semester to save items.");
-      return NextResponse.json(await setSaved(user.id, kind, item, args.p_saved));
+      return NextResponse.json(save !== null ? await setSaved(user.id, kind, item, save) : await setRead(user.id, item, read as boolean));
     } catch (e) {
       console.error("[qbank-pro] mark", e instanceof Error ? e.message : e);
       return fail(500, "Could not save. Please try again.");

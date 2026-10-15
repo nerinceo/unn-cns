@@ -8,13 +8,14 @@ import {
   filterYears,
   gatedRead,
   getMarks,
-  getYearOptions,
+  getYearFacets,
   parseSemester,
   parseYears,
   questionOptions,
   recordResume,
   requireProBank,
   requireSemesterMode,
+  yearsParam,
   type ProQuestionRow,
   type RepeatPattern,
   type Scheme,
@@ -93,13 +94,15 @@ export default async function ProImportantPage({
   const priority = pick("priority", PRIORITIES.map((p) => p.value));
   const source = pick("source", SOURCES.map((s) => s.value));
   const q = sample ? undefined : param(searchParams, "q");
-  const yearOptions = await getYearOptions(semester, "important");
-  const years = sample ? [] : parseYears(param(searchParams, "years"), yearOptions.years.map((y) => y.year));
   const repeatParam = param(searchParams, "repeat");
   const pattern = !sample && REPEAT_PATTERNS.some((p) => p.value === repeatParam) ? (repeatParam as RepeatPattern) : undefined;
   const schemeParam = param(searchParams, "scheme");
   const scheme = !sample && SCHEMES.some((x) => x.value === schemeParam) ? (schemeParam as Scheme) : undefined;
-  const queryYears = filterYears(years, scheme, yearOptions.years.map((y) => y.year));
+  const rawYears = sample ? [] : yearsParam(param(searchParams, "years"));
+  const yearOptions = await getYearFacets(semester, "important", { subject, scheme, years: rawYears });
+  const offered = yearOptions.years.map((y) => y.year);
+  const years = parseYears(rawYears.join(","), offered);
+  const queryYears = filterYears(years, scheme, offered);
   const page = sample ? 1 : pageParam(searchParams);
 
   const rows =
