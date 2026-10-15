@@ -12,6 +12,7 @@ export default async function ProGeneralSosPage({ searchParams }: { searchParams
   const sample = generalModeOf(ctx.access) !== "full";
   return (
     <SosDeckView
+      ctx={ctx}
       deck="general"
       base={`${PRO_HOME}/general-sos`}
       back={<ProBack href={PRO_HOME} label="Semesters" />}

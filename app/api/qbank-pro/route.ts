@@ -7,11 +7,13 @@ import {
   getAttempt,
   getExamInfo,
   getSampleExams,
+  itemSemester,
   proRead,
   saveAttemptScore,
+  setMark,
   submitAttempt,
 } from "@/lib/cns/qbank-pro";
-import { decide } from "@/lib/cns/qbank-pro-gate";
+import { decide, generalModeOf, semesterModeOf } from "@/lib/cns/qbank-pro-gate";
 import { formatAnswer } from "@/lib/cns/qbank-pro-format";
 
 /**
@@ -19,6 +21,8 @@ import { formatAnswer } from "@/lib/cns/qbank-pro-format";
  * browser: the paper, the answer key, submitting, and the self score.
  *
  *   POST /api/qbank-pro   { fn, args }
+ *
+ * Also Save / Mark done (fn "qb2_mark") on any question or hacks card.
  *
  * Same gate as the server-rendered pages (lib/cns/qbank-pro-gate): the exam's
  * semester must be bought, or the exam must be that semester's free sample;
@@ -34,6 +38,7 @@ const ALLOWED = new Set([
   "qb2_attempt",
   "qb2_submit",
   "qb2_save_score",
+  "qb2_mark",
 ]);
 
 function fail(status: number, message: string) {
@@ -69,6 +74,31 @@ export async function POST(req: NextRequest) {
     args = (body.args ?? {}) as Record<string, unknown>;
   } catch {
     return fail(400, "Invalid request");
+  }
+
+  // Progress: Save / Mark done on a question or a hacks card. Allowed on what
+  // the member can open — its semester bought, or offered as a sample.
+  if (fn === "qb2_mark") {
+    const kind = args.p_kind;
+    const item = Number(args.p_item);
+    const flag = (v: unknown) => (v === true ? true : v === false ? false : null);
+    if ((kind !== "q" && kind !== "mnemonic" && kind !== "note" && kind !== "sos") || !Number.isSafeInteger(item) || item <= 0) {
+      return fail(400, "Unknown item.");
+    }
+    const saved = flag(args.p_saved);
+    const done = flag(args.p_done);
+    if (saved === null && done === null) return fail(400, "Nothing to change.");
+    try {
+      const semester = await itemSemester(kind, item);
+      if (semester === undefined) return fail(404, "Item not found.");
+      const access = await getBankAccess(PRO.institution, PRO.course);
+      const mode = semester == null ? generalModeOf(access) : semesterModeOf(access, semester);
+      if (mode === "closed") return fail(403, "This item is not open to your account.");
+      return NextResponse.json(await setMark(user.id, kind, item, saved, done));
+    } catch (e) {
+      console.error("[qbank-pro] mark", e instanceof Error ? e.message : e);
+      return fail(500, "Could not save your progress. Please try again.");
+    }
   }
 
   try {

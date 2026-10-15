@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { BookOpen, Check, ChevronDown, FileText, Flame, Hash, Layers, LayoutGrid, ListTree, Tags } from "lucide-react";
+import { BookOpen, CalendarDays, Check, ChevronDown, FileText, Flame, Hash, Layers, LayoutGrid, ListTree, Repeat, Tags } from "lucide-react";
 
 /**
  * Icons are resolved here, not passed in. A Lucide icon is a function
@@ -20,6 +20,8 @@ const ICONS = {
   source: BookOpen,
   category: LayoutGrid,
   paper: FileText,
+  year: CalendarDays,
+  repeat: Repeat,
 } as const;
 
 export type FilterOption = {

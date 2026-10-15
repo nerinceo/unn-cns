@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Lock } from "lucide-react";
-import { PRO_HOME, gatedRead, getAttempt, parseSemester, requireProBank, requireSemesterMode } from "@/lib/cns/qbank-pro";
+import { PRO_HOME, gatedRead, getAttempt, parseSemester, recordResume, requireProBank, requireSemesterMode } from "@/lib/cns/qbank-pro";
 import { type VivaExam, type VivaQuestion, vivaGroupName } from "@/lib/cns/qbank-pro-exams";
 import { PRO_NAME, ProBack } from "@/components/question-bank/pro/ProChrome";
 import { VivaExamRunner } from "@/components/question-bank/pro/ExamRunner";
@@ -44,7 +44,10 @@ export default async function ProVivaExamPage({ params }: { params: { semester: 
     );
   }
 
-  const attempt = ctx.userId ? await getAttempt(ctx.userId, "viva", id) : null;
+  const [attempt] = await Promise.all([
+    ctx.userId ? getAttempt(ctx.userId, "viva", id) : null,
+    recordResume(ctx, semester, `${PRO_HOME}/${semester}/mock/viva/${id}`, `Semester ${semester} · ${title} — Viva ${exam.viva_number}`),
+  ]);
   return (
     <VivaExamRunner
       examId={id}

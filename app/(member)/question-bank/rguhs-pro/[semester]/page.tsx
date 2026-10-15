@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, BookOpenCheck, Brain, ClipboardCheck, FileQuestion, History, Puzzle, Star } from "lucide-react";
-import { PRO_HOME, getProOverview, parseSemester, requireProBank, requireSemesterMode } from "@/lib/cns/qbank-pro";
+import { PRO_HOME, getProOverview, getProgress, getResume, parseSemester, requireProBank, requireSemesterMode, resumeWhen } from "@/lib/cns/qbank-pro";
+import { ContinueCard, ProgressBar } from "@/components/question-bank/pro/Progress";
 import { PRO_NAME, ProBack, ProFooter } from "@/components/question-bank/pro/ProChrome";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,10 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
   if (!semester) notFound();
   const ctx = await requireProBank();
   const mode = requireSemesterMode(ctx, semester);
-  const c = (await getProOverview()).find((o) => o.semester === semester);
+  const [overview, progress, resume] = await Promise.all([getProOverview(), getProgress(ctx, semester), getResume(ctx)]);
+  const c = overview.find((o) => o.semester === semester);
+  const p = progress?.semesters[0];
+  const here = resume.find((r) => r.semester === semester);
   const clinical = semester === 8;
   const base = `${PRO_HOME}/${semester}`;
 
@@ -32,6 +36,7 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
       body: "Practice model questions by subject and unit with complete answers.",
       count: c?.model ?? 0,
       noun: "questions",
+      done: p ? [p.model_done, p.model_total] : null,
     },
     {
       href: `${base}/previous`,
@@ -40,6 +45,7 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
       body: "Study previous years’ RGUHS university questions with clear solved answers, explanations and available exam tips.",
       count: c?.previous ?? 0,
       noun: "questions",
+      done: p ? [p.previous_done, p.previous_total] : null,
     },
     {
       href: `${base}/important`,
@@ -48,6 +54,7 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
       body: "Focus on the highest-priority questions for revision.",
       count: c?.important ?? 0,
       noun: "questions",
+      done: p ? [p.important_done, p.important_total] : null,
     },
     {
       href: `${base}/hacks`,
@@ -58,6 +65,7 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
         : "Mnemonics, Revision Notes and Exam SOS.",
       count: (c?.mnemonics ?? 0) + (c?.notes ?? 0) + (c?.sos ?? 0),
       noun: "cards",
+      done: p ? [p.hacks_done, p.hacks_total] : null,
     },
     {
       href: `${base}/taplets`,
@@ -66,6 +74,7 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
       body: "Explore colourful Taplets, quick questions and interactive challenges.",
       count: c?.taplets ?? 0,
       noun: "taplets",
+      done: null,
     },
     {
       href: `${base}/mock`,
@@ -74,8 +83,9 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
       body: "Attempt Written Exams and Viva Exams.",
       count: (c?.written ?? 0) + (c?.viva ?? 0),
       noun: "exams",
+      done: null,
     },
-  ].filter((s) => s.count > 0);
+  ].filter((s) => s.count > 0) as { href: string; icon: typeof Brain; title: string; body: string; count: number; noun: string; done: [number, number] | null }[];
 
   return (
     <div className="space-y-6">
@@ -95,6 +105,9 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
           </p>
         )}
       </header>
+
+      {here && <ContinueCard href={here.path} label={here.label} when={resumeWhen(here.at)} savedHref={`${PRO_HOME}/progress?semester=${semester}`} />}
+      {p && <ProgressBar done={p.questions_done} total={p.questions_total} label={`Your progress · Semester ${semester} questions`} />}
 
       <section className="flex items-end justify-between gap-3">
         <h2 className="text-xl font-semibold">Choose a Section</h2>
@@ -117,6 +130,11 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
               <h3 className="text-[17px] font-bold leading-snug group-hover:text-primary">{s.title}</h3>
             </div>
             <p className="mt-3 flex-1 text-[14px] leading-relaxed text-muted-foreground">{s.body}</p>
+            {s.done && (
+              <div className="mt-3">
+                <ProgressBar done={s.done[0]} total={s.done[1]} size="sm" />
+              </div>
+            )}
             <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
               <span className="inline-flex items-center gap-1.5 text-[14px] font-bold tabular-nums text-foreground">
                 <BookOpenCheck className="h-4 w-4 text-primary" />

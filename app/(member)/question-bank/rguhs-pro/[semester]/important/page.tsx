@@ -1,7 +1,24 @@
 import { notFound } from "next/navigation";
 import { SearchX, SlidersHorizontal } from "lucide-react";
 import { FilterSelect } from "@/components/question-bank/FilterSelect";
-import { PRO_HOME, gatedRead, parseSemester, questionOptions, requireProBank, requireSemesterMode, type ProQuestionRow } from "@/lib/cns/qbank-pro";
+import {
+  PRO_HOME,
+  REPEAT_PATTERNS,
+  gatedRead,
+  getMarks,
+  getProgress,
+  getYearOptions,
+  parseSemester,
+  parseYears,
+  questionOptions,
+  recordResume,
+  requireProBank,
+  requireSemesterMode,
+  type ProQuestionRow,
+  type RepeatPattern,
+} from "@/lib/cns/qbank-pro";
+import { ProgressBar } from "@/components/question-bank/pro/Progress";
+import { YearFilters } from "@/components/question-bank/pro/YearFilters";
 import { formatAnswer } from "@/lib/cns/qbank-pro-format";
 import {
   PRO_NAME,
@@ -76,6 +93,10 @@ export default async function ProImportantPage({
   const priority = pick("priority", PRIORITIES.map((p) => p.value));
   const source = pick("source", SOURCES.map((s) => s.value));
   const q = sample ? undefined : param(searchParams, "q");
+  const yearOptions = await getYearOptions(semester, "important");
+  const years = sample ? [] : parseYears(param(searchParams, "years"), yearOptions.years.map((y) => y.year));
+  const repeatParam = param(searchParams, "repeat");
+  const pattern = !sample && REPEAT_PATTERNS.some((p) => p.value === repeatParam) ? (repeatParam as RepeatPattern) : undefined;
   const page = sample ? 1 : pageParam(searchParams);
 
   const rows =
@@ -90,12 +111,20 @@ export default async function ProImportantPage({
       p_offset: (page - 1) * PAGE_SIZE,
       p_priority: priority ?? null,
       p_source: source ?? null,
+      p_years: years.length ? years : null,
+      p_pattern: pattern ?? null,
     })) ?? [];
   const total = rows.length ? Number(rows[0].total_count) : 0;
   const base = `${PRO_HOME}/${semester}/important`;
   const current = { subject, type: drawing ? "drawing" : type, marks: marks ? String(marks) : undefined, priority, source, q };
-  const href = linkBuilder(base, current);
-  const filtered = Object.values(current).some(Boolean);
+  const href = linkBuilder(base, { ...current, years: years.length ? years.join(",") : undefined, repeat: pattern });
+  const filtered = Object.values(current).some(Boolean) || years.length > 0 || !!pattern;
+  const [marksById, progress] = await Promise.all([
+    getMarks(ctx, "q", rows.map((r) => r.question.id)),
+    getProgress(ctx, semester),
+    recordResume(ctx, semester, href({ page }), `Semester ${semester} · Most Important${page > 1 ? ` · page ${page}` : ""}`),
+  ]);
+  const sem = progress?.semesters[0];
 
   return (
     <div className="space-y-5">
@@ -122,7 +151,7 @@ export default async function ProImportantPage({
             )}
           </div>
           <div className="flex flex-col gap-2 p-5 pt-3">
-            <ProSearch action={base} keep={{ ...current, q: undefined }} value={q} placeholder="Search all questions" />
+            <ProSearch action={base} keep={{ ...current, q: undefined, years: years.length ? years.join(",") : undefined, repeat: pattern }} value={q} placeholder="Search all questions" />
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <FilterSelect
                 variant="subject"
@@ -161,10 +190,13 @@ export default async function ProImportantPage({
                 widthClass="w-64"
                 options={SOURCES.map((s) => ({ label: s.label, href: href({ source: s.value }), active: s.value === source }))}
               />
+              <YearFilters options={yearOptions} years={years} pattern={pattern} href={href} />
             </div>
           </div>
         </section>
       )}
+
+      {!sample && sem && <ProgressBar done={sem.important_done} total={sem.important_total} label={`Your progress · Semester ${semester} most important`} />}
 
       {!sample && <ProCountBar from={total ? (page - 1) * PAGE_SIZE + 1 : 0} to={(page - 1) * PAGE_SIZE + rows.length} total={total} noun="questions" />}
 
@@ -195,6 +227,7 @@ export default async function ProImportantPage({
                   tipHtml: formatAnswer(x.exam_tip),
                   priority: PRIORITIES.find((p) => p.value === x.importance_level)?.label ?? null,
                   source: SOURCES.find((s) => s.value === x.source_group)?.label ?? null,
+                  mark: marksById[String(x.id)] ?? { saved: false, done: false },
                 }}
               />
             );

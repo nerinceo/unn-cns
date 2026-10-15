@@ -1,7 +1,19 @@
 import { notFound } from "next/navigation";
 import { SearchX, SlidersHorizontal } from "lucide-react";
 import { FilterSelect } from "@/components/question-bank/FilterSelect";
-import { PRO_HOME, gatedRead, parseSemester, questionOptions, requireProBank, requireSemesterMode, type ProQuestionRow } from "@/lib/cns/qbank-pro";
+import {
+  PRO_HOME,
+  gatedRead,
+  getMarks,
+  getProgress,
+  parseSemester,
+  questionOptions,
+  recordResume,
+  requireProBank,
+  requireSemesterMode,
+  type ProQuestionRow,
+} from "@/lib/cns/qbank-pro";
+import { ProgressBar } from "@/components/question-bank/pro/Progress";
 import { formatAnswer } from "@/lib/cns/qbank-pro-format";
 import {
   PRO_NAME,
@@ -86,6 +98,13 @@ export default async function ProModelPage({
   const base = `${PRO_HOME}/${semester}/model`;
   const current = { subject, unit, type: drawing ? "drawing" : type, marks: marks ? String(marks) : undefined, q };
   const href = linkBuilder(base, current);
+  const subjectName = subjects.find((s) => s.code === subject)?.name ?? "";
+  const [marksById, progress] = await Promise.all([
+    getMarks(ctx, "q", rows.map((r) => r.question.id)),
+    getProgress(ctx, semester),
+    recordResume(ctx, semester, href({ page }), `Semester ${semester} · Model Questions · ${subjectName}${page > 1 ? ` · page ${page}` : ""}`),
+  ]);
+  const subjectProgress = progress?.model_subjects.find((p) => p.code === subject);
 
   return (
     <div className="space-y-5">
@@ -152,6 +171,8 @@ export default async function ProModelPage({
         </div>
       </section>
 
+      {subjectProgress && <ProgressBar done={subjectProgress.done} total={subjectProgress.total} label={`Your progress · ${subjectName}`} />}
+
       {!sample && <ProCountBar from={total ? (page - 1) * PAGE_SIZE + 1 : 0} to={(page - 1) * PAGE_SIZE + rows.length} total={total} noun="questions" />}
 
       {rows.length === 0 ? (
@@ -179,6 +200,7 @@ export default async function ProModelPage({
                   answerHtml: formatAnswer(x.answer_formatted || x.answer),
                   rationaleHtml: formatAnswer(x.rationale),
                   tipHtml: formatAnswer(x.exam_tip),
+                  mark: marksById[String(x.id)] ?? { saved: false, done: false },
                 }}
               />
             );

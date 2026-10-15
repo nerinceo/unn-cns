@@ -191,6 +191,8 @@ export function getMnemonics(
 }
 
 export interface RevisionNote {
+  /** qbank2.hack_notes.id — what progress keys on. */
+  _id: number;
   id: string;
   subject?: string;
   unit_code?: string;
@@ -222,6 +224,8 @@ export function getNotes(
 }
 
 export interface SosCard {
+  /** qbank2.hack_sos_cards.id — what progress keys on. */
+  _id: number;
   id: string;
   category: string;
   title: string;
@@ -286,6 +290,126 @@ export function getTapletPaper(qp: string, limit: number) {
 /** "Applied Anatomy • 100 Practice Taplets | Nerusalem" → "Applied Anatomy". */
 export function tapletSubject(title: string): string {
   return title.split(" • ")[0].split(" | ")[0].trim();
+}
+
+// ---------------------------------------------------------------------------
+// Year filters (supabase/content/0006)
+
+/** Repeat patterns over the last 4 exam years with full data — the source's "repeated" lens. */
+export const REPEAT_PATTERNS = [
+  { value: "all4", label: "In all 4 years" },
+  { value: "three4", label: "In 3 of the last 4 years" },
+  { value: "two4", label: "In 2 of the last 4 years" },
+  { value: "any4", label: "In any of the last 4 years" },
+  { value: "often", label: "Asked in 5+ different years" },
+] as const;
+export type RepeatPattern = (typeof REPEAT_PATTERNS)[number]["value"];
+
+export interface YearOptions {
+  window: number[];
+  years: { year: number; count: number }[];
+  patterns: Record<RepeatPattern, number>;
+}
+
+export const getYearOptions = unstable_cache(
+  async (semester: number, section: "previous" | "important"): Promise<YearOptions> =>
+    call<YearOptions>("qbank2_year_options", { p_semester: semester, p_section: section }),
+  ["qbank2-year-options"],
+  { revalidate: 3600, tags: ["qbank2"] },
+);
+
+/** "2025,2024" from the URL → the years on offer, newest first. */
+export function parseYears(v: string | undefined, offered: number[]): number[] {
+  if (!v) return [];
+  const set = new Set(v.split(",").map(Number).filter((n) => offered.includes(n)));
+  return offered.filter((y) => set.has(y));
+}
+
+// ---------------------------------------------------------------------------
+// Progress: saved / done, and where the member left off (0006)
+
+export type MarkKind = "q" | "mnemonic" | "note" | "sos";
+export type Marks = Record<string, { saved: boolean; done: boolean }>;
+
+/** This member's marks on the items of one page. */
+export async function getMarks(ctx: ProContext, kind: MarkKind, ids: (number | string)[]): Promise<Marks> {
+  if (!ctx.userId || ids.length === 0) return {};
+  return (await call<Marks>("qbank2_marks_get", { p_user: ctx.userId, p_kind: kind, p_items: ids.map(Number) })) ?? {};
+}
+
+export interface SemesterProgress {
+  semester: number;
+  model_total: number;
+  model_done: number;
+  previous_total: number;
+  previous_done: number;
+  important_total: number;
+  important_done: number;
+  hacks_total: number;
+  hacks_done: number;
+  questions_total: number;
+  questions_done: number;
+}
+export interface Progress {
+  semesters: SemesterProgress[];
+  model_subjects: { code: string; total: number; done: number }[];
+  previous_subjects: { code: string; total: number; done: number }[];
+}
+
+export async function getProgress(ctx: ProContext, semester?: number): Promise<Progress | null> {
+  if (!ctx.userId) return null;
+  return call<Progress>("qbank2_progress", { p_user: ctx.userId, p_semester: semester ?? null });
+}
+
+export interface ResumePoint {
+  semester: number;
+  path: string;
+  label: string;
+  at: string;
+}
+
+/** "Last opened 15 Oct, 10:42 am" in Indian time. */
+export function resumeWhen(at: string): string {
+  return `Last opened ${new Date(at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}`;
+}
+
+export async function getResume(ctx: ProContext): Promise<ResumePoint[]> {
+  if (!ctx.userId) return [];
+  return (await call<ResumePoint[]>("qbank2_resume_get", { p_user: ctx.userId })) ?? [];
+}
+
+/**
+ * Remember this page as where the member is in a semester (0 = general SOS).
+ * Never fails a page: progress is a convenience, the page is the product.
+ */
+export async function recordResume(ctx: ProContext, semester: number, path: string, label: string): Promise<void> {
+  if (!ctx.userId || !path.startsWith(PRO_HOME)) return;
+  try {
+    await call("qbank2_resume_set", { p_user: ctx.userId, p_semester: semester, p_path: path.slice(0, 400), p_label: label.slice(0, 200) });
+  } catch (e) {
+    console.error("[qbank-pro] resume not recorded:", e instanceof Error ? e.message : e);
+  }
+}
+
+export function getMarked(ctx: ProContext, kind: MarkKind, status: "saved" | "done", semester: number | null, limit: number, offset: number) {
+  return call<{ total: number; rows: Record<string, unknown>[] }>("qbank2_marked", {
+    p_user: ctx.userId,
+    p_kind: kind,
+    p_status: status,
+    p_semester: semester,
+    p_limit: limit,
+    p_offset: offset,
+  });
+}
+
+/** Which semester an item belongs to (null = the general SOS deck); undefined when there is no such item. */
+export async function itemSemester(kind: MarkKind, item: number): Promise<number | null | undefined> {
+  const rows = await call<{ found: boolean; semester: number | null }[]>("qbank2_item_semester", { p_kind: kind, p_item: item });
+  return rows?.[0]?.found ? rows[0].semester : undefined;
+}
+
+export async function setMark(userId: string, kind: MarkKind, item: number, saved: boolean | null, done: boolean | null) {
+  return call<{ saved: boolean; done: boolean }>("qbank2_mark_set", { p_user: userId, p_kind: kind, p_item: item, p_saved: saved, p_done: done });
 }
 
 // ---------------------------------------------------------------------------

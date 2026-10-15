@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { PRO_HOME, PRO_SAMPLE, getTapletPaper, parseSemester, requireProBank, requireSemesterMode, tapletSubject } from "@/lib/cns/qbank-pro";
+import { PRO_HOME, PRO_SAMPLE, getTapletPaper, parseSemester, recordResume, requireProBank, requireSemesterMode, tapletSubject } from "@/lib/cns/qbank-pro";
 import { PRO_NAME, ProBack, ProFooter, ProHeader, ProSampleNotice } from "@/components/question-bank/pro/ProChrome";
 import { TapletDeck } from "@/components/question-bank/pro/TapletDeck";
 
@@ -17,6 +17,7 @@ export default async function ProTapletPaperPage({ params }: { params: { semeste
   const data = await getTapletPaper(params.qp, sample ? PRO_SAMPLE.taplets : 1000);
   if (!data.paper || data.paper.semester !== semester) notFound();
   const subject = tapletSubject(data.paper.title);
+  await recordResume(ctx, semester, `${PRO_HOME}/${semester}/taplets/${params.qp}`, `Semester ${semester} · Practice Taplets · ${subject}`);
 
   return (
     <div className="space-y-6">

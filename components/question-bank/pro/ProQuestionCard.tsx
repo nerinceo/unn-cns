@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Award, BookOpenCheck, CheckCircle2, ChevronDown, Flame, History, Lightbulb, PencilRuler, Target } from "lucide-react";
 import { questionTone } from "@/components/question-bank/question-tone";
+import { MarkButtons } from "@/components/question-bank/pro/Progress";
 
 /**
  * One Question Bank Pro question — the RGUHS NursingBankCard's design with
@@ -33,6 +34,8 @@ export interface ProQuestion {
   timesAsked?: number | null;
   /** Previous Years: each exam sitting it was set in ("Apr 2014"); timesAsked is their number. */
   sittings?: string[];
+  /** This member's Save / Done on the question (progress). */
+  mark?: { saved: boolean; done: boolean };
 }
 
 const PRIORITY: Record<string, string> = {
@@ -111,7 +114,7 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
             </ul>
           )}
 
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
@@ -122,6 +125,7 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
               {open ? "Hide Answer" : "Show Answer"}
               <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
+            {q.mark && <MarkButtons kind="q" item={Number(q.id)} saved={q.mark.saved} done={q.mark.done} />}
           </div>
         </div>
 

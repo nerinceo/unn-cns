@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Lock } from "lucide-react";
-import { PRO_HOME, gatedRead, getAttempt, parseSemester, requireProBank, requireSemesterMode } from "@/lib/cns/qbank-pro";
+import { PRO_HOME, gatedRead, getAttempt, parseSemester, recordResume, requireProBank, requireSemesterMode } from "@/lib/cns/qbank-pro";
 import type { PaperQuestion, WrittenExam } from "@/lib/cns/qbank-pro-exams";
 import { PRO_NAME, ProBack } from "@/components/question-bank/pro/ProChrome";
 import { WrittenExamRunner } from "@/components/question-bank/pro/ExamRunner";
@@ -41,7 +41,10 @@ export default async function ProWrittenExamPage({ params }: { params: { semeste
     );
   }
 
-  const attempt = ctx.userId ? await getAttempt(ctx.userId, "written", id) : null;
+  const [attempt] = await Promise.all([
+    ctx.userId ? getAttempt(ctx.userId, "written", id) : null,
+    recordResume(ctx, semester, `${back}/written/${id}`, `Semester ${semester} · ${exam.title}`),
+  ]);
   return (
     <WrittenExamRunner
       examId={id}

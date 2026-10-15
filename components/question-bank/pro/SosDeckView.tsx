@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, LifeBuoy, ListChecks, SearchX, Zap } from "lucide-react";
 import { FilterSelect } from "@/components/question-bank/FilterSelect";
-import { getSos } from "@/lib/cns/qbank-pro";
+import { getMarks, getSos, recordResume, type ProContext } from "@/lib/cns/qbank-pro";
 import {
   ProCountBar,
   ProFooter,
@@ -13,7 +13,7 @@ import {
   pageParam,
   param,
 } from "@/components/question-bank/pro/ProChrome";
-import { SosActions } from "@/components/question-bank/pro/SosActions";
+import { MarkButtons } from "@/components/question-bank/pro/Progress";
 
 const PAGE_SIZE = 60;
 
@@ -23,6 +23,7 @@ const PAGE_SIZE = 60;
  * Shared by the semester decks and the general deck.
  */
 export async function SosDeckView({
+  ctx,
   deck,
   base,
   back,
@@ -34,6 +35,7 @@ export async function SosDeckView({
   buyUrl,
   searchParams,
 }: {
+  ctx: ProContext;
   deck: string;
   base: string;
   back: React.ReactNode;
@@ -53,6 +55,10 @@ export async function SosDeckView({
   const cats = data.deck?.categories ?? [];
   const label = (slug: string) => cats.find((c) => c.slug === slug)?.label ?? slug;
   const href = linkBuilder(base, { category, paper, q });
+  const [marksById] = await Promise.all([
+    getMarks(ctx, "sos", data.rows.map((r) => r._id)),
+    recordResume(ctx, sampleSemester ?? 0, href({ page }), `${sampleSemester ? `Semester ${sampleSemester} · ` : ""}${title}${page > 1 ? ` · page ${page}` : ""}`),
+  ]);
   const lanes = cats
     .map((c) => ({ ...c, cards: data.rows.filter((r) => r.category === c.slug) }))
     .concat([{ slug: "_other", label: "More help", description: "", cards: data.rows.filter((r) => !cats.some((c) => c.slug === r.category)) }])
@@ -123,7 +129,7 @@ export async function SosDeckView({
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {lane.cards.map((c) => (
-                <article key={c.id} id={c.id} className="flex flex-col rounded-2xl border border-border bg-card shadow-card">
+                <article key={c._id} id={c.id} className="flex flex-col rounded-2xl border border-border bg-card shadow-card">
                   <div className="rounded-t-2xl border-b border-border bg-brand-50 p-5 dark:bg-white/5">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[12px] font-bold tabular-nums text-muted-foreground">{c.id}</span>
@@ -174,7 +180,7 @@ export async function SosDeckView({
                       </div>
                     )}
                     <div className="mt-auto pt-4">
-                      <SosActions id={c.id} />
+                      <MarkButtons kind="sos" item={c._id} saved={marksById[String(c._id)]?.saved} done={marksById[String(c._id)]?.done} compact />
                     </div>
                   </div>
                 </article>

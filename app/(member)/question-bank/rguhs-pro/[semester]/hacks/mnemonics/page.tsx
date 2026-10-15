@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { ChevronDown, SearchX } from "lucide-react";
 import { FilterSelect } from "@/components/question-bank/FilterSelect";
-import { PRO_HOME, PRO_SAMPLE, getMnemonics, parseSemester, requireProBank, requireSemesterMode } from "@/lib/cns/qbank-pro";
+import { PRO_HOME, PRO_SAMPLE, getMarks, getMnemonics, parseSemester, recordResume, requireProBank, requireSemesterMode } from "@/lib/cns/qbank-pro";
+import { MarkButtons } from "@/components/question-bank/pro/Progress";
 import {
   PRO_NAME,
   ProBack,
@@ -60,6 +61,10 @@ export default async function ProMnemonicsPage({
   const data = await getMnemonics(semester, { subject, type, q, limit, offset: (page - 1) * PAGE_SIZE });
   const base = `${PRO_HOME}/${semester}/hacks/mnemonics`;
   const href = linkBuilder(base, { subject, type, q });
+  const [marksById] = await Promise.all([
+    getMarks(ctx, "mnemonic", data.rows.map((m) => m.id)),
+    recordResume(ctx, semester, href({ page }), `Semester ${semester} · Mnemonics${page > 1 ? ` · page ${page}` : ""}`),
+  ]);
 
   return (
     <div className="space-y-5">
@@ -112,6 +117,9 @@ export default async function ProMnemonicsPage({
                 </summary>
                 <p className="mt-2 text-[15px] leading-relaxed">{m.meaning}</p>
               </details>
+              <div className="border-t border-black/10 bg-white/70 px-5 py-2.5 dark:bg-black/10">
+                <MarkButtons kind="mnemonic" item={m.id} saved={marksById[String(m.id)]?.saved} done={marksById[String(m.id)]?.done} compact />
+              </div>
             </article>
           ))}
         </div>

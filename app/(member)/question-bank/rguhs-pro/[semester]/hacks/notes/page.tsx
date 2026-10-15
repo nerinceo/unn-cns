@@ -1,7 +1,18 @@
 import { notFound } from "next/navigation";
 import { SearchX } from "lucide-react";
 import { FilterSelect } from "@/components/question-bank/FilterSelect";
-import { PRO_HOME, PRO_SAMPLE, getNotes, parseSemester, requireProBank, requireSemesterMode, type RevisionNote } from "@/lib/cns/qbank-pro";
+import {
+  PRO_HOME,
+  PRO_SAMPLE,
+  getMarks,
+  getNotes,
+  parseSemester,
+  recordResume,
+  requireProBank,
+  requireSemesterMode,
+  type RevisionNote,
+} from "@/lib/cns/qbank-pro";
+import { MarkButtons } from "@/components/question-bank/pro/Progress";
 import { formatNoteHtml } from "@/lib/cns/qbank-pro-format";
 import {
   PRO_NAME,
@@ -65,6 +76,10 @@ export default async function ProNotesPage({
   const data = await getNotes(semester, { subject, unit, type, q, limit: sample ? PRO_SAMPLE.notes : PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
   const base = `${PRO_HOME}/${semester}/hacks/notes`;
   const href = linkBuilder(base, { subject, unit, type, q });
+  const [marksById] = await Promise.all([
+    getMarks(ctx, "note", data.rows.map((n) => n._id)),
+    recordResume(ctx, semester, href({ page }), `Semester ${semester} · ${clinical ? "Clinical Notes" : "Revision Notes"}${page > 1 ? ` · page ${page}` : ""}`),
+  ]);
 
   return (
     <div className="space-y-5">
@@ -120,7 +135,7 @@ export default async function ProNotesPage({
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {data.rows.map((n) => (
-            <article key={n.id} className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-card">
+            <article key={n._id} className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-card">
               <div className="flex items-start justify-between gap-3">
                 <span className="text-[12.5px] font-bold uppercase tracking-wider text-primary">{n.subject}</span>
                 <span className="shrink-0 text-[12px] font-semibold tabular-nums text-muted-foreground">{n.id}</span>
@@ -131,6 +146,9 @@ export default async function ProNotesPage({
               <div className="mt-auto flex items-center justify-between border-t border-border pt-3 text-[12.5px] font-semibold text-muted-foreground">
                 <span>{n.type ?? (clinical ? "Clinical note" : "Note")}</span>
                 <span>Semester {semester}</span>
+              </div>
+              <div className="mt-3">
+                <MarkButtons kind="note" item={n._id} saved={marksById[String(n._id)]?.saved} done={marksById[String(n._id)]?.done} compact />
               </div>
             </article>
           ))}

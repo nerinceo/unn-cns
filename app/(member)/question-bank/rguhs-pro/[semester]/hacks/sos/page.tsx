@@ -22,6 +22,7 @@ export default async function ProSosPage({
   const clinical = semester === 8;
   return (
     <SosDeckView
+      ctx={ctx}
       deck={`semester-${semester}`}
       base={`${PRO_HOME}/${semester}/hacks/sos`}
       back={<ProBack href={`${PRO_HOME}/${semester}/hacks`} label={clinical ? "Clinical Hacks" : "Exam Hacks"} />}
