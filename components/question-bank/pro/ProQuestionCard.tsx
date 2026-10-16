@@ -161,7 +161,7 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
           )}
           <AnswerSection icon={BookOpenCheck} label="Answer" html={q.answerHtml ?? "<p>Answer not available.</p>"} />
           {q.diagramUrl && (
-            <figure className="ml-[calc(3px+0.875rem)] max-w-[560px] overflow-hidden rounded-lg border border-border bg-white">
+            <figure className="ml-[calc(3px+0.875rem)] max-w-[784px] overflow-hidden rounded-lg border border-border bg-white">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={q.diagramUrl} alt="Diagram" loading="lazy" className="h-auto w-full" />
             </figure>
