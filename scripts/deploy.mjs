@@ -103,6 +103,9 @@ const ENV_LITERAL = {
   // means each app writes cookies the other cannot read, and refresh-token
   // rotation then trips Supabase's reuse detection and revokes the family.
   NEXT_PUBLIC_COOKIE_DOMAIN: ".nerusalem.com",
+  // Question Bank Pro diagrams: the public R2 bucket (unn-media) holds them
+  // under qbank-diagrams/…, the paths qb_questions stores (lib/cns/qbank-pro).
+  QBANK_DIAGRAM_BASE_URL: "https://media.nerusalem.com",
   // CNS_PUBLIC_PREVIEW is deliberately absent: it disabled the auth gate
   // entirely so the domain could serve pages before SSO existed. Re-adding it
   // makes the whole member area public. It is already unset on Vercel.
