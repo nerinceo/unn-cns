@@ -58,6 +58,14 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
   const TypeIcon = tone.icon;
   const marks = q.marks == null || q.marks === "" ? null : Number(q.marks);
   const priorityKey = (q.priority ?? "").toLowerCase().replace(/\s*priority\s*/, "").trim();
+  const hasMarks = marks != null && !Number.isNaN(marks);
+  // Phones: with badges the number leads their row; without, it leads the question.
+  const hasBadges = Boolean(q.type || hasMarks || q.drawing || q.priority);
+  const phoneNumber = (
+    <span className="mr-2 inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-primary px-1.5 align-[3px] text-[13px] font-bold tabular-nums text-primary-foreground sm:hidden">
+      {q.number}
+    </span>
+  );
 
   return (
     <article
@@ -72,17 +80,15 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
           {q.number}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-primary px-1.5 text-[13px] font-bold tabular-nums text-primary-foreground sm:hidden">
-              {q.number}
-            </span>
+          <div className={`flex-wrap items-center gap-2 ${hasBadges ? "flex" : "hidden sm:flex"}`}>
+            {hasBadges && <span className="-mr-2 sm:hidden">{phoneNumber}</span>}
             {q.type && (
               <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-bold uppercase tracking-wider ring-1 ring-inset ${tone.badge}`}>
                 <TypeIcon className="h-3.5 w-3.5" />
                 {q.type}
               </span>
             )}
-            {marks != null && !Number.isNaN(marks) && (
+            {hasMarks && (
               <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-[12px] font-semibold tabular-nums text-slate-600 dark:text-slate-300">
                 <Award className="h-3.5 w-3.5" />
                 {marks} {marks === 1 ? "Mark" : "Marks"}
@@ -108,7 +114,10 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
             </p>
           )}
 
-          <p className="mt-2 max-w-[78ch] whitespace-pre-wrap text-[16px] font-semibold leading-[1.55] tracking-[-0.005em] text-foreground sm:mt-1.5 sm:text-[16.5px] sm:leading-[1.6]">
+          <p
+            className={`${hasBadges || q.subject || q.unit ? "mt-2" : "mt-0"} max-w-[78ch] whitespace-pre-wrap text-[16px] font-semibold leading-[1.55] tracking-[-0.005em] text-foreground sm:mt-1.5 sm:text-[16.5px] sm:leading-[1.6]`}
+          >
+            {!hasBadges && phoneNumber}
             {q.question}
           </p>
 
