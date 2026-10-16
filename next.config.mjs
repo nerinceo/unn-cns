@@ -5,6 +5,10 @@ const r2Host = process.env.R2_PUBLIC_URL
   ? new URL(process.env.R2_PUBLIC_URL).hostname
   : undefined;
 
+// Supabase Storage host, from the env var the app connects with (a project
+// move is then an env change, not a code change).
+const supabaseHost = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname;
+
 const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "@radix-ui/react-avatar", "@radix-ui/react-tabs"],
@@ -19,7 +23,7 @@ const nextConfig = {
       // same public.users rows, so it must be allowed to display them.
       {
         protocol: "https",
-        hostname: "zldqlhthrzlvygnesbqg.supabase.co",
+        hostname: supabaseHost,
         pathname: "/storage/v1/object/public/**",
       },
       ...(r2Host ? [{ protocol: "https", hostname: r2Host, pathname: "/**" }] : []),
