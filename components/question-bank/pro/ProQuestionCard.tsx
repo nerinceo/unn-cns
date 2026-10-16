@@ -29,6 +29,8 @@ export interface ProQuestion {
   answerHtml?: string | null;
   rationaleHtml?: string | null;
   tipHtml?: string | null;
+  /** The source's diagram for this answer (lib/cns/qbank-pro diagramSrc). */
+  diagramUrl?: string | null;
   priority?: string | null;
   source?: string | null;
   timesAsked?: number | null;
@@ -158,6 +160,12 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
             </p>
           )}
           <AnswerSection icon={BookOpenCheck} label="Answer" html={q.answerHtml ?? "<p>Answer not available.</p>"} />
+          {q.diagramUrl && (
+            <figure className="ml-[calc(3px+0.875rem)] max-w-[560px] overflow-hidden rounded-lg border border-border bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={q.diagramUrl} alt="Diagram" loading="lazy" className="h-auto w-full" />
+            </figure>
+          )}
           {q.rationaleHtml && <AnswerSection icon={Lightbulb} label="Rationale" html={q.rationaleHtml} />}
           {q.tipHtml && <AnswerSection icon={Target} label="Exam Tip" html={q.tipHtml} />}
         </div>

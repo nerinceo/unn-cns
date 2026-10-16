@@ -15,7 +15,7 @@ import {
 } from "@/lib/cns/qbank-pro";
 import { decide, maySave } from "@/lib/cns/qbank-pro-gate";
 import { toPaperQuestion, toVivaQuestion } from "@/lib/cns/qbank-pro-exams";
-import { formatAnswer } from "@/lib/cns/qbank-pro-format";
+import { proHtml } from "@/lib/cns/qbank-pro-format";
 
 /**
  * Question Bank Pro — what the mock and viva exam runners call from the
@@ -129,8 +129,9 @@ export async function POST(req: NextRequest) {
           option_c: r.option_c,
           option_d: r.option_d,
           key_points: r.key_points,
-          answer_html: formatAnswer(r.answer),
-          rationale_html: formatAnswer(r.rationale),
+          answer_html: proHtml(r.answer_html, r.answer),
+          rationale_html: proHtml(r.rationale_html, r.rationale),
+          tip_html: proHtml(r.tip_html, null),
         })),
       );
     }

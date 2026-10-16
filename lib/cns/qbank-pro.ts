@@ -149,8 +149,27 @@ export interface ProQuestionRow {
   official_subject_name: string | null;
   official_unit_name: string | null;
   diagram_needed: boolean | null;
+  diagram_image_url?: string | null;
   importance_level?: string | null;
   source_group?: string | null;
+  /** thinkqi.com's own formatting of answer / rationale / exam tip (qbank2.render_html). */
+  answer_html?: string | null;
+  rationale_html?: string | null;
+  tip_html?: string | null;
+}
+
+/**
+ * A question's diagram as an image URL. The source stores a site-relative path
+ * ("/qbank-diagrams/semester-1/s1-d001-typical-animal-cell.webp"); the files are
+ * served from QBANK_DIAGRAM_BASE_URL (the public R2 bucket) under that same path.
+ * Unset, or a path that is not a plain raster image under qbank-diagrams/: none.
+ */
+export function diagramSrc(path: string | null | undefined): string | null {
+  const base = process.env.QBANK_DIAGRAM_BASE_URL;
+  if (!base || !path) return null;
+  const p = path.trim().replace(/^\.?\//, "");
+  if (p.includes("..") || !/^qbank-diagrams\/[A-Za-z0-9._/-]+\.(webp|png|jpe?g)$/i.test(p)) return null;
+  return `${base.replace(/\/+$/, "")}/${p}`;
 }
 
 /** The lettered options that have text, as [letter, text]. */

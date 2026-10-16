@@ -6,13 +6,14 @@ import {
   gatedRead,
   getMarks,
   parseSemester,
+  diagramSrc,
   questionOptions,
   recordResume,
   requireProBank,
   requireSemesterMode,
   type ProQuestionRow,
 } from "@/lib/cns/qbank-pro";
-import { formatAnswer } from "@/lib/cns/qbank-pro-format";
+import { proHtml } from "@/lib/cns/qbank-pro-format";
 import {
   PRO_NAME,
   ProBack,
@@ -189,9 +190,10 @@ export default async function ProModelPage({
                   drawing: x.diagram_needed === true,
                   options: questionOptions(x),
                   correctOption: x.correct_option,
-                  answerHtml: formatAnswer(x.answer_formatted || x.answer),
-                  rationaleHtml: formatAnswer(x.rationale),
-                  tipHtml: formatAnswer(x.exam_tip),
+                  answerHtml: proHtml(x.answer_html, x.answer_formatted || x.answer),
+                  rationaleHtml: proHtml(x.rationale_html, x.rationale),
+                  tipHtml: proHtml(x.tip_html, x.exam_tip),
+                  diagramUrl: diagramSrc(x.diagram_image_url),
                   mark: sample ? undefined : (marksById[String(x.id)] ?? { saved: false }),
                 }}
               />

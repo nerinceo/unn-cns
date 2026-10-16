@@ -12,6 +12,7 @@ import {
   getYearFacets,
   parseSemester,
   parseYears,
+  diagramSrc,
   questionOptions,
   recordResume,
   requireProBank,
@@ -24,7 +25,7 @@ import {
 import { YearFilters } from "@/components/question-bank/pro/YearFilters";
 import { ReadProgress } from "@/components/question-bank/pro/Progress";
 import { FilterSelect } from "@/components/question-bank/FilterSelect";
-import { formatAnswer } from "@/lib/cns/qbank-pro-format";
+import { proHtml } from "@/lib/cns/qbank-pro-format";
 import {
   PRO_NAME,
   ProBack,
@@ -65,6 +66,10 @@ interface Row {
   correct_option: string | null;
   rationale: string | null;
   exam_tip: string | null;
+  answer_html?: string | null;
+  rationale_html?: string | null;
+  tip_html?: string | null;
+  diagram_image_url?: string | null;
   times_asked: number;
   years_asked: string[] | null;
   sittings: string[] | null;
@@ -257,9 +262,10 @@ export default async function ProPreviousPage({
                 marks: x.marks,
                 options: questionOptions(x),
                 correctOption: x.correct_option,
-                answerHtml: formatAnswer(x.answer_formatted || x.answer),
-                rationaleHtml: formatAnswer(x.rationale),
-                tipHtml: formatAnswer(x.exam_tip),
+                answerHtml: proHtml(x.answer_html, x.answer_formatted || x.answer),
+                rationaleHtml: proHtml(x.rationale_html, x.rationale),
+                tipHtml: proHtml(x.tip_html, x.exam_tip),
+                diagramUrl: diagramSrc(x.diagram_image_url),
                 // Filtering by scheme or years shows only those sittings, and counts them.
                 ...(() => {
                   const shown = sittingsIn(x.sittings ?? [], years.length || scheme ? queryYears : null);

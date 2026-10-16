@@ -6,6 +6,7 @@ import {
   getSaved,
   getResume,
   parseSemester,
+  diagramSrc,
   questionOptions,
   requireProBank,
   resumeWhen,
@@ -14,7 +15,7 @@ import {
   type RevisionNote,
   type SosCard,
 } from "@/lib/cns/qbank-pro";
-import { formatAnswer, formatNoteHtml } from "@/lib/cns/qbank-pro-format";
+import { formatNoteHtml, proHtml } from "@/lib/cns/qbank-pro-format";
 import { PRO_NAME, ProBack, ProFooter, ProHeader, ProPager, linkBuilder, pageParam, param } from "@/components/question-bank/pro/ProChrome";
 import { ProQuestionCard } from "@/components/question-bank/pro/ProQuestionCard";
 import { ContinueCard, MarkButtons } from "@/components/question-bank/pro/Progress";
@@ -103,9 +104,10 @@ export default async function ProSavedPage({ searchParams }: { searchParams: Rec
                 drawing: x.diagram_needed === true,
                 options: questionOptions(x),
                 correctOption: x.correct_option,
-                answerHtml: formatAnswer(x.answer_formatted || x.answer),
-                rationaleHtml: formatAnswer(x.rationale),
-                tipHtml: formatAnswer(x.exam_tip),
+                answerHtml: proHtml(x.answer_html, x.answer_formatted || x.answer),
+                rationaleHtml: proHtml(x.rationale_html, x.rationale),
+                tipHtml: proHtml(x.tip_html, x.exam_tip),
+                diagramUrl: diagramSrc(x.diagram_image_url),
                 mark,
               }}
             />

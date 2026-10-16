@@ -30,6 +30,7 @@ interface KeyRow {
   key_points?: string | null;
   answer_html: string | null;
   rationale_html: string | null;
+  tip_html?: string | null;
 }
 
 async function api<T>(fn: string, args: Record<string, unknown>): Promise<T> {
@@ -197,6 +198,12 @@ function KeyList({ rows }: { rows: KeyRow[] }) {
               <div className="mt-3 border-l-[3px] border-primary/30 pl-3.5">
                 <p className="text-[14px] font-bold text-primary dark:text-blue-300">Rationale</p>
                 <AnswerHtml html={r.rationale_html} />
+              </div>
+            )}
+            {r.tip_html && (
+              <div className="mt-3 border-l-[3px] border-primary/30 pl-3.5">
+                <p className="text-[14px] font-bold text-primary dark:text-blue-300">Exam Tip</p>
+                <AnswerHtml html={r.tip_html} />
               </div>
             )}
             {points.length > 0 && (

@@ -202,6 +202,26 @@ export function formatAnswer(value: unknown): string | null {
   return clean(formatPlain(raw)) || null;
 }
 
+// A markdown table rule left as text ("|---|---|"): thinkqi.com's Model page
+// prints those tables raw; formatAnswer lays them out, so they keep that.
+const RAW_TABLE = /\|\s*:?-{3,}/;
+
+/**
+ * An answer, rationale or exam tip as thinkqi.com formats it: the rendering
+ * stored at import time by thinkqi.com's own page code (qbank2.render_html,
+ * handed out by qbank2_rpc as answer_html / rationale_html / tip_html), cleaned
+ * to the same allowlist as everything else. Falls back to formatAnswer when the
+ * row has no rendering, or when the rendering left a markdown table as text.
+ */
+export function proHtml(stored: unknown, raw: unknown): string | null {
+  if (typeof stored !== "string" || stored.trim() === "") return formatAnswer(raw);
+  if (RAW_TABLE.test(stored)) {
+    const own = formatAnswer(raw);
+    if (own?.includes("<table")) return own;
+  }
+  return clean(stored.replace(/class="answer-section-heading"/g, 'class="qb-heading"')) || formatAnswer(raw);
+}
+
 /** Revision-note fragments: their only markup is <strong> on key terms. */
 export function formatNoteHtml(html: string): string {
   const safe = sanitizeHtml(html, { allowedTags: ["strong", "b", "em", "i"], allowedAttributes: {} });

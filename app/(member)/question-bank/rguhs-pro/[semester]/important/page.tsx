@@ -11,6 +11,7 @@ import {
   getYearFacets,
   parseSemester,
   parseYears,
+  diagramSrc,
   questionOptions,
   recordResume,
   requireProBank,
@@ -21,7 +22,7 @@ import {
   type Scheme,
 } from "@/lib/cns/qbank-pro";
 import { YearFilters } from "@/components/question-bank/pro/YearFilters";
-import { formatAnswer } from "@/lib/cns/qbank-pro-format";
+import { proHtml } from "@/lib/cns/qbank-pro-format";
 import {
   PRO_NAME,
   ProBack,
@@ -223,9 +224,10 @@ export default async function ProImportantPage({
                   drawing: x.diagram_needed === true,
                   options: questionOptions(x),
                   correctOption: x.correct_option,
-                  answerHtml: formatAnswer(x.answer_formatted || x.answer),
-                  rationaleHtml: formatAnswer(x.rationale),
-                  tipHtml: formatAnswer(x.exam_tip),
+                  answerHtml: proHtml(x.answer_html, x.answer_formatted || x.answer),
+                  rationaleHtml: proHtml(x.rationale_html, x.rationale),
+                  tipHtml: proHtml(x.tip_html, x.exam_tip),
+                  diagramUrl: diagramSrc(x.diagram_image_url),
                   priority: PRIORITIES.find((p) => p.value === x.importance_level)?.label ?? null,
                   source: SOURCES.find((s) => s.value === x.source_group)?.label ?? null,
                   mark: sample ? undefined : (marksById[String(x.id)] ?? { saved: false }),
