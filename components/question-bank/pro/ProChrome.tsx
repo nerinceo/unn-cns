@@ -36,19 +36,20 @@ export function ProHeader({
   return (
     <header className="overflow-hidden rounded-2xl border border-border bg-card">
       <span aria-hidden className="block h-1.5 w-full bg-primary" />
-      <div className="bg-gradient-to-br from-primary/[0.07] via-card to-card p-6 sm:p-8">
-        <div className="flex items-start gap-4">
+      {/* Phones: a compact header so the first question shows on the first screen. */}
+      <div className="bg-gradient-to-br from-primary/[0.07] via-card to-card p-4 sm:p-8">
+        <div className="flex items-start gap-3 sm:gap-4">
           {icon && (
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm sm:h-12 sm:w-12">
               {icon}
             </span>
           )}
           <div className="min-w-0">
-            {eyebrow && <p className="text-[13px] font-bold uppercase tracking-wider text-primary">{eyebrow}</p>}
-            <h1 className="mt-0.5 text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
+            {eyebrow && <p className="text-[12px] font-bold uppercase tracking-wider text-primary sm:text-[13px]">{eyebrow}</p>}
+            <h1 className="mt-0.5 text-xl font-bold tracking-tight sm:text-3xl">{title}</h1>
           </div>
         </div>
-        {subtitle && <p className="mt-3 max-w-3xl text-[16px] leading-relaxed text-slate-600 dark:text-slate-400">{subtitle}</p>}
+        {subtitle && <p className="mt-2 max-w-3xl text-[14px] leading-snug text-slate-600 sm:mt-3 sm:text-[16px] sm:leading-relaxed dark:text-slate-400">{subtitle}</p>}
         {children}
       </div>
     </header>
@@ -67,16 +68,16 @@ export function ProSampleNotice({
   buyUrl: string | null;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-primary/30 bg-primary/[0.05] p-5 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-2.5 rounded-2xl border border-primary/30 bg-primary/[0.05] p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:p-5">
       <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground sm:flex">
           <Sparkles className="h-4 w-4" />
         </span>
         <div>
-          <p className="text-[15px] font-bold text-foreground">
+          <p className="text-[14px] font-bold text-foreground sm:text-[15px]">
             Free sample · {shown} {noun}{semester ? ` in Semester ${semester}` : ""}
           </p>
-          <p className="mt-0.5 text-[14px] text-muted-foreground">
+          <p className="mt-0.5 text-[13px] text-muted-foreground sm:text-[14px]">
             {semester ? "Buy this semester or the whole bank" : "Buy any semester or the whole bank"} to open everything, with filters and search.
           </p>
         </div>
@@ -84,7 +85,7 @@ export function ProSampleNotice({
       {buyUrl && (
         <a
           href={buyUrl}
-          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[13.5px] font-semibold text-primary-foreground hover:bg-primary/90 sm:py-2.5 sm:text-sm"
         >
           <Lock className="h-4 w-4" /> {semester ? `Buy Semester ${semester} or the whole bank` : "Buy access"}
         </a>

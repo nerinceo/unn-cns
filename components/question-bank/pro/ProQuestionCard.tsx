@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Award, BookOpenCheck, CheckCircle2, ChevronDown, Flame, History, Lightbulb, PencilRuler, Target } from "lucide-react";
+import { useRef, useState } from "react";
+import { Award, BookOpenCheck, CheckCircle2, ChevronDown, ChevronUp, Flame, History, Lightbulb, PencilRuler, Target } from "lucide-react";
 import { questionTone } from "@/components/question-bank/question-tone";
 import { MarkButtons } from "@/components/question-bank/pro/Progress";
 
@@ -48,21 +48,34 @@ const PRIORITY: Record<string, string> = {
 
 export function ProQuestionCard({ q }: { q: ProQuestion }) {
   const [open, setOpen] = useState(false);
+  const cardRef = useRef<HTMLElement>(null);
+  // Phones: closing from the end of a long answer brings the question back into view.
+  const closeAndReturn = () => {
+    setOpen(false);
+    requestAnimationFrame(() => cardRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }));
+  };
   const tone = questionTone(q.type ?? null);
   const TypeIcon = tone.icon;
   const marks = q.marks == null || q.marks === "" ? null : Number(q.marks);
   const priorityKey = (q.priority ?? "").toLowerCase().replace(/\s*priority\s*/, "").trim();
 
   return (
-    <article className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-[0_6px_20px_rgba(16,24,40,0.09)]">
+    <article
+      ref={cardRef}
+      className="group relative scroll-mt-20 overflow-hidden rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-[0_6px_20px_rgba(16,24,40,0.09)]"
+    >
       <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${tone.rail}`} />
 
-      <div className="flex gap-4 p-5 pl-6">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-[14px] font-bold tabular-nums text-primary-foreground">
+      {/* Phones: the number joins the badge row so the question and answer get the full width. */}
+      <div className="flex gap-4 p-4 pl-5 sm:p-5 sm:pl-6">
+        <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-[14px] font-bold tabular-nums text-primary-foreground sm:flex">
           {q.number}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-primary px-1.5 text-[13px] font-bold tabular-nums text-primary-foreground sm:hidden">
+              {q.number}
+            </span>
             {q.type && (
               <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-bold uppercase tracking-wider ring-1 ring-inset ${tone.badge}`}>
                 <TypeIcon className="h-3.5 w-3.5" />
@@ -95,7 +108,7 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
             </p>
           )}
 
-          <p className="mt-1.5 max-w-[78ch] whitespace-pre-wrap text-[16.5px] font-semibold leading-[1.6] tracking-[-0.005em] text-foreground">
+          <p className="mt-2 max-w-[78ch] whitespace-pre-wrap text-[16px] font-semibold leading-[1.55] tracking-[-0.005em] text-foreground sm:mt-1.5 sm:text-[16.5px] sm:leading-[1.6]">
             {q.question}
           </p>
 
@@ -116,13 +129,16 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
             </ul>
           )}
 
+          {/* Phones: how often it was set, as one line; the sittings open on tap. */}
+          {!!q.timesAsked && <AskedLine times={q.timesAsked} sittings={q.sittings ?? []} />}
+
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
               aria-controls={`answer-${q.id}`}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-[14px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-[14.5px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 sm:h-9 sm:flex-none sm:text-[14px]"
             >
               {open ? "Hide Answer" : "Show Answer"}
               <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -140,14 +156,8 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
         )}
       </div>
 
-      {!!q.timesAsked && (
-        <div className="mx-5 mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 sm:hidden dark:border-amber-400/25 dark:bg-amber-500/10">
-          <AskedPanel times={q.timesAsked} sittings={q.sittings ?? []} />
-        </div>
-      )}
-
       {open && (
-        <div id={`answer-${q.id}`} className="space-y-4 border-t border-border bg-background/70 px-5 py-4 sm:pl-[4.25rem]">
+        <div id={`answer-${q.id}`} className="space-y-4 border-t border-border bg-background/70 px-4 py-4 sm:px-5 sm:pl-[4.25rem]">
           {q.correctOption && (
             <p className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 text-[15.5px] font-bold text-primary dark:text-blue-300">
@@ -161,13 +171,21 @@ export function ProQuestionCard({ q }: { q: ProQuestion }) {
           )}
           <AnswerSection icon={BookOpenCheck} label="Answer" html={q.answerHtml ?? "<p>Answer not available.</p>"} />
           {q.diagramUrl && (
-            <figure className="ml-[calc(3px+0.875rem)] max-w-[784px] overflow-hidden rounded-lg border border-border bg-white">
+            <figure className="max-w-[784px] overflow-hidden rounded-lg border border-border bg-white sm:ml-[calc(3px+0.875rem)]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={q.diagramUrl} alt="Diagram" loading="lazy" className="h-auto w-full" />
             </figure>
           )}
           {q.rationaleHtml && <AnswerSection icon={Lightbulb} label="Rationale" html={q.rationaleHtml} />}
           {q.tipHtml && <AnswerSection icon={Target} label="Exam Tip" html={q.tipHtml} />}
+          <button
+            type="button"
+            onClick={closeAndReturn}
+            className="flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-card text-[14px] font-semibold text-primary sm:hidden"
+          >
+            <ChevronUp className="h-4 w-4" />
+            Hide answer
+          </button>
         </div>
       )}
     </article>
@@ -194,9 +212,35 @@ function AskedPanel({ times, sittings }: { times: number; sittings: string[] }) 
   );
 }
 
+/** Phones: "Asked 8× · Oct 2007 – Sep 2019" on one line; tap for every sitting. */
+function AskedLine({ times, sittings }: { times: number; sittings: string[] }) {
+  const span = sittings.length > 1 ? `${sittings[0]} – ${sittings[sittings.length - 1]}` : (sittings[0] ?? "");
+  return (
+    <details className="group/asked mt-3 rounded-lg border border-amber-200 bg-amber-50 sm:hidden dark:border-amber-400/25 dark:bg-amber-500/10">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-[13px] font-bold text-amber-900 dark:text-amber-200 [&::-webkit-details-marker]:hidden">
+        <History className="h-3.5 w-3.5 shrink-0" />
+        <span>
+          Asked <span className="tabular-nums">{times}×</span>
+        </span>
+        {span && <span className="min-w-0 truncate font-semibold text-amber-800/80 dark:text-amber-200/80">· {span}</span>}
+        {sittings.length > 0 && <ChevronDown className="ml-auto h-4 w-4 shrink-0 transition-transform group-open/asked:rotate-180" />}
+      </summary>
+      {sittings.length > 0 && (
+        <ul className="flex flex-wrap gap-1 px-3 pb-2.5">
+          {sittings.map((s) => (
+            <li key={s} className="rounded bg-white px-1 text-[11px] font-semibold leading-[18px] tabular-nums text-amber-900 ring-1 ring-inset ring-amber-300 dark:bg-amber-950/40 dark:text-amber-100 dark:ring-amber-400/30">
+              {s}
+            </li>
+          ))}
+        </ul>
+      )}
+    </details>
+  );
+}
+
 function AnswerSection({ icon: Icon, label, html }: { icon: typeof Target; label: string; html: string }) {
   return (
-    <div className="border-l-[3px] border-primary/30 pl-3.5">
+    <div className="border-l-[3px] border-primary/30 pl-3 sm:pl-3.5">
       <p className="flex items-center gap-1.5 text-[15.5px] font-bold text-primary dark:text-blue-300">
         <Icon className="h-[18px] w-[18px] shrink-0" />
         {label}
@@ -210,7 +254,7 @@ function AnswerSection({ icon: Icon, label, html }: { icon: typeof Target; label
 export function AnswerHtml({ html }: { html: string }) {
   return (
     <div
-      className="qb-answer mt-1.5 max-w-[78ch] text-[16px] font-medium leading-[1.7] text-slate-800 dark:text-slate-200 [&_.qb-heading]:mt-3 [&_.qb-heading]:font-bold [&_.qb-heading]:text-primary dark:[&_.qb-heading]:text-blue-300 [&_li]:mt-1 [&_ol]:mt-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_p+p]:mt-2 [&_p]:mt-1 [&_strong]:font-bold [&_strong]:text-foreground [&_table]:mt-2 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-6 [&_pre]:mt-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-border [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-[13px] [&_pre]:font-normal [&_pre]:leading-snug"
+      className="qb-answer mt-1.5 max-w-[78ch] text-[15.5px] font-medium leading-[1.65] text-slate-800 sm:text-[16px] sm:leading-[1.7] dark:text-slate-200 [&_.qb-heading]:mt-3 [&_.qb-heading]:font-bold [&_.qb-heading]:text-primary dark:[&_.qb-heading]:text-blue-300 [&_li]:mt-1 [&_ol]:mt-2 [&_ol]:list-decimal [&_ol]:pl-5 sm:[&_ol]:pl-6 [&_p+p]:mt-2 [&_p]:mt-1 [&_strong]:font-bold [&_strong]:text-foreground [&_table]:mt-2 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 sm:[&_ul]:pl-6 [&_pre]:mt-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-border [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-[13px] [&_pre]:font-normal [&_pre]:leading-snug"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
