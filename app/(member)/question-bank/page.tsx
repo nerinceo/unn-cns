@@ -111,9 +111,19 @@ export default async function QuestionBankPage({
               At three, four of the seven groups fill their row exactly. */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {group.banks
-              // A standalone bank appears once it is on sale (or held), so
-              // shipping its route changes nothing until the listing goes live.
-              .filter((bank) => !STANDALONE_BANKS.has(bank.key) || holds(bank.key) || !!buyUrls[bank.key])
+              // An open bank appears only while it is on sale (or held): a
+              // standalone one shows up once its listing goes live, and one
+              // taken off sale disappears (the original RGUHS bank, replaced by
+              // Pro on 2026-10-17). Coming-soon cards always show. When the
+              // institutions read failed nothing is known, so the cards that
+              // always showed before keep showing.
+              .filter(
+                (bank) =>
+                  !isOpen(bank.key) ||
+                  holds(bank.key) ||
+                  !!buyUrls[bank.key] ||
+                  (live.size === 0 && !STANDALONE_BANKS.has(bank.key)),
+              )
               .map((bank) => {
               const tone = REGION[group.country] ?? REGION_FALLBACK;
               const open = isOpen(bank.key);
