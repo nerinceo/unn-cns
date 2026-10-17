@@ -129,10 +129,20 @@ export function FilterSelect({
           aria-multiselectable={noun ? true : undefined}
           className={`absolute left-0 z-30 mt-2 max-h-80 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-1.5 shadow-[0_12px_32px_rgba(16,24,40,0.14)] ${widthClass}`}
         >
-          <Row href={allHref} label={allLabel} active={!isFiltered} />
+          {/* A single-select closes on pick (2026-10-17): the link navigates but
+              keeps this component mounted, so the panel used to stay open. */}
+          <Row href={allHref} label={allLabel} active={!isFiltered} onPick={() => setOpen(false)} />
           <div className="my-1.5 h-px bg-border" />
           {options.map((o) => (
-            <Row key={o.href} href={o.href} label={o.label} count={o.count} active={o.active} emphasize={emphasizeCounts} />
+            <Row
+              key={o.href}
+              href={o.href}
+              label={o.label}
+              count={o.count}
+              active={o.active}
+              emphasize={emphasizeCounts}
+              onPick={noun ? undefined : () => setOpen(false)}
+            />
           ))}
         </div>
       )}
@@ -146,17 +156,20 @@ function Row({
   count,
   active,
   emphasize = false,
+  onPick,
 }: {
   href: string;
   label: string;
   count?: number;
   active: boolean;
   emphasize?: boolean;
+  onPick?: () => void;
 }) {
   return (
     <Link
       href={href}
       scroll={false}
+      onClick={onPick}
       role="option"
       aria-selected={active}
       className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-[14px] transition-colors ${

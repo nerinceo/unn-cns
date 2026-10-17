@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUserProfile } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { hubListing } from "@/lib/hub";
 
 /**
@@ -96,6 +97,31 @@ export async function requireSemester(institution: string, course: string, semes
   const a = await getBankAccess(institution, course);
   if (!canOpenSemester(a, semester)) redirect(`/question-bank/${institution}/${course}?locked=${semester}`);
   return a;
+}
+
+/**
+ * Opening the bank IS the delivery (Naveen, 2026-10-17): the buyer's paid
+ * question-bank orders for it are marked received, so HUB's order page needs
+ * no "Confirm received" button. Only orders still open (not completed, not
+ * disputed or cancelled) change; one write, and a no-op once done. Never
+ * throws — a failure must not stop the bank opening.
+ */
+export async function markQbankOrdersOpened(userId: string | null, institution: string, access: BankAccess): Promise<void> {
+  if (!userId || !hasAnyAccess(access)) return;
+  try {
+    const at = new Date().toISOString();
+    const { error } = await createAdminClient()
+      .from("orders")
+      .update({ fulfillment_status: "completed", completed_at: at, updated_at: at })
+      .eq("buyer_id", userId)
+      .eq("status", "paid")
+      .eq("buyer_fields->>product", "qbank")
+      .eq("buyer_fields->>institution", institution)
+      .in("fulfillment_status", ["arranging", "shipped"]);
+    if (error) console.error("[qbank] mark opened failed:", error.message);
+  } catch (err) {
+    console.error("[qbank] mark opened failed:", (err as Error).message);
+  }
 }
 
 /** "31 Dec 2029" in Indian time. */

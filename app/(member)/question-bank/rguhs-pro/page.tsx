@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, Check, Lock } from "lucide-react";
-import { accessDateLabel, canOpenSemester } from "@/lib/cns/qbank-access";
-import { PRO_HOME, getResume, requireProBank, resumeWhen } from "@/lib/cns/qbank-pro";
+import { accessDateLabel, canOpenSemester, markQbankOrdersOpened } from "@/lib/cns/qbank-access";
+import { PRO, PRO_HOME, getResume, requireProBank, resumeWhen } from "@/lib/cns/qbank-pro";
 import { ContinueCard } from "@/components/question-bank/pro/Progress";
 import { PRO_NAME, ProBack, ProFooter, ProHeader } from "@/components/question-bank/pro/ProChrome";
 
@@ -24,7 +24,11 @@ const YEAR_BANDS = [
 export default async function ProSemestersPage({ searchParams }: { searchParams: { locked?: string } }) {
   const ctx = await requireProBank();
   const { access } = ctx;
-  const resume = await getResume(ctx);
+  const [resume] = await Promise.all([
+    getResume(ctx),
+    // Opening the bank they bought = the order is received (2026-10-17).
+    markQbankOrdersOpened(ctx.userId, PRO.institution, access),
+  ]);
   const last = resume[0];
   const lockedSemester = Number(searchParams.locked) || null;
 

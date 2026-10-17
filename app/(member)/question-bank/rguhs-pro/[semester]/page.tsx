@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, Brain, ClipboardCheck, FileQuestion, History, Puzzle, Star } from "lucide-react";
-import { PRO_HOME, getProOverview, getResume, parseSemester, requireProBank, requireSemesterMode, resumeWhen } from "@/lib/cns/qbank-pro";
+import { PRO, PRO_HOME, getProOverview, getResume, parseSemester, requireProBank, requireSemesterMode, resumeWhen } from "@/lib/cns/qbank-pro";
+import { markQbankOrdersOpened } from "@/lib/cns/qbank-access";
 import { ContinueCard } from "@/components/question-bank/pro/Progress";
 import { PRO_NAME, ProBack, ProFooter } from "@/components/question-bank/pro/ProChrome";
 
@@ -21,7 +22,12 @@ export default async function ProSemesterPage({ params }: { params: { semester: 
   if (!semester) notFound();
   const ctx = await requireProBank();
   const mode = requireSemesterMode(ctx, semester);
-  const [overview, resume] = await Promise.all([getProOverview(), getResume(ctx)]);
+  const [overview, resume] = await Promise.all([
+    getProOverview(),
+    getResume(ctx),
+    // A bought semester opened = the order is received (2026-10-17).
+    mode === "full" ? markQbankOrdersOpened(ctx.userId, PRO.institution, ctx.access) : Promise.resolve(),
+  ]);
   const c = overview.find((o) => o.semester === semester);
   const here = resume.find((r) => r.semester === semester);
   const clinical = semester === 8;
