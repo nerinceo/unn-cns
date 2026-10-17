@@ -6,6 +6,7 @@ import { Upload, FileText, Trash2, Download, Loader2, ShieldCheck } from "lucide
 import { Button } from "@/components/ui/button";
 import { uploadResume, deleteResumeFile, getResumeDownloadUrl } from "@/lib/actions/resume-files";
 import { settle } from "@/lib/utils/settle";
+import { formatDate } from "@/lib/utils/date";
 
 export type ResumeFile = {
   id: string;
@@ -59,7 +60,7 @@ export function ResumeUpload({ current }: { current: ResumeFile | null }) {
             <p className="truncate text-sm font-medium">{current.file_name}</p>
             <p className="text-xs text-muted-foreground">
               {(current.size_bytes / 1024).toFixed(0)} KB · uploaded{" "}
-              {new Date(current.created_at).toLocaleDateString()}
+              {formatDate(current.created_at)}
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => download(current.id)}>

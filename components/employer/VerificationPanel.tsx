@@ -13,6 +13,7 @@ import {
   updateEmployerVerificationDetails,
 } from "@/lib/actions/employer-docs";
 import { settle } from "@/lib/utils/settle";
+import { formatDate } from "@/lib/utils/date";
 
 export type VerificationState = {
   employerId: string;
@@ -194,7 +195,7 @@ export function VerificationPanel({ state }: { state: VerificationState }) {
               <li key={h.id} className="flex flex-wrap items-baseline gap-x-2 text-sm">
                 <span className="font-medium capitalize">{h.status.replace(/_/g, " ")}</span>
                 <span className="text-xs text-muted-foreground">
-                  {new Date(h.created_at).toLocaleDateString()}
+                  {formatDate(h.created_at)}
                 </span>
                 {h.note && <span className="w-full text-sm text-muted-foreground">{h.note}</span>}
               </li>
