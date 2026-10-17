@@ -8,7 +8,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  *             project, imported once in July 2026. The default, so deploying
  *             this code changes nothing until QB_SOURCE is set.
  *   content — the source bank itself, schema `qbank` in the unn-content
- *             project (ref ifptcsqckjanmnzvvcxs), read through five server-only
+ *             project (ref gspamgemgxwthpcvqjwo, ap-south-1 Mumbai since 2026-10-17), read through five server-only
  *             functions (qbank_subjects / _questions / _question / _types /
  *             _topics). Always current: questions the generator adds or edits
  *             appear without an import.
