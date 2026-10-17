@@ -89,6 +89,11 @@ const ENV_FROM_LOCAL = [
   "R2_PUBLIC_URL",
   // Question bank source (lib/cns/bank-source.ts). The content key can only
   // EXECUTE the qbank_* read functions in the unn-content project.
+  // Redis (lib/single-session.ts + caches). Must be the Mumbai Upstash database,
+  // co-located with the app (bom1). Not synced before 2026-10-17, which left CNS
+  // on the old us-east Redis after the move.
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
   "QB_SOURCE",
   "CONTENT_SUPABASE_URL",
   "CONTENT_SUPABASE_SECRET_KEY",
