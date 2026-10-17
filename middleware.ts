@@ -11,6 +11,7 @@ import {
   businessKindFromClaims,
 } from "@/lib/access";
 import { isSuspendedFromClaims } from "@/lib/auth/suspension";
+import { isSessionExemptPath, isSupersededSession, SIGNED_IN_ELSEWHERE_MESSAGE } from "@/lib/single-session";
 
 /**
  * CNS auth gate.
@@ -163,6 +164,22 @@ export async function middleware(request: NextRequest) {
   // already loads the users row.
   if (user && isSuspendedFromClaims(user)) {
     return NextResponse.redirect(new URL("/auth/end-session", HUB_URL));
+  }
+
+  // One signed-in device per account (lib/single-session.ts, migration 0091 —
+  // identical check in HUB, CNS and UHN, which share one session). A session
+  // that is no longer the account's newest is revoked on its next request; the
+  // signOut clears the shared cookies through setAll above. Staff are exempt;
+  // sign-in/confirm routes are never interrupted.
+  if (user && !isSessionExemptPath(request.nextUrl.pathname) && (await isSupersededSession(user.sub, user.session_id))) {
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    const to = new URL(signInUrl());
+    to.searchParams.set("error_description", SIGNED_IN_ELSEWHERE_MESSAGE);
+    const res = request.nextUrl.pathname.startsWith("/api/")
+      ? NextResponse.json({ error: SIGNED_IN_ELSEWHERE_MESSAGE }, { status: 401 })
+      : NextResponse.redirect(to);
+    for (const c of supabaseResponse.cookies.getAll()) res.cookies.set(c);
+    return res;
   }
 
   const path = request.nextUrl.pathname;

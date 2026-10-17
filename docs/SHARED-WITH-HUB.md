@@ -22,6 +22,7 @@ Copied from `unn-platform` at commit **`e63d766`** (2026-09-20).
 | `lib/users/columns.ts` | `lib/users/columns.ts` | The `public.users` column allowlist. Must match the grant in HUB migration 0024 *and* both sibling copies — a column named here but not granted errors the whole query with `42501`, which took CNS down when 0024 first ran. |
 | `lib/utils/cn.ts` | `lib/utils/cn.ts` | Never changes |
 | `lib/errors.ts` | `lib/errors.ts` | `GENERIC_ERROR`, `userMessage`, `logError`, `actionError`. Also mirrored in UHN. Drift changes what users are told when something fails, and whether it is logged. |
+| `lib/single-session.ts` | `lib/single-session.ts` | One signed-in device per account (2026-10-17, migration 0091). Also in UHN; run by all three middlewares on the shared session. Drift lets ID sharing back in through one app, or signs people out of one app for no reason. |
 | `components/ui/button.tsx` | same | |
 | `components/ui/input.tsx` | same | |
 | `components/ui/badge.tsx` | same | |

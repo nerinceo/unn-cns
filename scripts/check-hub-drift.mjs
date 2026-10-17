@@ -104,6 +104,10 @@ const MIRRORED = [
   // Failure -> user message + log line. Drift changes what users are told when
   // something fails, and whether it is logged at all.
   { path: "lib/errors.ts", mode: "exact", uhn: true },
+  // One signed-in device per account (migration 0091). All three middlewares
+  // run it on the shared session, so a copy that drifts lets sharing back in
+  // through one app — or signs people out of one app for no reason.
+  { path: "lib/single-session.ts", mode: "exact", critical: true, uhn: true },
   // Marketplace vocabulary — sections, listing types, categories, delivery
   // kinds, price helpers. Mirrored into UHN when the vendor portal moved there
   // (HUB keeps it for the BUY side, which is not moving), and it is dependency
