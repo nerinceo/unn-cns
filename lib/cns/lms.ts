@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/errors";
 import type { QuizMode } from "@/lib/lms/quiz";
 
@@ -376,7 +377,11 @@ export async function getPlayerData(slugOrId: string): Promise<PlayerData | null
     supabase
       .from("lms_sections")
       .select(
-        "id, course_id, title, position, lectures:lms_lectures(id, section_id, course_id, title, kind, position, is_preview, duration_s, video_status, content, parts:lms_lecture_parts(id, title, position, duration_s, video_status), resources:lms_lecture_resources(id, file_name, file_size))",
+        // No `content` here: lecture bodies are not readable through the
+        // session (migration 0093 — the database used to hand every paid body
+        // to anyone who asked). They are fetched below, only for lectures this
+        // caller may open.
+        "id, course_id, title, position, lectures:lms_lectures(id, section_id, course_id, title, kind, position, is_preview, duration_s, video_status, parts:lms_lecture_parts(id, title, position, duration_s, video_status), resources:lms_lecture_resources(id, file_name, file_size))",
       )
       .eq("course_id", course.id)
       .order("position"),
@@ -433,8 +438,26 @@ export async function getPlayerData(slugOrId: string): Promise<PlayerData | null
 
   const entitled = access.enrolled || access.isOwner;
 
+  // Bodies for the lectures this caller may open — every lecture when
+  // entitled, otherwise previews only. Service role because the column is
+  // withheld from the session; the id list IS the entitlement check.
+  const openIds = ((sectionRows ?? []) as unknown as { lectures: { id: string; is_preview: boolean }[] | null }[])
+    .flatMap((s) => s.lectures ?? [])
+    .filter((l) => entitled || l.is_preview)
+    .map((l) => l.id);
+  const contentBy = new Map<string, string | null>();
+  if (openIds.length > 0) {
+    const { data: bodyRows, error: bodyError } = await createAdminClient()
+      .from("lms_lectures")
+      .select("id, content")
+      .eq("course_id", course.id)
+      .in("id", openIds);
+    if (bodyError) logError("lms:getPlayerData:content", bodyError, { courseId: course.id });
+    for (const b of bodyRows ?? []) contentBy.set(b.id as string, (b.content as string | null) ?? null);
+  }
+
   const sections = ((sectionRows ?? []) as unknown as (LmsSection & {
-    lectures: (Omit<PlayerLecture, "quiz"> & { content: string | null })[];
+    lectures: Omit<PlayerLecture, "quiz">[];
   })[]).map((s) => ({
     ...s,
     lectures: [...(s.lectures ?? [])]
@@ -456,7 +479,7 @@ export async function getPlayerData(slugOrId: string): Promise<PlayerData | null
           // The strip. A locked lecture's body and its parts never leave the
           // server — without this the part ids would be enough to attempt
           // playback on content nobody paid for.
-          content: locked ? null : (l.content ?? null),
+          content: locked ? null : (contentBy.get(l.id) ?? null),
           parts: locked
             ? []
             : [...(l.parts ?? [])].sort((a, b) => a.position - b.position),
