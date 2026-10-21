@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, BookOpen, Check, Lock } from "lucide-react";
 import { accessDateLabel, canOpenSemester, markQbankOrdersOpened } from "@/lib/cns/qbank-access";
 import { PRO, PRO_HOME, getResume, requireProBank, resumeWhen } from "@/lib/cns/qbank-pro";
+import { BuyTip } from "@/components/question-bank/pro/BuyTip";
 import { ContinueCard } from "@/components/question-bank/pro/Progress";
 import { PRO_NAME, ProBack, ProFooter, ProHeader } from "@/components/question-bank/pro/ProChrome";
 
@@ -42,6 +43,8 @@ export default async function ProSemestersPage({ searchParams }: { searchParams:
         subtitle="Choose your semester to access Model Questions, Previous Years’ Solved Questions, Most Important Questions, Nerusalem Exam Hacks, Practice Taplets and Mock Exams."
         icon={<BookOpen className="h-6 w-6" />}
       />
+
+      {access.semesters.size === 0 && !access.all && access.buyUrl && <BuyTip buyUrl={access.buyUrl} />}
 
       {!access.all || lockedSemester ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4">
